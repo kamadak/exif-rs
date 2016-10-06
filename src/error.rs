@@ -24,11 +24,52 @@
 // SUCH DAMAGE.
 //
 
-//! Exif parsing library written in pure Rust.
+use std::error;
+use std::fmt;
+use std::io;
 
-pub use error::Error;
-pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
+/// An error type returned when parsing Exif data.
+#[derive(Debug)]
+pub enum Error {
+    /// Input data was malformed or truncated.
+    InvalidFormat(&'static str),
+    /// Input data could not be read due to an I/O error and
+    /// a `std::io::Error` value is associated with this variant.
+    Io(io::Error),
+    /// Exif attribute information was not found.
+    NotFound(&'static str),
+}
 
-mod error;
-mod jpeg;
-mod util;
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Error {
+        Error::Io(err)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::InvalidFormat(msg) => f.write_str(msg),
+            Error::Io(ref err) => err.fmt(f),
+            Error::NotFound(msg) => f.write_str(msg),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::InvalidFormat(msg) => msg,
+            Error::Io(ref err) => err.description(),
+            Error::NotFound(msg) => msg,
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::InvalidFormat(_) => None,
+            Error::Io(ref err) => Some(err),
+            Error::NotFound(_) => None,
+        }
+    }
+}

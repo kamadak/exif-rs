@@ -24,11 +24,15 @@
 // SUCH DAMAGE.
 //
 
-//! Exif parsing library written in pure Rust.
+use std::io;
 
-pub use error::Error;
-pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
+pub fn read8<R>(reader: &mut R) -> Result<u8, io::Error> where R: io::Read {
+    let mut buf: [u8; 1] = unsafe { ::std::mem::uninitialized() };
+    reader.read_exact(&mut buf).and(Ok(buf[0]))
+}
 
-mod error;
-mod jpeg;
-mod util;
+pub fn read16<R>(reader: &mut R) -> Result<u16, io::Error> where R: io::Read {
+    let mut buf: [u8; 2] = unsafe { ::std::mem::uninitialized() };
+    try!(reader.read_exact(&mut buf));
+    Ok(((buf[0] as u16) << 8) + buf[1] as u16)
+}
