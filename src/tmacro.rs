@@ -24,15 +24,24 @@
 // SUCH DAMAGE.
 //
 
-//! Exif parsing library written in pure Rust.
+// Macros for testing.
 
-pub use error::Error;
-pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
+macro_rules! assert_ok {
+    ($expr:expr, $value:expr) => (
+        match $expr {
+            Ok(v) => assert_eq!(v, $value),
+            r => panic!("assertion failed: unexpected {:?}", r),
+        }
+    )
+}
 
-#[cfg(test)]
-#[macro_use]
-mod tmacro;
-
-mod error;
-mod jpeg;
-mod util;
+// This macro is intended to be used with std::io::Error, but other
+// types with kind() will also work.
+macro_rules! assert_err_kind {
+    ($expr:expr, $kind:expr) => (
+        match $expr {
+            Err(e) => assert_eq!(e.kind(), $kind),
+            r => panic!("assertion failed: unexpected {:?}", r),
+        }
+    )
+}

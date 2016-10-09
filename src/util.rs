@@ -36,3 +36,39 @@ pub fn read16<R>(reader: &mut R) -> Result<u16, io::Error> where R: io::Read {
     try!(reader.read_exact(&mut buf));
     Ok(((buf[0] as u16) << 8) + buf[1] as u16)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+    use std::io::ErrorKind;
+    use std::io::Read;
+    use super::*;
+
+    #[test]
+    fn read8_len() {
+        let mut reader = Cursor::new([]);
+        assert_err_kind!(read8(&mut reader), ErrorKind::UnexpectedEof);
+        let mut reader = Cursor::new([0x01]);
+        assert_ok!(read8(&mut reader), 0x01);
+        let mut reader = Cursor::new([0x01, 0x02]);
+        let mut buf = Vec::new();
+        assert_ok!(read8(&mut reader), 0x01);
+        assert_ok!(reader.read_to_end(&mut buf), 1);
+        assert_eq!(buf, [0x02]);
+    }
+
+    #[test]
+    fn read16_len() {
+        let mut reader = Cursor::new([]);
+        assert_err_kind!(read16(&mut reader), ErrorKind::UnexpectedEof);
+        let mut reader = Cursor::new([0x01]);
+        assert_err_kind!(read16(&mut reader), ErrorKind::UnexpectedEof);
+        let mut reader = Cursor::new([0x01, 0x02]);
+        assert_ok!(read16(&mut reader), 0x0102);
+        let mut reader = Cursor::new([0x01, 0x02, 0x03]);
+        let mut buf = Vec::new();
+        assert_ok!(read16(&mut reader), 0x0102);
+        assert_ok!(reader.read_to_end(&mut buf), 1);
+        assert_eq!(buf, [0x03]);
+    }
+}
