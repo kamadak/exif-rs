@@ -98,3 +98,52 @@ fn get_exif_attr_sub<R>(reader: &mut R)
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+    use error::Error;
+    use super::*;
+
+    #[test]
+    fn truncated() {
+        let sets: &[&[u8]] = &[
+            b"",
+            b"\xff",
+            b"\xff\xd8",
+            b"\xff\xd8\x00",
+            b"\xff\xd8\xff",
+            b"\xff\xd8\xff\xe1\x00\x08\x03\x04",
+        ];
+        for &data in sets {
+            assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
+                            Error::InvalidFormat("Broken JPEG file"));
+        }
+    }
+
+    #[test]
+    fn no_exif() {
+        let data = b"\xff\xd8\xff\xd9";
+        assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
+                        Error::NotFound(_));
+    }
+
+    #[test]
+    fn out_of_sync() {
+        let data = b"\xff\xd8\x01\x02\x03\xff\x00\xff\xd9";
+        assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
+                        Error::NotFound(_));
+    }
+
+    #[test]
+    fn empty() {
+        let data = b"\xff\xd8\xff\xe1\x00\x08Exif\0\0\xff\xd9";
+        assert_ok!(get_exif_attr(&mut Cursor::new(data)), []);
+    }
+
+    #[test]
+    fn non_empty() {
+        let data = b"\xff\xd8\xff\xe1\x00\x0aExif\0\0\xbe\xad\xff\xd9";
+        assert_ok!(get_exif_attr(&mut Cursor::new(data)), [0xbe, 0xad]);
+    }
+}

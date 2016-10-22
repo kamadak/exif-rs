@@ -35,6 +35,15 @@ macro_rules! assert_ok {
     )
 }
 
+macro_rules! assert_err_pat {
+    ($expr:expr, $variant:pat) => (
+        match $expr {
+            Err($variant) => {},
+            r => panic!("assertion failed: unexpected {:?}", r),
+        }
+    )
+}
+
 // This macro is intended to be used with std::io::Error, but other
 // types with kind() will also work.
 macro_rules! assert_err_kind {
