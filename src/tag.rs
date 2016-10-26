@@ -24,23 +24,17 @@
 // SUCH DAMAGE.
 //
 
-//! Exif parsing library written in pure Rust.
+// This is not an enum to keep safety and API stability, while
+// supporting unknown tag values.  This comment is based on the
+// behavior of Rust 1.12.
+// Storing unknown values in a repr(u16) enum is unsafe.  The compiler
+// assumes that there is no undefined discriminant even with a C-like
+// enum, so the exhaustiveness check of a match expression will break.
+// Storing unknown values in a special variant such as Unknown(u16)
+// tends to break backward compatibility.  When Tag::VariantFoo is
+// defined in a new version of the library, the old codes using
+// Tag::Unknown(Foo's value) will break.
 
-pub use error::Error;
-pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
-pub use tag::Tag;
-pub use tiff::Field;
-pub use tiff::parse_exif;
-pub use value::Value;
-
-#[cfg(test)]
-#[macro_use]
-mod tmacro;
-
-mod endian;
-mod error;
-mod jpeg;
-mod tag;
-mod tiff;
-mod util;
-mod value;
+/// A tag of a TIFF field.
+#[derive(Debug)]
+pub struct Tag(pub u16);
