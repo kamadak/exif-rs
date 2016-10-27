@@ -32,7 +32,7 @@ pub enum Value<'a> {
     /// Slice of 8-bit bytes containing 7-bit ASCII characters.
     /// The trailing null character is not included.  Note that
     /// the absence of the 8th bits is not guaranteed.
-    Ascii(&'a [u8]),
+    Ascii(Vec<&'a [u8]>),
     /// Vector of 16-bit unsigned integers.
     Short(Vec<u16>),
     /// The type is unknown to this implementation.
@@ -55,8 +55,14 @@ pub fn get_type_info<'a, E>(typecode: u16)
 
 fn parse_ascii<'a>(data: &'a [u8], offset: usize, count: usize)
                    -> Value<'a> {
-    let null = if count > 0 && data[offset + count - 1] == 0 { 1 } else { 0 };
-    Value::Ascii(&data[offset .. offset + count - null])
+    // Any ASCII field can contain multiple strings [TIFF6 Image File
+    // Directory].
+    let iter = (&data[offset .. offset + count]).split(|&b| b == b'\0');
+    let mut v: Vec<&[u8]> = iter.collect();
+    if v.len() >= 2 && v.last().map_or(false, |&s| s.len() == 0) {
+        v.pop();
+    }
+    Value::Ascii(v)
 }
 
 fn parse_short<'a, E>(data: &'a [u8], offset: usize, count: usize)
