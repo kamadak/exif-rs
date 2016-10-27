@@ -80,3 +80,29 @@ fn parse_unknown<'a>(data: &'a [u8], offset: usize, count: usize)
                      -> Value<'a> {
     unreachable!()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::parse_ascii;
+
+    #[test]
+    fn ascii() {
+        let sets: &[(&[u8], Vec<&[u8]>)] = &[
+            (b"x", vec![b""]),				// malformed
+            (b"x\0", vec![b""]),
+            (b"x\0\0", vec![b"", b""]),
+            (b"xA", vec![b"A"]),			// malformed
+            (b"xA\0", vec![b"A"]),
+            (b"xA\0B", vec![b"A", b"B"]),		// malformed
+            (b"xA\0B\0", vec![b"A", b"B"]),
+            (b"xA\0\xbe\0", vec![b"A", b"\xbe"]),	// not ASCII
+        ];
+        for &(data, ref ans) in sets {
+            match parse_ascii(data, 1, data.len() - 1) {
+                Value::Ascii(v) => assert_eq!(v, *ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+}
