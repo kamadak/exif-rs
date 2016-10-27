@@ -24,6 +24,8 @@
 // SUCH DAMAGE.
 //
 
+use std::mem;
+
 // This is a module to select endianess by using generics
 // in order to avoid run-time dispatching penalty at the cost of
 // increased object size.
@@ -39,8 +41,12 @@ pub struct LittleEndian;
 macro_rules! generate_load {
     ($name:ident, $int_type:ident, $from_func:ident) => (
         fn $name(buf: &[u8], offset: usize) -> $int_type {
-            let ptr = (buf.as_ptr() as usize + offset) as *const $int_type;
-            let num = unsafe { ::std::mem::transmute(*ptr) };
+            // Check if the specified range of the slice is valid
+            // before transmute().  This will also detect the
+            // wrap-around of (offset + size_of) in the release mode.
+            let buf = &buf[offset .. offset + mem::size_of::<$int_type>()];
+            let ptr = buf.as_ptr() as *const $int_type;
+            let num = unsafe { mem::transmute(*ptr) };
             $int_type::$from_func(num)
         }
     )
@@ -98,5 +104,11 @@ mod tests {
                    dispatch_sub::<BigEndian> as *const ());
         assert!(dispatch_sub::<BigEndian> as *const () !=
                 dispatch_sub::<LittleEndian> as *const ());
+    }
+
+    #[test]
+    #[should_panic(expected = "index 3 out of range for slice of length 2")]
+    fn out_of_range() {
+        BigEndian::loadu16(&[0x01, 0x02], 1);
     }
 }
