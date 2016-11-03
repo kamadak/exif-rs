@@ -45,7 +45,7 @@ type Parser<'a> = fn(&'a [u8], usize, usize) -> Value<'a>;
 
 // Return the length of a single value and the parser of the type.
 pub fn get_type_info<'a, E>(typecode: u16)
-                            -> (u32, Parser<'a>) where E: Endian {
+                            -> (usize, Parser<'a>) where E: Endian {
     match typecode {
         2 => (1, parse_ascii),
         3 => (2, parse_short::<E>),

@@ -82,21 +82,21 @@ fn parse_ifd<E>(data: &[u8], offset: usize)
     for i in 0..count as usize {
         let tag = E::loadu16(data, offset + 2 + i * 12);
         let typ = E::loadu16(data, offset + 2 + i * 12 + 2);
-        let cnt = E::loadu32(data, offset + 2 + i * 12 + 4);
+        let cnt = E::loadu32(data, offset + 2 + i * 12 + 4) as usize;
         let ofs = E::loadu32(data, offset + 2 + i * 12 + 8) as usize;
         let (unitlen, parser) = get_type_info::<E>(typ);
         let vallen = try!(unitlen.checked_mul(cnt).ok_or(
-            Error::InvalidFormat("Invalid entry count"))) as usize;
+            Error::InvalidFormat("Invalid entry count")));
         let val;
         if unitlen == 0 {
-            val = Value::Unknown(typ, cnt, ofs as u32);
+            val = Value::Unknown(typ, cnt as u32, ofs as u32);
         } else if vallen <= 4 {
-            val = parser(data, offset + 2 + i * 12 + 8, cnt as usize);
+            val = parser(data, offset + 2 + i * 12 + 8, cnt);
         } else {
             if data.len() < ofs || data.len() - ofs < vallen {
                 return Err(Error::InvalidFormat("Truncated IFD"));
             }
-            val = parser(data, ofs, cnt as usize);
+            val = parser(data, ofs, cnt);
         }
         fields.push(Field { tag: Tag(tag), value: val });
     }
