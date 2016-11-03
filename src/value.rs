@@ -129,4 +129,19 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn short() {
+        let sets: &[(&[u8], Vec<u16>)] = &[
+            (b"x", vec![]),
+            (b"x\x01\x02\x03\x04", vec![0x0102, 0x0304]),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(3);
+        for &(data, ref ans) in sets {
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::Short(v) => assert_eq!(v, *ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
 }
