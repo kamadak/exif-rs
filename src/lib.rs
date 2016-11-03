@@ -44,3 +44,14 @@ mod tag;
 mod tiff;
 mod util;
 mod value;
+
+#[cfg(test)]
+mod tests {
+    use std::mem;
+
+    // This library assumes that usize is not smaller than u32.
+    #[test]
+    fn size_of_usize() {
+        assert!(mem::size_of::<usize>() >= mem::size_of::<u32>());
+    }
+}
