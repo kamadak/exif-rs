@@ -29,6 +29,8 @@ use endian::Endian;
 /// Types and values of TIFF fields (for Exif attributes).
 #[derive(Debug)]
 pub enum Value<'a> {
+    /// Vector of 8-bit unsigned integers.
+    Byte(Vec<u8>),
     /// Slice of 8-bit bytes containing 7-bit ASCII characters.
     /// The trailing null character is not included.  Note that
     /// the absence of the 8th bits is not guaranteed.
@@ -47,10 +49,16 @@ type Parser<'a> = fn(&'a [u8], usize, usize) -> Value<'a>;
 pub fn get_type_info<'a, E>(typecode: u16)
                             -> (usize, Parser<'a>) where E: Endian {
     match typecode {
+        1 => (1, parse_byte),
         2 => (1, parse_ascii),
         3 => (2, parse_short::<E>),
         _ => (0, parse_unknown),
     }
+}
+
+fn parse_byte<'a>(data: &'a [u8], offset: usize, count: usize)
+                  -> Value<'a> {
+    Value::Byte(data[offset .. offset + count].to_vec())
 }
 
 fn parse_ascii<'a>(data: &'a [u8], offset: usize, count: usize)
@@ -83,8 +91,24 @@ fn parse_unknown<'a>(data: &'a [u8], offset: usize, count: usize)
 
 #[cfg(test)]
 mod tests {
+    use endian::BigEndian;
     use super::*;
     use super::parse_ascii;
+
+    #[test]
+    fn byte() {
+        let sets: &[(&[u8], &[u8])] = &[
+            (b"x", b""),
+            (b"x\xbe\xad", b"\xbe\xad"),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(1);
+        for &(data, ans) in sets {
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::Byte(v) => assert_eq!(v, ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
 
     #[test]
     fn ascii() {
