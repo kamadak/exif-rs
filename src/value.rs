@@ -93,7 +93,6 @@ fn parse_unknown<'a>(data: &'a [u8], offset: usize, count: usize)
 mod tests {
     use endian::BigEndian;
     use super::*;
-    use super::parse_ascii;
 
     #[test]
     fn byte() {
@@ -122,8 +121,9 @@ mod tests {
             (b"xA\0B\0", vec![b"A", b"B"]),
             (b"xA\0\xbe\0", vec![b"A", b"\xbe"]),	// not ASCII
         ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(2);
         for &(data, ref ans) in sets {
-            match parse_ascii(data, 1, data.len() - 1) {
+            match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::Ascii(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
