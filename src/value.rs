@@ -75,7 +75,7 @@ fn parse_ascii<'a>(data: &'a [u8], offset: usize, count: usize)
 
 fn parse_short<'a, E>(data: &'a [u8], offset: usize, count: usize)
                       -> Value<'a> where E: Endian {
-    let mut val = Vec::new();
+    let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(E::loadu16(data, offset + i * 2));
     }
