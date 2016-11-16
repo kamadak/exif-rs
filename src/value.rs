@@ -102,6 +102,7 @@ mod tests {
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(1);
         for &(data, ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::Byte(v) => assert_eq!(v, ans),
                 v => panic!("wrong variant {:?}", v),
@@ -138,6 +139,7 @@ mod tests {
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(3);
         for &(data, ref ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::Short(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
