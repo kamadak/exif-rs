@@ -44,6 +44,8 @@ pub enum Value<'a> {
     /// Vector of unsigned rationals.
     /// An unsigned rational number is a pair of 32-bit unsigned integers.
     Rational(Vec<Rational>),
+    /// Vector of 8-bit signed integers.  Unused in the Exif specification.
+    SByte(Vec<i8>),
     /// The type is unknown to this implementation.
     /// The associated values are the type and the count, and the
     /// offset of the "Value Offset" element.
@@ -70,6 +72,7 @@ pub fn get_type_info<'a, E>(typecode: u16)
         3 => (2, parse_short::<E>),
         4 => (4, parse_long::<E>),
         5 => (8, parse_rational::<E>),
+        6 => (1, parse_sbyte),
         _ => (0, parse_unknown),
     }
 }
@@ -119,6 +122,14 @@ fn parse_rational<'a, E>(data: &'a [u8], offset: usize, count: usize)
         });
     }
     Value::Rational(val)
+}
+
+fn parse_sbyte<'a>(data: &'a [u8], offset: usize, count: usize)
+                   -> Value<'a> {
+    let uslice = &data[offset .. offset + count];
+    let islice = unsafe { ::std::slice::from_raw_parts(
+        uslice.as_ptr() as *const i8, count) };
+    Value::SByte(islice.to_vec())
 }
 
 // This is a dummy function and will never be called.
@@ -222,6 +233,22 @@ mod tests {
                         assert!(x.num == y.num && x.denom == y.denom);
                     }
                 },
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+
+    #[test]
+    fn sbyte() {
+        let sets: &[(&[u8], &[i8])] = &[
+            (b"x", &[]),
+            (b"x\xbe\x7d", &[-0x42, 0x7d]),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(6);
+        for &(data, ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::SByte(v) => assert_eq!(v, ans),
                 v => panic!("wrong variant {:?}", v),
             }
         }
