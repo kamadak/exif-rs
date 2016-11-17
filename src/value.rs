@@ -37,6 +37,8 @@ pub enum Value<'a> {
     Ascii(Vec<&'a [u8]>),
     /// Vector of 16-bit unsigned integers.
     Short(Vec<u16>),
+    /// Vector of 32-bit unsigned integers.
+    Long(Vec<u32>),
     /// The type is unknown to this implementation.
     /// The associated values are the type and the count, and the
     /// offset of the "Value Offset" element.
@@ -52,6 +54,7 @@ pub fn get_type_info<'a, E>(typecode: u16)
         1 => (1, parse_byte),
         2 => (1, parse_ascii),
         3 => (2, parse_short::<E>),
+        4 => (4, parse_long::<E>),
         _ => (0, parse_unknown),
     }
 }
@@ -80,6 +83,15 @@ fn parse_short<'a, E>(data: &'a [u8], offset: usize, count: usize)
         val.push(E::loadu16(data, offset + i * 2));
     }
     Value::Short(val)
+}
+
+fn parse_long<'a, E>(data: &'a [u8], offset: usize, count: usize)
+                     -> Value<'a> where E: Endian {
+    let mut val = Vec::with_capacity(count);
+    for i in 0..count {
+        val.push(E::loadu32(data, offset + i * 4));
+    }
+    Value::Long(val)
 }
 
 // This is a dummy function and will never be called.
@@ -142,6 +154,23 @@ mod tests {
             assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::Short(v) => assert_eq!(v, *ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+
+    #[test]
+    fn long() {
+        let sets: &[(&[u8], Vec<u32>)] = &[
+            (b"x", vec![]),
+            (b"x\x01\x02\x03\x04\x05\x06\x07\x08",
+             vec![0x01020304, 0x05060708]),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(4);
+        for &(data, ref ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::Long(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
         }
