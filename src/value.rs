@@ -24,6 +24,8 @@
 // SUCH DAMAGE.
 //
 
+use std::fmt;
+
 use endian::Endian;
 
 /// Types and values of TIFF fields (for Exif attributes).
@@ -39,10 +41,22 @@ pub enum Value<'a> {
     Short(Vec<u16>),
     /// Vector of 32-bit unsigned integers.
     Long(Vec<u32>),
+    /// Vector of unsigned rationals.
+    /// An unsigned rational number is a pair of 32-bit unsigned integers.
+    Rational(Vec<Rational>),
     /// The type is unknown to this implementation.
     /// The associated values are the type and the count, and the
     /// offset of the "Value Offset" element.
     Unknown(u16, u32, u32),
+}
+
+/// An unsigned rational number, which is a pair of 32-bit unsigned integers.
+pub struct Rational { pub num: u32, pub denom: u32 }
+
+impl fmt::Debug for Rational {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Rational({}/{})", self.num, self.denom)
+    }
 }
 
 type Parser<'a> = fn(&'a [u8], usize, usize) -> Value<'a>;
@@ -55,6 +69,7 @@ pub fn get_type_info<'a, E>(typecode: u16)
         2 => (1, parse_ascii),
         3 => (2, parse_short::<E>),
         4 => (4, parse_long::<E>),
+        5 => (8, parse_rational::<E>),
         _ => (0, parse_unknown),
     }
 }
@@ -92,6 +107,18 @@ fn parse_long<'a, E>(data: &'a [u8], offset: usize, count: usize)
         val.push(E::loadu32(data, offset + i * 4));
     }
     Value::Long(val)
+}
+
+fn parse_rational<'a, E>(data: &'a [u8], offset: usize, count: usize)
+                         -> Value<'a> where E: Endian {
+    let mut val = Vec::with_capacity(count);
+    for i in 0..count {
+        val.push(Rational {
+            num: E::loadu32(data, offset + i * 8),
+            denom: E::loadu32(data, offset + i * 8 + 4),
+        });
+    }
+    Value::Rational(val)
 }
 
 // This is a dummy function and will never be called.
@@ -171,6 +198,30 @@ mod tests {
             assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::Long(v) => assert_eq!(v, *ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+
+    #[test]
+    fn rational() {
+        let sets: &[(&[u8], Vec<Rational>)] = &[
+            (b"x", vec![]),
+            (b"x\xa1\x02\x03\x04\x05\x06\x07\x08\
+               \x09\x0a\x0b\x0c\xbd\x0e\x0f\x10",
+             vec![Rational { num: 0xa1020304, denom: 0x05060708 },
+                  Rational { num: 0x090a0b0c, denom: 0xbd0e0f10 }]),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(5);
+        for &(data, ref ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::Rational(v) => {
+                    assert_eq!(v.len(), ans.len());
+                    for (x, y) in v.iter().zip(ans.iter()) {
+                        assert!(x.num == y.num && x.denom == y.denom);
+                    }
+                },
                 v => panic!("wrong variant {:?}", v),
             }
         }
