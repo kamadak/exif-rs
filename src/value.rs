@@ -50,6 +50,8 @@ pub enum Value<'a> {
     Undefined(&'a [u8]),
     /// Vector of 16-bit signed integers.  Unused in the Exif specification.
     SShort(Vec<i16>),
+    /// Vector of 32-bit signed integers.
+    SLong(Vec<i32>),
     /// The type is unknown to this implementation.
     /// The associated values are the type and the count, and the
     /// offset of the "Value Offset" element.
@@ -79,6 +81,7 @@ pub fn get_type_info<'a, E>(typecode: u16)
         6 => (1, parse_sbyte),
         7 => (1, parse_undefined),
         8 => (2, parse_sshort::<E>),
+        9 => (4, parse_slong::<E>),
         _ => (0, parse_unknown),
     }
 }
@@ -150,6 +153,15 @@ fn parse_sshort<'a, E>(data: &'a [u8], offset: usize, count: usize)
         val.push(E::loadu16(data, offset + i * 2) as i16);
     }
     Value::SShort(val)
+}
+
+fn parse_slong<'a, E>(data: &'a [u8], offset: usize, count: usize)
+                      -> Value<'a> where E: Endian {
+    let mut val = Vec::with_capacity(count);
+    for i in 0..count {
+        val.push(E::loadu32(data, offset + i * 4) as i32);
+    }
+    Value::SLong(val)
 }
 
 // This is a dummy function and will never be called.
@@ -301,6 +313,23 @@ mod tests {
             assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::SShort(v) => assert_eq!(v, *ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+
+    #[test]
+    fn slong() {
+        let sets: &[(&[u8], Vec<i32>)] = &[
+            (b"x", vec![]),
+            (b"x\x01\x02\x03\x04\x85\x06\x07\x08",
+             vec![0x01020304, -0x7af9f8f8]),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(9);
+        for &(data, ref ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::SLong(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
         }
