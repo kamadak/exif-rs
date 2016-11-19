@@ -46,6 +46,8 @@ pub enum Value<'a> {
     Rational(Vec<Rational>),
     /// Vector of 8-bit signed integers.  Unused in the Exif specification.
     SByte(Vec<i8>),
+    /// Slice of 8-bit bytes.
+    Undefined(&'a [u8]),
     /// The type is unknown to this implementation.
     /// The associated values are the type and the count, and the
     /// offset of the "Value Offset" element.
@@ -73,6 +75,7 @@ pub fn get_type_info<'a, E>(typecode: u16)
         4 => (4, parse_long::<E>),
         5 => (8, parse_rational::<E>),
         6 => (1, parse_sbyte),
+        7 => (1, parse_undefined),
         _ => (0, parse_unknown),
     }
 }
@@ -130,6 +133,11 @@ fn parse_sbyte<'a>(data: &'a [u8], offset: usize, count: usize)
     let islice = unsafe { ::std::slice::from_raw_parts(
         uslice.as_ptr() as *const i8, count) };
     Value::SByte(islice.to_vec())
+}
+
+fn parse_undefined<'a>(data: &'a [u8], offset: usize, count: usize)
+                       -> Value<'a> {
+    Value::Undefined(&data[offset .. offset + count])
 }
 
 // This is a dummy function and will never be called.
@@ -249,6 +257,22 @@ mod tests {
             assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::SByte(v) => assert_eq!(v, ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+
+    #[test]
+    fn undefined() {
+        let sets: &[(&[u8], &[u8])] = &[
+            (b"x", b""),
+            (b"x\xbe\xad", b"\xbe\xad"),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(7);
+        for &(data, ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::Undefined(v) => assert_eq!(v, ans),
                 v => panic!("wrong variant {:?}", v),
             }
         }
