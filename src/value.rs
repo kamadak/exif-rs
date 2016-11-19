@@ -25,6 +25,7 @@
 //
 
 use std::fmt;
+use std::mem;
 
 use endian::Endian;
 
@@ -55,6 +56,9 @@ pub enum Value<'a> {
     /// Vector of signed rationals.
     /// A signed rational number is a pair of 32-bit signed integers.
     SRational(Vec<SRational>),
+    /// Vector of 32-bit (single precision) floating-point numbers.
+    /// Unused in the Exif specification.
+    Float(Vec<f32>),
     /// The type is unknown to this implementation.
     /// The associated values are the type and the count, and the
     /// offset of the "Value Offset" element.
@@ -95,6 +99,7 @@ pub fn get_type_info<'a, E>(typecode: u16)
         8 => (2, parse_sshort::<E>),
         9 => (4, parse_slong::<E>),
         10 => (8, parse_srational::<E>),
+        11 => (4, parse_float::<E>),
         _ => (0, parse_unknown),
     }
 }
@@ -187,6 +192,16 @@ fn parse_srational<'a, E>(data: &'a [u8], offset: usize, count: usize)
         });
     }
     Value::SRational(val)
+}
+
+// TIFF and Rust use IEEE 754 format, so no conversion is required.
+fn parse_float<'a, E>(data: &'a [u8], offset: usize, count: usize)
+                      -> Value<'a> where E: Endian {
+    let mut val = Vec::with_capacity(count);
+    for i in 0..count {
+        val.push(unsafe { mem::transmute(E::loadu32(data, offset + i * 4)) });
+    }
+    Value::Float(val)
 }
 
 // This is a dummy function and will never be called.
@@ -379,6 +394,23 @@ mod tests {
                         assert!(x.num == y.num && x.denom == y.denom);
                     }
                 },
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+
+    #[test]
+    fn float() {
+        let sets: &[(&[u8], Vec<f32>)] = &[
+            (b"x", vec![]),
+            (b"x\x7f\x7f\xff\xff\x80\x80\x00\x00\x40\x00\x00\x00",
+             vec![::std::f32::MAX, -::std::f32::MIN_POSITIVE, 2.0]),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(11);
+        for &(data, ref ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::Float(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
         }
