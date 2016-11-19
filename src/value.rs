@@ -52,6 +52,9 @@ pub enum Value<'a> {
     SShort(Vec<i16>),
     /// Vector of 32-bit signed integers.
     SLong(Vec<i32>),
+    /// Vector of signed rationals.
+    /// A signed rational number is a pair of 32-bit signed integers.
+    SRational(Vec<SRational>),
     /// The type is unknown to this implementation.
     /// The associated values are the type and the count, and the
     /// offset of the "Value Offset" element.
@@ -64,6 +67,15 @@ pub struct Rational { pub num: u32, pub denom: u32 }
 impl fmt::Debug for Rational {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Rational({}/{})", self.num, self.denom)
+    }
+}
+
+/// A signed rational number, which is a pair of 32-bit signed integers.
+pub struct SRational { pub num: i32, pub denom: i32 }
+
+impl fmt::Debug for SRational {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "SRational({}/{})", self.num, self.denom)
     }
 }
 
@@ -82,6 +94,7 @@ pub fn get_type_info<'a, E>(typecode: u16)
         7 => (1, parse_undefined),
         8 => (2, parse_sshort::<E>),
         9 => (4, parse_slong::<E>),
+        10 => (8, parse_srational::<E>),
         _ => (0, parse_unknown),
     }
 }
@@ -162,6 +175,18 @@ fn parse_slong<'a, E>(data: &'a [u8], offset: usize, count: usize)
         val.push(E::loadu32(data, offset + i * 4) as i32);
     }
     Value::SLong(val)
+}
+
+fn parse_srational<'a, E>(data: &'a [u8], offset: usize, count: usize)
+                          -> Value<'a> where E: Endian {
+    let mut val = Vec::with_capacity(count);
+    for i in 0..count {
+        val.push(SRational {
+            num: E::loadu32(data, offset + i * 8) as i32,
+            denom: E::loadu32(data, offset + i * 8 + 4) as i32,
+        });
+    }
+    Value::SRational(val)
 }
 
 // This is a dummy function and will never be called.
@@ -330,6 +355,30 @@ mod tests {
             assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::SLong(v) => assert_eq!(v, *ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+
+    #[test]
+    fn srational() {
+        let sets: &[(&[u8], Vec<SRational>)] = &[
+            (b"x", vec![]),
+            (b"x\xa1\x02\x03\x04\x05\x06\x07\x08\
+               \x09\x0a\x0b\x0c\xbd\x0e\x0f\x10",
+             vec![SRational { num: -0x5efdfcfc, denom: 0x05060708 },
+                  SRational { num: 0x090a0b0c, denom: -0x42f1f0f0 }]),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(10);
+        for &(data, ref ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::SRational(v) => {
+                    assert_eq!(v.len(), ans.len());
+                    for (x, y) in v.iter().zip(ans.iter()) {
+                        assert!(x.num == y.num && x.denom == y.denom);
+                    }
+                },
                 v => panic!("wrong variant {:?}", v),
             }
         }

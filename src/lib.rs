@@ -32,7 +32,7 @@ pub use tag::Tag;
 pub use tiff::Field;
 pub use tiff::parse_exif;
 pub use value::Value;
-pub use value::Rational;
+pub use value::{Rational, SRational};
 
 #[cfg(test)]
 #[macro_use]
