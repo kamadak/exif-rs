@@ -59,6 +59,9 @@ pub enum Value<'a> {
     /// Vector of 32-bit (single precision) floating-point numbers.
     /// Unused in the Exif specification.
     Float(Vec<f32>),
+    /// Vector of 64-bit (double precision) floating-point numbers.
+    /// Unused in the Exif specification.
+    Double(Vec<f64>),
     /// The type is unknown to this implementation.
     /// The associated values are the type and the count, and the
     /// offset of the "Value Offset" element.
@@ -100,6 +103,7 @@ pub fn get_type_info<'a, E>(typecode: u16)
         9 => (4, parse_slong::<E>),
         10 => (8, parse_srational::<E>),
         11 => (4, parse_float::<E>),
+        12 => (8, parse_double::<E>),
         _ => (0, parse_unknown),
     }
 }
@@ -202,6 +206,16 @@ fn parse_float<'a, E>(data: &'a [u8], offset: usize, count: usize)
         val.push(unsafe { mem::transmute(E::loadu32(data, offset + i * 4)) });
     }
     Value::Float(val)
+}
+
+// TIFF and Rust use IEEE 754 format, so no conversion is required.
+fn parse_double<'a, E>(data: &'a [u8], offset: usize, count: usize)
+                       -> Value<'a> where E: Endian {
+    let mut val = Vec::with_capacity(count);
+    for i in 0..count {
+        val.push(unsafe { mem::transmute(E::loadu64(data, offset + i * 8)) });
+    }
+    Value::Double(val)
 }
 
 // This is a dummy function and will never be called.
@@ -411,6 +425,25 @@ mod tests {
             assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
                 Value::Float(v) => assert_eq!(v, *ans),
+                v => panic!("wrong variant {:?}", v),
+            }
+        }
+    }
+
+    #[test]
+    fn double() {
+        let sets: &[(&[u8], Vec<f64>)] = &[
+            (b"x", vec![]),
+            (b"x\x7f\xef\xff\xff\xff\xff\xff\xff\
+               \x80\x10\x00\x00\x00\x00\x00\x00\
+               \x40\x00\x00\x00\x00\x00\x00\x00",
+             vec![::std::f64::MAX, -::std::f64::MIN_POSITIVE, 2.0]),
+        ];
+        let (unitlen, parser) = get_type_info::<BigEndian>(12);
+        for &(data, ref ans) in sets {
+            assert!((data.len() - 1) % unitlen == 0);
+            match parser(data, 1, (data.len() - 1) / unitlen) {
+                Value::Double(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
         }

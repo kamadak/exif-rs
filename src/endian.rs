@@ -33,6 +33,7 @@ use std::mem;
 pub trait Endian {
     fn loadu16(buf: &[u8], from: usize) -> u16;
     fn loadu32(buf: &[u8], from: usize) -> u32;
+    fn loadu64(buf: &[u8], from: usize) -> u64;
 }
 
 pub struct BigEndian;
@@ -55,11 +56,13 @@ macro_rules! generate_load {
 impl Endian for BigEndian {
     generate_load!(loadu16, u16, from_be);
     generate_load!(loadu32, u32, from_be);
+    generate_load!(loadu64, u64, from_be);
 }
 
 impl Endian for LittleEndian {
     generate_load!(loadu16, u16, from_le);
     generate_load!(loadu32, u32, from_le);
+    generate_load!(loadu64, u64, from_le);
 }
 
 #[cfg(test)]
@@ -84,6 +87,22 @@ mod tests {
                    0x04030201);
         assert_eq!(LittleEndian::loadu32(&[0x01, 0x02, 0x03, 0x04, 0x05], 1),
                    0x05040302);
+    }
+
+    #[test]
+    fn loadu64() {
+        assert_eq!(BigEndian::loadu64(&[0x01, 0x02, 0x03, 0x04,
+                                        0x05, 0x06, 0x07, 0x08], 0),
+                   0x0102030405060708);
+        assert_eq!(BigEndian::loadu64(&[0x01, 0x02, 0x03, 0x04, 0x05,
+                                        0x06, 0x07, 0x08, 0x09], 1),
+                   0x0203040506070809);
+        assert_eq!(LittleEndian::loadu64(&[0x01, 0x02, 0x03, 0x04,
+                                           0x05, 0x06, 0x07, 0x08], 0),
+                   0x0807060504030201);
+        assert_eq!(LittleEndian::loadu64(&[0x01, 0x02, 0x03, 0x04, 0x05,
+                                           0x06, 0x07, 0x08, 0x09], 1),
+                   0x0908070605040302);
     }
 
     #[test]
