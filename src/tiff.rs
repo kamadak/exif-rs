@@ -26,7 +26,8 @@
 
 use endian::{Endian, BigEndian, LittleEndian};
 use error::Error;
-use tag::Tag;
+use tag;
+use tag::{Context, Tag};
 use value::Value;
 use value::get_type_info;
 
@@ -62,11 +63,11 @@ fn parse_exif_sub<E>(data: &[u8])
         return Err(Error::InvalidFormat("Invalid forty two"));
     }
     let ifd_offset = E::loadu32(data, 4) as usize;
-    parse_ifd::<E>(data, ifd_offset)
+    parse_ifd::<E>(data, ifd_offset, Context::Tiff)
 }
 
 // Parse IFD [EXIF23 4.6.2].
-fn parse_ifd<E>(data: &[u8], offset: usize)
+fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context)
                 -> Result<Vec<Field>, Error> where E: Endian {
     // Count (the number of the entries).
     if data.len() < offset || data.len() - offset < 2 {
@@ -98,17 +99,57 @@ fn parse_ifd<E>(data: &[u8], offset: usize)
             }
             val = parser(data, ofs, cnt);
         }
-        fields.push(Field { tag: Tag(tag), value: val });
+
+        // No infinite recursion will occur because the context is not
+        // recursively defined.
+        // XXX Should we check the type and count of a pointer?
+        // A pointer field has type == LONG and count == 1, so the
+        // value (IFD offset) must be embedded in the "value offset"
+        // element of the field.
+        let tag = Tag(ctx, tag);
+        if tag == tag::ExifIFDPointer {
+            let mut v = try!(parse_ifd::<E>(data, ofs, Context::Exif));
+            fields.append(&mut v);
+        } else if tag == tag::GPSInfoIFDPointer {
+            let mut v = try!(parse_ifd::<E>(data, ofs, Context::Gps));
+            fields.append(&mut v);
+        } else if tag == tag::InteropIFDPointer {
+            let mut v = try!(parse_ifd::<E>(data, ofs, Context::Interop));
+            fields.append(&mut v);
+        } else {
+            fields.push(Field { tag: tag, value: val });
+        }
     }
 
     // Offset to the next IFD.
     if data.len() - offset - 2 - count * 12 < 4 {
         return Err(Error::InvalidFormat("Truncated IFD"));
     }
-    let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12);
+    let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12) as usize;
     if next_ifd_offset != 0 {
-        unimplemented!();
+        if ctx != Context::Tiff {
+            return Err(Error::InvalidFormat("Unexpected next IFD"));
+        }
+        let mut v = try!(
+            parse_ifd::<E>(data, next_ifd_offset, Context::Thumb));
+        fields.append(&mut v);
     }
 
     Ok(fields)
+}
+
+#[cfg(test)]
+mod tests {
+    use error::Error;
+    use super::*;
+
+    // Before the error is returned, the IFD is parsed twice as the
+    // 0th and 1st IFDs.
+    #[test]
+    fn inf_loop_by_next() {
+        let data = b"MM\0\x2a\0\0\0\x08\
+                     \0\x01\x01\0\0\x03\0\0\0\x01\0\x14\0\0\0\0\0\x08";
+        assert_err_pat!(parse_exif(data),
+                        Error::InvalidFormat("Unexpected next IFD"));
+    }
 }

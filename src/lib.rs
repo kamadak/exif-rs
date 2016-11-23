@@ -28,7 +28,7 @@
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
-pub use tag::Tag;
+pub use tag::{Context, Tag};
 pub use tiff::Field;
 pub use tiff::parse_exif;
 pub use value::Value;
@@ -41,7 +41,7 @@ mod tmacro;
 mod endian;
 mod error;
 mod jpeg;
-mod tag;
+pub mod tag;
 mod tiff;
 mod util;
 mod value;
