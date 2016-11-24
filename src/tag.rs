@@ -28,6 +28,8 @@
 //! converted to associated constants of Tag when the feature is
 //! stabilized.
 
+use std::fmt;
+
 /// A tag of a TIFF field.
 ///
 /// Use `exif::Tag` instead of `exif::tag::Tag`.  They are the same,
@@ -63,6 +65,21 @@ impl Tag {
     pub fn value(&self) -> u16 {
         self.1
     }
+
+    /// Returns the description of the tag.
+    #[inline]
+    pub fn description(&self) -> Option<&str> {
+        get_tag_info(self).map(|ti| ti.desc)
+    }
+}
+
+impl fmt::Display for Tag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match get_tag_info(self) {
+            Some(ti) => f.pad(ti.name),
+            None => f.pad(&format!("{:?}", self)),
+        }
+    }
 }
 
 /// An enum that indicates how a tag value is interpreted.
@@ -83,6 +100,11 @@ pub enum Context {
     Thumb,	// 1st IFD
 }
 
+struct TagInfo {
+    name: &'static str,
+    desc: &'static str,
+}
+
 macro_rules! generate_well_known_tag_constants {
     (
         $(
@@ -96,6 +118,15 @@ macro_rules! generate_well_known_tag_constants {
             #[allow(non_upper_case_globals)]
             pub const $name: Tag = Tag(Context::$ctx, $num);
         )+
+
+        fn get_tag_info(tag: &Tag) -> Option<TagInfo> {
+            match *tag {
+                $( self::$name => Some(TagInfo {
+                    name: stringify!($name), desc: $desc }),
+                )+
+                _ => None,
+            }
+        }
     )
 }
 
