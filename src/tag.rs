@@ -107,23 +107,23 @@ struct TagInfo {
 
 macro_rules! generate_well_known_tag_constants {
     (
-        $(
+        $( |$ctx:path| $(
             // Copy the doc attribute to the actual definition.
             $( #[$attr:meta] )*
-            ($name:ident, $ctx:ident, $num:expr, $desc:expr)
-        ),+,
+            ($name:ident, $num:expr, $desc:expr)
+        ),+, )+
     ) => (
-        $(
+        $($(
             $( #[$attr] )*
             #[allow(non_upper_case_globals)]
-            pub const $name: Tag = Tag(Context::$ctx, $num);
-        )+
+            pub const $name: Tag = Tag($ctx, $num);
+        )+)+
 
         fn get_tag_info(tag: &Tag) -> Option<TagInfo> {
             match *tag {
-                $( self::$name => Some(TagInfo {
+                $($( self::$name => Some(TagInfo {
                     name: stringify!($name), desc: $desc }),
-                )+
+                )+)+
                 _ => None,
             }
         }
@@ -134,16 +134,20 @@ macro_rules! generate_well_known_tag_constants {
 // the Exif field names: camel cases and all-capital acronyms.
 generate_well_known_tag_constants!(
     // Exif-specific IFDs [EXIF23 4.6.3].
+    |Context::Tiff|
 
     /// A pointer to the Exif IFD.  This is used for the internal structure
     /// of Exif data and will not be returned to the user.
-    (ExifIFDPointer, Tiff, 0x8769, "Exif IFD pointer"),
+    (ExifIFDPointer, 0x8769, "Exif IFD pointer"),
     /// A pointer to the GPS IFD.  This is used for the internal structure
     /// of Exif data and will not be returned to the user.
-    (GPSInfoIFDPointer, Tiff, 0x8825, "GPS Info IFD pointer"),
+    (GPSInfoIFDPointer, 0x8825, "GPS Info IFD pointer"),
+
+    |Context::Exif|
+
     /// A pointer to the interoperability IFD.  This is used for the internal
     /// structure of Exif data and will not be returned to the user.
-    (InteropIFDPointer, Exif, 0xa005, "Interoperability IFD pointer"),
+    (InteropIFDPointer, 0xa005, "Interoperability IFD pointer"),
 
     // TIFF attributes [EXIF23 4.6.4].
 
