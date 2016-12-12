@@ -39,7 +39,11 @@ const TIFF_FORTY_TWO: u16 = 0x002a;
 /// A TIFF field.
 #[derive(Debug)]
 pub struct Field<'a> {
+    /// The tag of this field.
     pub tag: Tag,
+    /// False for the primary image and true for the thumbnail.
+    pub thumbnail: bool,
+    /// The value of this field.
     pub value: Value<'a>,
 }
 
@@ -63,11 +67,11 @@ fn parse_exif_sub<E>(data: &[u8])
         return Err(Error::InvalidFormat("Invalid forty two"));
     }
     let ifd_offset = E::loadu32(data, 4) as usize;
-    parse_ifd::<E>(data, ifd_offset, Context::Tiff)
+    parse_ifd::<E>(data, ifd_offset, Context::Tiff, false)
 }
 
 // Parse IFD [EXIF23 4.6.2].
-fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context)
+fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
                 -> Result<Vec<Field>, Error> where E: Endian {
     // Count (the number of the entries).
     if data.len() < offset || data.len() - offset < 2 {
@@ -108,16 +112,19 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context)
         // element of the field.
         let tag = Tag(ctx, tag);
         if tag == tag::ExifIFDPointer {
-            let mut v = try!(parse_ifd::<E>(data, ofs, Context::Exif));
+            let mut v = try!(
+                parse_ifd::<E>(data, ofs, Context::Exif, thumbnail));
             fields.append(&mut v);
         } else if tag == tag::GPSInfoIFDPointer {
-            let mut v = try!(parse_ifd::<E>(data, ofs, Context::Gps));
+            let mut v = try!(
+                parse_ifd::<E>(data, ofs, Context::Gps, thumbnail));
             fields.append(&mut v);
         } else if tag == tag::InteropIFDPointer {
-            let mut v = try!(parse_ifd::<E>(data, ofs, Context::Interop));
+            let mut v = try!(
+                parse_ifd::<E>(data, ofs, Context::Interop, thumbnail));
             fields.append(&mut v);
         } else {
-            fields.push(Field { tag: tag, value: val });
+            fields.push(Field { tag: tag, thumbnail: thumbnail, value: val });
         }
     }
 
@@ -127,11 +134,11 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context)
     }
     let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12) as usize;
     if next_ifd_offset != 0 {
-        if ctx != Context::Tiff {
+        if ctx != Context::Tiff || thumbnail {
             return Err(Error::InvalidFormat("Unexpected next IFD"));
         }
         let mut v = try!(
-            parse_ifd::<E>(data, next_ifd_offset, Context::Thumb));
+            parse_ifd::<E>(data, next_ifd_offset, Context::Tiff, true));
         fields.append(&mut v);
     }
 

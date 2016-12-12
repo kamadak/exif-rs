@@ -89,15 +89,13 @@ impl fmt::Display for Tag {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Context {
     /// TIFF attributes defined in the TIFF Rev. 6.0 specification.
-    Tiff,	// 0th IFD
+    Tiff,	// 0th/1st IFD
     /// Exif attributes.
-    Exif,	// 0th IFD -- Exif IFD
+    Exif,	// 0th/1st IFD -- Exif IFD
     /// GPS attributes.
-    Gps,	// 0th IFD -- GPS IFD
+    Gps,	// 0th/1st IFD -- GPS IFD
     /// Interoperability attributes.
-    Interop,	// 0th IFD -- Exif IFD -- Interoperability IFD
-    /// TIFF fields in the 1st IFD, which represents the thumbnail image.
-    Thumb,	// 1st IFD
+    Interop,	// 0th/1st IFD -- Exif IFD -- Interoperability IFD
 }
 
 struct TagInfo {
@@ -149,7 +147,8 @@ generate_well_known_tag_constants!(
     /// structure of Exif data and will not be returned to the user.
     (InteropIFDPointer, 0xa005, "Interoperability IFD pointer"),
 
-    // TIFF attributes [EXIF23 4.6.4 Table 4 and 4.6.8 Table 17].
+    // TIFF primary and thumbnail attributes [EXIF23 4.6.4 Table 4,
+    // 4.6.8 Table 17, and 4.6.8 Table 21].
     |Context::Tiff|
 
     (ImageWidth, 0x100, "Image width"),
@@ -175,15 +174,13 @@ generate_well_known_tag_constants!(
     (Artist, 0x13b, "Person who created the image"),
     (WhitePoint, 0x13e, "White point chromaticity"),
     (PrimaryChromaticities, 0x13f, "Chromaticities of primaries"),
-    // (JPEGInterchangeFormat, 0x201, "Offset to JPEG SOI"),
-    // (JPEGInterchangeFormatLength, 0x202, "Bytes of JPEG data"),
+    (JPEGInterchangeFormat, 0x201, "Offset to JPEG SOI"),
+    (JPEGInterchangeFormatLength, 0x202, "Bytes of JPEG data"),
     (YCbCrCoefficients, 0x211, "Color space transformation matrix coefficients"),
     (YCbCrSubSampling, 0x212, "Subsampling ratio of Y to C"),
     (YCbCrPositioning, 0x213, "Y and C positioning"),
     (ReferenceBlackWhite, 0x214, "Pair of black and white reference values"),
     (Copyright, 0x8298, "Copyright holder"),
-
-    // Thumbnail Tiff attributes [EXIF23 4.6.4 Table 4 and 4.6.8 Table 21].
 
     // Exif IFD attributes [EXIF23 4.6.5 Table 7 and 4.6.8 Table 18].
     |Context::Exif|
