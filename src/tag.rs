@@ -98,11 +98,6 @@ pub enum Context {
     Interop,	// 0th/1st IFD -- Exif IFD -- Interoperability IFD
 }
 
-struct TagInfo {
-    name: &'static str,
-    desc: &'static str,
-}
-
 macro_rules! generate_well_known_tag_constants {
     (
         $( |$ctx:path| $(
@@ -117,10 +112,25 @@ macro_rules! generate_well_known_tag_constants {
             pub const $name: Tag = Tag($ctx, $num);
         )+)+
 
-        fn get_tag_info(tag: &Tag) -> Option<TagInfo> {
+        // Use a separate module to avoid name conflicts between
+        // const Tag and static TagInfo.
+        mod tag_info {
+            pub struct TagInfo {
+                pub name: &'static str,
+                pub desc: &'static str,
+            }
+
+            $($(
+                #[allow(non_upper_case_globals)]
+                pub static $name: TagInfo = TagInfo {
+                    name: stringify!($name), desc: $desc };
+            )+)+
+        }
+
+        fn get_tag_info(tag: &Tag) -> Option<&tag_info::TagInfo> {
             match *tag {
-                $($( self::$name => Some(TagInfo {
-                    name: stringify!($name), desc: $desc }),
+                $($(
+                    self::$name => Some(&tag_info::$name),
                 )+)+
                 _ => None,
             }
