@@ -306,3 +306,24 @@ generate_well_known_tag_constants!(
 
     (InteroperabilityIndex, 0x1, "Interoperability identification"),
 );
+
+#[cfg(test)]
+mod tests {
+    use tag;
+    use super::*;
+
+    // This test checks if Tag constants can be used in patterns.
+    #[test]
+    fn tag_constant_in_pattern() {
+        // Destructuring, which will always work.
+        match Tag(Context::Tiff, 0x132) {
+            Tag(Context::Tiff, 0x132) => {},
+            _ => panic!("failed to match Tag"),
+        }
+        // Matching against a constant.  Test if this compiles.
+        match Tag(Context::Tiff, 0x132) {
+            tag::DateTime => {},
+            _ => panic!("failed to match Tag"),
+        }
+    }
+}
