@@ -48,14 +48,18 @@ pub struct Field<'a> {
 }
 
 /// Parse the Exif attributes in the TIFF format.
-pub fn parse_exif(data: &[u8]) -> Result<Vec<Field>, Error> {
+///
+/// Returns a Vec of Exif fields and a bool.
+/// The boolean value is true if the data is little endian.
+/// If an error occured, `exif::Error` is returned.
+pub fn parse_exif(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
     // Check the byte order and call the real parser.
     if data.len() < 8 {
         return Err(Error::InvalidFormat("Truncated TIFF header"));
     }
     match BigEndian::loadu16(data, 0) {
-        TIFF_BE => parse_exif_sub::<BigEndian>(data),
-        TIFF_LE => parse_exif_sub::<LittleEndian>(data),
+        TIFF_BE => parse_exif_sub::<BigEndian>(data).map(|v| (v, false)),
+        TIFF_LE => parse_exif_sub::<LittleEndian>(data).map(|v| (v, true)),
         _ => Err(Error::InvalidFormat("Invalid TIFF byte order")),
     }
 }
