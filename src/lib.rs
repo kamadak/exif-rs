@@ -25,6 +25,20 @@
 //
 
 //! Exif parsing library written in pure Rust.
+//!
+//! # Examples
+//!
+//! An example to parse a JPEG file:
+//!
+//! ```
+//! let file = std::fs::File::open("tests/exif.jpg").unwrap();
+//! let mut reader = std::io::BufReader::new(&file);
+//! let buf = exif::get_exif_attr_from_jpeg(&mut reader).unwrap();
+//! let (fields, _) = exif::parse_exif(&buf).unwrap();
+//! for f in fields {
+//!     println!("{} {} {:?}", f.tag, f.thumbnail, f.value);
+//! }
+//! ```
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
