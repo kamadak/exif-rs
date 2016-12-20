@@ -1,0 +1,17 @@
+Exif parsing library written in pure Rust
+-----------------------------------------
+
+   This is a pure-Rust library to parse Exif data.
+   This library can parse TIFF and JPEG images and extract Exif
+   attributes.
+
+Dependencies
+------------
+
+   Rust 1.12 or later is required to build.
+
+Specifications
+--------------
+
+   -  Exif Version 2.3
+   -  TIFF Revision 6.0
