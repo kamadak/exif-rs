@@ -34,9 +34,9 @@ use endian::Endian;
 pub enum Value<'a> {
     /// Vector of 8-bit unsigned integers.
     Byte(Vec<u8>),
-    /// Slice of 8-bit bytes containing 7-bit ASCII characters.
+    /// Vector of slices of 8-bit bytes containing 7-bit ASCII characters.
     /// The trailing null character is not included.  Note that
-    /// the absence of the 8th bits is not guaranteed.
+    /// the 8th bits may present if a non-conforming data is given.
     Ascii(Vec<&'a [u8]>),
     /// Vector of 16-bit unsigned integers.
     Short(Vec<u16>),
@@ -63,7 +63,7 @@ pub enum Value<'a> {
     /// Unused in the Exif specification.
     Double(Vec<f64>),
     /// The type is unknown to this implementation.
-    /// The associated values are the type and the count, and the
+    /// The associated values are the type, the count, and the
     /// offset of the "Value Offset" element.
     Unknown(u16, u32, u32),
 }
