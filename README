@@ -5,6 +5,20 @@ Exif parsing library written in pure Rust
    This library can parse TIFF and JPEG images and extract Exif
    attributes.
 
+Usage
+-----
+
+   Add a dependency entry to your Cargo.toml.  Specifying at least two
+   numbers is recommended because, during the major version 0, the
+   minor will be bumped to indicate backwards-incompatible changes.
+
+      [dependencies]
+      exif = "0.1.0"
+
+   Add the following to your crate root.
+
+      extern crate exif;
+
 Dependencies
 ------------
 
