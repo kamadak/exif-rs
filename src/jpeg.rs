@@ -48,7 +48,7 @@ mod marker {
 // Exif identifier code "Exif\0\0". [EXIF23 4.7.2]
 const EXIF_ID: [u8; 6] = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00];
 
-// Get the Exif attribute information segment from a JPEG file.
+/// Get the Exif attribute information segment from a JPEG file.
 pub fn get_exif_attr<R>(reader: &mut R)
                         -> Result<Vec<u8>, Error> where R: io::BufRead {
     match get_exif_attr_sub(reader) {
