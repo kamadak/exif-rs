@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["KAMADA Ken'ichi <kamada@nanohz.org>"]
 
 description = "Exif parsing library written in pure Rust"
+documentation = "https://docs.rs/kamadak-exif"
+homepage = "https://github.com/kamadak/exif-rs"
 repository = "https://github.com/kamadak/exif-rs"
 readme = "README"
 keywords = ["Exif", "JPEG", "parser", "reader", "TIFF"]
