@@ -53,7 +53,7 @@ pub struct Field<'a> {
 ///
 /// Returns a Vec of Exif fields and a bool.
 /// The boolean value is true if the data is little endian.
-/// If an error occured, `exif::Error` is returned.
+/// If an error occurred, `exif::Error` is returned.
 pub fn parse_exif(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
     // Check the byte order and call the real parser.
     if data.len() < 8 {
