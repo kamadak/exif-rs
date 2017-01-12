@@ -24,51 +24,36 @@
 // SUCH DAMAGE.
 //
 
-//! Exif parsing library written in pure Rust.
-//!
-//! # Examples
-//!
-//! An example to parse a JPEG/TIFF file:
-//!
-//! ```
-//! let file = std::fs::File::open("tests/exif.jpg").unwrap();
-//! let mut reader = std::io::BufReader::new(&file);
-//! let mut buf = Vec::new();
-//! let (fields, _) = exif::parse_image(&mut reader, &mut buf).unwrap();
-//! for f in fields {
-//!     println!("{} {} {:?}", f.tag, f.thumbnail, f.value);
-//! }
-//! ```
+use std::io;
+use std::io::Read;
+use std::mem;
 
-pub use error::Error;
-pub use image::parse_image;
-pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
-pub use tag::{Context, Tag};
-pub use tiff::Field;
-pub use tiff::parse_exif;
-pub use value::Value;
-pub use value::{Rational, SRational};
+use error::Error;
+use jpeg;
+use tiff;
+use tiff::Field;
 
-#[cfg(test)]
-#[macro_use]
-mod tmacro;
-
-mod endian;
-mod error;
-mod image;
-mod jpeg;
-pub mod tag;
-mod tiff;
-mod util;
-mod value;
-
-#[cfg(test)]
-mod tests {
-    use std::mem;
-
-    // This library assumes that usize is not smaller than u32.
-    #[test]
-    fn size_of_usize() {
-        assert!(mem::size_of::<usize>() >= mem::size_of::<u32>());
+/// Parse the Exif attributes in a JPEG or TIFF image data.
+///
+/// Returns a Vec of Exif fields and a bool.
+/// The boolean value is true if the data is little endian.
+/// If an error occurred, `exif::Error` is returned.
+///
+/// The `buf` must be an empty `Vec<u8>` when this function is called.
+/// The raw Exif data is read into it.
+pub fn parse_image<'a, R>(mut reader: &mut R, mut buf: &'a mut Vec<u8>)
+                          -> Result<(Vec<Field<'a>>, bool), Error>
+    where R: io::BufRead
+{
+    try!(reader.by_ref().take(4).read_to_end(buf));
+    if jpeg::is_jpeg(buf) {
+        let exif_buf = try!(jpeg::get_exif_attr(
+            &mut buf.as_mut_slice().chain(reader)));
+        mem::replace(buf, exif_buf);
+    } else if tiff::is_tiff(buf) {
+        try!(reader.read_to_end(&mut buf));
+    } else {
+        return Err(Error::InvalidFormat("Unknown image format"));
     }
+    tiff::parse_exif(buf)
 }

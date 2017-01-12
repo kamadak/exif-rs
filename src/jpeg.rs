@@ -45,6 +45,9 @@ mod marker {
     pub const APP1: u8 = 0xe1;
 }
 
+// SOI marker as the JPEG header.
+const JPEG_SIG: [u8; 2] = [marker::P, marker::SOI];
+
 // Exif identifier code "Exif\0\0". [EXIF23 4.7.2]
 const EXIF_ID: [u8; 6] = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00];
 
@@ -97,6 +100,10 @@ fn get_exif_attr_sub<R>(reader: &mut R)
             // so there is nothing to do here.
         }
     }
+}
+
+pub fn is_jpeg(buf: &[u8]) -> bool {
+    buf.starts_with(&JPEG_SIG)
 }
 
 #[cfg(test)]
