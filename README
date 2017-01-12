@@ -13,7 +13,7 @@ Usage
    minor will be bumped to indicate backwards-incompatible changes.
 
       [dependencies]
-      exif = "0.1.0"
+      exif = "0.1.1"
 
    Add the following to your crate root.
 
