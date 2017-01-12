@@ -31,7 +31,7 @@ use tag::{Context, Tag};
 use value::Value;
 use value::get_type_info;
 
-// Tiff header magic numbers [EXIF23 4.5.2].
+// TIFF header magic numbers [EXIF23 4.5.2].
 const TIFF_BE: u16 = 0x4d4d;
 const TIFF_LE: u16 = 0x4949;
 const TIFF_FORTY_TWO: u16 = 0x002a;
