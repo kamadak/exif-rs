@@ -43,6 +43,7 @@
 pub use error::Error;
 pub use image::parse_image;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
+pub use reader::Reader;
 pub use tag::{Context, Tag};
 pub use tiff::Field;
 pub use tiff::parse_exif;
@@ -57,6 +58,7 @@ mod endian;
 mod error;
 mod image;
 mod jpeg;
+mod reader;
 pub mod tag;
 mod tiff;
 mod util;
