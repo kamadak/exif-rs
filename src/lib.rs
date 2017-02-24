@@ -32,10 +32,9 @@
 //!
 //! ```
 //! let file = std::fs::File::open("tests/exif.jpg").unwrap();
-//! let mut reader = std::io::BufReader::new(&file);
-//! let mut buf = Vec::new();
-//! let (fields, _) = exif::parse_image(&mut reader, &mut buf).unwrap();
-//! for f in fields {
+//! let reader = exif::Reader::new(
+//!     &mut std::io::BufReader::new(&file)).unwrap();
+//! for f in reader.fields() {
 //!     println!("{} {} {:?}", f.tag, f.thumbnail, f.value);
 //! }
 //! ```
