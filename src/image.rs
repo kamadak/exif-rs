@@ -41,6 +41,7 @@ use tiff::Field;
 ///
 /// The `buf` must be an empty `Vec<u8>` when this function is called.
 /// The raw Exif data is read into it.
+#[deprecated(since = "0.1.2", note = "use `exif::Reader` instead")]
 pub fn parse_image<'a, R>(mut reader: &mut R, mut buf: &'a mut Vec<u8>)
                           -> Result<(Vec<Field<'a>>, bool), Error>
     where R: io::BufRead

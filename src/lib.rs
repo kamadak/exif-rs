@@ -41,6 +41,7 @@
 //! ```
 
 pub use error::Error;
+#[allow(deprecated)]
 pub use image::parse_image;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::Reader;
