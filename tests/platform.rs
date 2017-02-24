@@ -24,42 +24,10 @@
 // SUCH DAMAGE.
 //
 
-//! Exif parsing library written in pure Rust.
-//!
-//! # Examples
-//!
-//! An example to parse a JPEG/TIFF file:
-//!
-//! ```
-//! let file = std::fs::File::open("tests/exif.jpg").unwrap();
-//! let reader = exif::Reader::new(
-//!     &mut std::io::BufReader::new(&file)).unwrap();
-//! for f in reader.fields() {
-//!     println!("{} {} {:?}", f.tag, f.thumbnail, f.value);
-//! }
-//! ```
+use std::mem;
 
-pub use error::Error;
-#[allow(deprecated)]
-pub use image::parse_image;
-pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
-pub use reader::Reader;
-pub use tag::{Context, Tag};
-pub use tiff::Field;
-pub use tiff::parse_exif;
-pub use value::Value;
-pub use value::{Rational, SRational};
-
-#[cfg(test)]
-#[macro_use]
-mod tmacro;
-
-mod endian;
-mod error;
-mod image;
-mod jpeg;
-mod reader;
-pub mod tag;
-mod tiff;
-mod util;
-mod value;
+// This library assumes that usize is not smaller than u32.
+#[test]
+fn size_of_usize() {
+    assert!(mem::size_of::<usize>() >= mem::size_of::<u32>());
+}
