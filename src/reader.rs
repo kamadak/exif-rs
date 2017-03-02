@@ -124,6 +124,8 @@ mod tests {
         let (r2, ptr) = move_out_and_drop();
         assert!(ptr != &r2 as *const _, "not moved");
         check_abc(r2.fields());
+
+        box_and_drop();
     }
 
     #[inline(never)]
@@ -139,7 +141,14 @@ mod tests {
         (r2, ptr)
     }
 
-    #[inline(never)]
+    fn box_and_drop() {
+        let r = Reader::new(&mut BufReader::new(TIFF_ASCII)).unwrap();
+        let ptr = &r as *const _;
+        let b = Box::new(r);
+        assert!(ptr != &*b as *const _, "not moved");
+        check_abc(b.fields());
+    }
+
     fn check_abc(fields: &Vec<Field>) {
         if let Value::Ascii(ref v) = fields[0].value {
             assert_eq!(*v, vec![b"ABC"]);
