@@ -24,7 +24,9 @@
 // SUCH DAMAGE.
 //
 
-//! Exif parsing library written in pure Rust.
+//! This is a pure-Rust library to parse Exif data.
+//! This library can parse TIFF and JPEG images and extract Exif
+//! attributes.
 //!
 //! # Examples
 //!
