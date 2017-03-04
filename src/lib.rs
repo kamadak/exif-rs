@@ -30,14 +30,16 @@
 //!
 //! # Examples
 //!
-//! An example to parse a JPEG/TIFF file:
+//! An example to parse JPEG/TIFF files:
 //!
 //! ```
-//! let file = std::fs::File::open("tests/exif.jpg").unwrap();
-//! let reader = exif::Reader::new(
-//!     &mut std::io::BufReader::new(&file)).unwrap();
-//! for f in reader.fields() {
-//!     println!("{} {} {:?}", f.tag, f.thumbnail, f.value);
+//! for path in &["tests/exif.jpg", "tests/exif.tif"] {
+//!     let file = std::fs::File::open(path).unwrap();
+//!     let reader = exif::Reader::new(
+//!         &mut std::io::BufReader::new(&file)).unwrap();
+//!     for f in reader.fields() {
+//!         println!("{} {} {:?}", f.tag, f.thumbnail, f.value);
+//!     }
 //! }
 //! ```
 
