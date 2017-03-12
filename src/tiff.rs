@@ -81,7 +81,7 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
                 -> Result<Vec<Field>, Error> where E: Endian {
     // Count (the number of the entries).
     if data.len() < offset || data.len() - offset < 2 {
-        return Err(Error::InvalidFormat("Truncated IFD"));
+        return Err(Error::InvalidFormat("Truncated IFD count"));
     }
     let count = E::loadu16(data, offset) as usize;
 
@@ -105,7 +105,7 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
             val = parser(data, offset + 2 + i * 12 + 8, cnt);
         } else {
             if data.len() < ofs || data.len() - ofs < vallen {
-                return Err(Error::InvalidFormat("Truncated IFD"));
+                return Err(Error::InvalidFormat("Truncated field value"));
             }
             val = parser(data, ofs, cnt);
         }
@@ -136,7 +136,7 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
 
     // Offset to the next IFD.
     if data.len() - offset - 2 - count * 12 < 4 {
-        return Err(Error::InvalidFormat("Truncated IFD"));
+        return Err(Error::InvalidFormat("Truncated next IFD offset"));
     }
     let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12) as usize;
     if next_ifd_offset != 0 {
