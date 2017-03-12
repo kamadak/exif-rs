@@ -119,7 +119,7 @@ fn parse_ascii<'a>(data: &'a [u8], offset: usize, count: usize)
     // Directory].
     let iter = (&data[offset .. offset + count]).split(|&b| b == b'\0');
     let mut v: Vec<&[u8]> = iter.collect();
-    if v.len() >= 2 && v.last().map_or(false, |&s| s.len() == 0) {
+    if v.last().map_or(false, |&s| s.len() == 0) {
         v.pop();
     }
     Value::Ascii(v)
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn ascii() {
         let sets: &[(&[u8], Vec<&[u8]>)] = &[
-            (b"x", vec![b""]),				// malformed
+            (b"x", vec![]),				// malformed
             (b"x\0", vec![b""]),
             (b"x\0\0", vec![b"", b""]),
             (b"xA", vec![b"A"]),			// malformed
