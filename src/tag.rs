@@ -24,16 +24,9 @@
 // SUCH DAMAGE.
 //
 
-//! Compatibility warning: Exif tag constants in this module will be
-//! converted to associated constants of Tag when the feature is
-//! stabilized.
-
 use std::fmt;
 
 /// A tag of a TIFF field.
-///
-/// Use `exif::Tag` instead of `exif::tag::Tag`.  They are the same,
-/// but `exif::tag` will become private in the future versions.
 //
 // This is not an enum to keep safety and API stability, while
 // supporting unknown tag values.  This comment is based on the
@@ -83,9 +76,6 @@ impl fmt::Display for Tag {
 }
 
 /// An enum that indicates how a tag value is interpreted.
-///
-/// Use `exif::Context` instead of `exif::tag::Context`.  They are the
-/// same, but `exif::tag` will become private in the future versions.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Context {
     /// TIFF attributes defined in the TIFF Rev. 6.0 specification.
@@ -106,11 +96,28 @@ macro_rules! generate_well_known_tag_constants {
             ($name:ident, $num:expr, $desc:expr)
         ),+, )+
     ) => (
-        $($(
-            $( #[$attr] )*
-            #[allow(non_upper_case_globals)]
-            pub const $name: Tag = Tag($ctx, $num);
-        )+)+
+        /// A module that contains Exif tag constants.
+        ///
+        /// Compatibility warning: Exif tag constants in this module will be
+        /// converted to associated constants of `Tag` when the feature is
+        /// stabilized.
+        ///
+        /// It is not recommended to import the constants directly into
+        /// your namespace; import the module and use with the module name
+        /// like `tag::DateTime`.  The constant names follow the Exif
+        /// specification but not the Rust naming conventions, and a user
+        /// of the constants will get the non_upper_case_globals warning
+        /// if a bare constant is used in a match arm.
+        // This is discussed in
+        // <https://github.com/rust-lang/rust/issues/25207>.
+        pub mod constants {
+            use super::{Context, Tag};
+            $($(
+                $( #[$attr] )*
+                #[allow(non_upper_case_globals)]
+                pub const $name: Tag = Tag($ctx, $num);
+            )+)+
+        }
 
         // Use a separate module to avoid name conflicts between
         // const Tag and static TagInfo.
@@ -130,7 +137,7 @@ macro_rules! generate_well_known_tag_constants {
         fn get_tag_info(tag: &Tag) -> Option<&tag_info::TagInfo> {
             match *tag {
                 $($(
-                    self::$name => Some(&tag_info::$name),
+                    constants::$name => Some(&tag_info::$name),
                 )+)+
                 _ => None,
             }

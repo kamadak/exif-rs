@@ -27,7 +27,7 @@
 use endian::{Endian, BigEndian, LittleEndian};
 use error::Error;
 use tag;
-use tag::{Context, Tag};
+use tag_priv::{Context, Tag};
 use value::Value;
 use value::get_type_info;
 
