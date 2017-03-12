@@ -130,4 +130,13 @@ mod tests {
     fn out_of_range() {
         BigEndian::loadu16(&[0x01, 0x02], 1);
     }
+
+    // "attempt to add with overflow" with the arithmetic overflow
+    // check, and "slice index starts at 18446744073709551615 but ends
+    // at 1" without it.
+    #[test]
+    #[should_panic(expected = "at")]
+    fn wrap_around() {
+        BigEndian::loadu16(&[0x01, 0x02], (-1isize) as usize);
+    }
 }

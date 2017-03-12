@@ -229,6 +229,7 @@ fn parse_unknown<'a>(data: &'a [u8], offset: usize, count: usize)
 mod tests {
     use endian::BigEndian;
     use super::*;
+    use super::parse_short;
 
     #[test]
     fn byte() {
@@ -447,5 +448,13 @@ mod tests {
                 v => panic!("wrong variant {:?}", v),
             }
         }
+    }
+
+    // These functions are never called in a way that an out-of-range access
+    // could happen, so this test is hypothetical but just for safety.
+    #[test]
+    #[should_panic(expected = "index 5 out of range for slice of length 4")]
+    fn short_oor() {
+        parse_short::<BigEndian>(b"\x01\x02\x03\x04", 1, 2);
     }
 }
