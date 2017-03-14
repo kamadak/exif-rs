@@ -169,4 +169,13 @@ mod tests {
         assert_err_pat!(parse_exif(data),
                         Error::InvalidFormat("Unexpected next IFD"));
     }
+
+    #[test]
+    fn unknown_field() {
+        let data = b"MM\0\x2a\0\0\0\x08\
+                     \0\x01\x01\0\xff\xff\0\0\0\x01\0\x14\0\0\0\0\0\0";
+        let (v, _) = parse_exif(data).unwrap();
+        assert_eq!(v.len(), 1);
+        assert_pat!(v[0].value, Value::Unknown(0xffff, 1, 0x140000));
+    }
 }

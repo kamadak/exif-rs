@@ -35,6 +35,15 @@ macro_rules! assert_ok {
     )
 }
 
+macro_rules! assert_pat {
+    ($expr:expr, $pat:pat) => (
+        match $expr {
+            $pat => {},
+            ref r => panic!("assertion failed: unexpected {:?}", r),
+        }
+    )
+}
+
 macro_rules! assert_err_pat {
     ($expr:expr, $variant:pat) => (
         match $expr {

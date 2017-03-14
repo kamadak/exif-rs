@@ -457,4 +457,10 @@ mod tests {
     fn short_oor() {
         parse_short::<BigEndian>(b"\x01\x02\x03\x04", 1, 2);
     }
+
+    #[test]
+    fn unknown() {
+        let (unitlen, _parser) = get_type_info::<BigEndian>(0xffff);
+        assert_eq!(unitlen, 0);
+    }
 }
