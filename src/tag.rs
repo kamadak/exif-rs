@@ -43,19 +43,19 @@ use std::fmt;
 // PartialEq and Eq need to be _automatically derived_ for Tag to
 // emulate structural equivalency.
 // <https://github.com/rust-lang/rfcs/pull/1445>
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Tag(pub Context, pub u16);
 
 impl Tag {
     /// Returns the context of the tag.
     #[inline]
-    pub fn context(&self) -> Context {
+    pub fn context(self) -> Context {
         self.0
     }
 
     /// Returns the value of the tag.
     #[inline]
-    pub fn value(&self) -> u16 {
+    pub fn value(self) -> u16 {
         self.1
     }
 
