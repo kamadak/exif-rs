@@ -31,7 +31,7 @@ use value::Value;
 /// A tag of a TIFF field.
 //
 // This is not an enum to keep safety and API stability, while
-// supporting unknown tag values.  This comment is based on the
+// supporting unknown tag numbers.  This comment is based on the
 // behavior of Rust 1.12.
 // Storing unknown values in a repr(u16) enum is unsafe.  The compiler
 // assumes that there is no undefined discriminant even with a C-like
@@ -39,7 +39,7 @@ use value::Value;
 // Storing unknown values in a special variant such as Unknown(u16)
 // tends to break backward compatibility.  When Tag::VariantFoo is
 // defined in a new version of the library, the old codes using
-// Tag::Unknown(Foo's value) will break.
+// Tag::Unknown(Foo's tag number) will break.
 //
 // Use of constants is restricted in patterns.  As of Rust 1.12,
 // PartialEq and Eq need to be _automatically derived_ for Tag to
@@ -55,10 +55,17 @@ impl Tag {
         self.0
     }
 
-    /// Returns the value of the tag.
+    /// Returns the tag number.
+    #[inline]
+    pub fn number(self) -> u16 {
+        self.1
+    }
+
+    /// Returns the tag number.
+    #[deprecated(since = "0.2.0", note = "renamed to `number()`")]
     #[inline]
     pub fn value(self) -> u16 {
-        self.1
+        self.number()
     }
 
     /// Returns the description of the tag.
