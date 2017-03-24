@@ -68,8 +68,42 @@ pub enum Value<'a> {
     Unknown(u16, u32, u32),
 }
 
+// Static default values.
+pub enum DefaultValue {
+    None,
+    Byte(&'static [u8]),
+    Ascii(&'static [&'static [u8]]),
+    Short(&'static [u16]),
+    Rational(&'static [(u32, u32)]),
+    Undefined(&'static [u8]),
+    // Depends on other tags, JPEG markers, etc.
+    ContextDependent,
+    // Unspecified in the Exif standard.
+    Unspecified,
+}
+
+impl<'a> From<&'a DefaultValue> for Option<Value<'a>> {
+    fn from(defval: &DefaultValue) -> Option<Value> {
+        match *defval {
+            DefaultValue::None => None,
+            DefaultValue::Byte(s) => Some(Value::Byte(s.to_vec())),
+            DefaultValue::Ascii(s) => Some(Value::Ascii(s.to_vec())),
+            DefaultValue::Short(s) => Some(Value::Short(s.to_vec())),
+            DefaultValue::Rational(s) => Some(Value::Rational(
+                s.iter().map(|&t| tuple2rational(t)).collect())),
+            DefaultValue::Undefined(s) => Some(Value::Undefined(s)),
+            DefaultValue::ContextDependent => None,
+            DefaultValue::Unspecified => None,
+        }
+    }
+}
+
 /// An unsigned rational number, which is a pair of 32-bit unsigned integers.
 pub struct Rational { pub num: u32, pub denom: u32 }
+
+fn tuple2rational(t: (u32, u32)) -> Rational {
+    Rational { num: t.0, denom: t.1 }
+}
 
 impl fmt::Debug for Rational {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
