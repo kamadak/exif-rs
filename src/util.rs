@@ -26,6 +26,8 @@
 
 use std::io;
 
+use error::Error;
+
 pub fn read8<R>(reader: &mut R) -> Result<u8, io::Error> where R: io::Read {
     let mut buf: [u8; 1] = unsafe { ::std::mem::uninitialized() };
     reader.read_exact(&mut buf).and(Ok(buf[0]))
@@ -35,6 +37,27 @@ pub fn read16<R>(reader: &mut R) -> Result<u16, io::Error> where R: io::Read {
     let mut buf: [u8; 2] = unsafe { ::std::mem::uninitialized() };
     try!(reader.read_exact(&mut buf));
     Ok(((buf[0] as u16) << 8) + buf[1] as u16)
+}
+
+// This function must not be called with more than 4 bytes.
+pub fn atou16(bytes: &[u8]) -> Result<u16, Error> {
+    const ASCII_0: u8 = 0x30;
+    const ASCII_9: u8 = 0x39;
+
+    if cfg!(debug_assertions) && bytes.len() >= 5 {
+        panic!("atou16 accepts up to 4 bytes");
+    }
+    if bytes.len() == 0 {
+        return Err(Error::InvalidFormat("Not a number"));
+    }
+    let mut n = 0;
+    for &c in bytes {
+        if c < ASCII_0 || ASCII_9 < c {
+            return Err(Error::InvalidFormat("Not a number"));
+        }
+        n = n * 10 + (c - ASCII_0) as u16;
+    }
+    Ok(n)
 }
 
 #[cfg(test)]
@@ -70,5 +93,16 @@ mod tests {
         assert_ok!(read16(&mut reader), 0x0102);
         assert_ok!(reader.read_to_end(&mut buf), 1);
         assert_eq!(buf, [0x03]);
+    }
+
+    #[test]
+    fn atou16_misc() {
+        assert_ok!(atou16(b"0"), 0);
+        assert_ok!(atou16(b"0010"), 10);
+        assert_ok!(atou16(b"9999"), 9999);
+        assert_err_pat!(atou16(b""), Error::InvalidFormat(_));
+        assert_err_pat!(atou16(b"/"), Error::InvalidFormat(_));
+        assert_err_pat!(atou16(b":"), Error::InvalidFormat(_));
+        assert_err_pat!(atou16(b"-1"), Error::InvalidFormat(_));
     }
 }

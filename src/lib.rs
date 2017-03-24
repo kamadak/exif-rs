@@ -50,7 +50,7 @@ pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::Reader;
 pub use tag_priv::{Context, Tag};
 pub use tag_priv::constants as tag;
-pub use tiff::Field;
+pub use tiff::{DateTime, Field};
 pub use tiff::parse_exif;
 pub use value::Value;
 pub use value::{Rational, SRational};

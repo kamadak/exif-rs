@@ -30,6 +30,7 @@ use tag;
 use tag_priv::{Context, Tag};
 use value::Value;
 use value::get_type_info;
+use util::atou16;
 
 // TIFF header magic numbers [EXIF23 4.5.2].
 const TIFF_BE: u16 = 0x4d4d;
@@ -153,6 +154,40 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
 
 pub fn is_tiff(buf: &[u8]) -> bool {
     buf.starts_with(&TIFF_BE_SIG) || buf.starts_with(&TIFF_LE_SIG)
+}
+
+/// A struct used to parse a DateTime field.
+#[derive(Debug)]
+pub struct DateTime {
+    pub year: u16,
+    pub month: u8,
+    pub day: u8,
+    pub hour: u8,
+    pub minute: u8,
+    pub second: u8,
+}
+
+impl DateTime {
+    /// Parse an ASCII data of a DateTime field.  The range of a number
+    /// is not validated, so, for example, 13 may be returned as the month.
+    pub fn from_ascii(data: &[u8]) -> Result<DateTime, Error> {
+        if data == b"    :  :     :  :  " || data == b"                   " {
+            return Err(Error::BlankValue("DateTime is blank"));
+        } else if data.len() < 19 {
+            return Err(Error::InvalidFormat("DateTime too short"));
+        } else if !(data[4] == b':' && data[7] == b':' && data[10] == b' ' &&
+                    data[13] == b':' && data[16] == b':') {
+            return Err(Error::InvalidFormat("Invalid DateTime delimiter"));
+        }
+        Ok(DateTime {
+            year: try!(atou16(&data[0..4])),
+            month: try!(atou16(&data[5..7])) as u8,
+            day: try!(atou16(&data[8..10])) as u8,
+            hour: try!(atou16(&data[11..13])) as u8,
+            minute: try!(atou16(&data[14..16])) as u8,
+            second: try!(atou16(&data[17..19])) as u8,
+        })
+    }
 }
 
 #[cfg(test)]

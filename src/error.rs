@@ -38,6 +38,10 @@ pub enum Error {
     Io(io::Error),
     /// Exif attribute information was not found.
     NotFound(&'static str),
+    /// The value of the field is blank.  Some fields have blank values
+    /// whose meanings are defined as "unknown".  Such a blank value
+    /// should be treated the same as the absence of the field.
+    BlankValue(&'static str),
 }
 
 impl From<io::Error> for Error {
@@ -52,6 +56,7 @@ impl fmt::Display for Error {
             Error::InvalidFormat(msg) => f.write_str(msg),
             Error::Io(ref err) => err.fmt(f),
             Error::NotFound(msg) => f.write_str(msg),
+            Error::BlankValue(msg) => f.write_str(msg),
         }
     }
 }
@@ -62,6 +67,7 @@ impl error::Error for Error {
             Error::InvalidFormat(msg) => msg,
             Error::Io(ref err) => err.description(),
             Error::NotFound(msg) => msg,
+            Error::BlankValue(msg) => msg,
         }
     }
 
@@ -70,6 +76,7 @@ impl error::Error for Error {
             Error::InvalidFormat(_) => None,
             Error::Io(ref err) => Some(err),
             Error::NotFound(_) => None,
+            Error::BlankValue(_) => None,
         }
     }
 }
