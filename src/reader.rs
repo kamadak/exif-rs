@@ -105,7 +105,6 @@ impl Reader {
 #[cfg(test)]
 mod tests {
     use std::io::BufReader;
-    use tiff::Field;
     use value::Value;
     use super::*;
 

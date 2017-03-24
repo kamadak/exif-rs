@@ -109,7 +109,6 @@ pub fn is_jpeg(buf: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
-    use error::Error;
     use super::*;
 
     #[test]

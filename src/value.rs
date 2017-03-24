@@ -263,7 +263,6 @@ fn parse_unknown<'a>(data: &'a [u8], offset: usize, count: usize)
 mod tests {
     use endian::BigEndian;
     use super::*;
-    use super::parse_short;
 
     #[test]
     fn byte() {

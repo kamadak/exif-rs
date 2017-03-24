@@ -192,7 +192,6 @@ impl DateTime {
 
 #[cfg(test)]
 mod tests {
-    use error::Error;
     use super::*;
 
     // Before the error is returned, the IFD is parsed twice as the
