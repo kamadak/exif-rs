@@ -89,9 +89,9 @@ impl Reader {
         &self.buf[..]
     }
 
-    /// Returns the reference to the vector of Exif fields.
+    /// Returns a slice of Exif fields.
     #[inline]
-    pub fn fields<'a>(&'a self) -> &Vec<Field<'a>> {
+    pub fn fields<'a>(&'a self) -> &[Field<'a>] {
         &self.fields
     }
 
@@ -148,7 +148,7 @@ mod tests {
         check_abc(b.fields());
     }
 
-    fn check_abc(fields: &Vec<Field>) {
+    fn check_abc(fields: &[Field]) {
         if let Value::Ascii(ref v) = fields[0].value {
             assert_eq!(*v, vec![b"ABC"]);
         } else {
