@@ -49,7 +49,7 @@
 //!
 //! * Rust 1.15 is now required to compile.
 //! * `Reader.fields()` now returns a slice instead of a reference to a Vec.
-//! * `Tag.value()` was renamed to `Tag.code()`.
+//! * `Tag.value()` was renamed to `Tag.number()`.
 //! * A new variant `Error::BlankValue` has been added.
 //! * The `parse_image()` function has been removed.
 
