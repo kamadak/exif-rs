@@ -537,4 +537,16 @@ mod tests {
             _ => panic!(),
         }
     }
+
+    #[test]
+    fn tag_fmt_display() {
+        let tag1 = Tag(Context::Tiff, 0x132);
+        assert_eq!(format!("{:15}", tag1), "DateTime       ");
+        assert_eq!(format!("{:>15}", tag1), "       DateTime");
+        assert_eq!(format!("{:5.6}", tag1), "DateTi");
+        let tag2 = Tag(Context::Exif, 0);
+        assert_eq!(format!("{:15}", tag2), "Tag(Exif, 0)   ");
+        assert_eq!(format!("{:>15}", tag2), "   Tag(Exif, 0)");
+        assert_eq!(format!("{:5.6}", tag2), "Tag(Ex");
+    }
 }
