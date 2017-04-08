@@ -121,8 +121,8 @@ mod tests {
         }
         assert_eq!(dispatch_sub::<BigEndian> as *const (),
                    dispatch_sub::<BigEndian> as *const ());
-        assert!(dispatch_sub::<BigEndian> as *const () !=
-                dispatch_sub::<LittleEndian> as *const ());
+        assert_ne!(dispatch_sub::<BigEndian> as *const (),
+                   dispatch_sub::<LittleEndian> as *const ());
     }
 
     #[test]
