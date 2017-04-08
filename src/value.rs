@@ -111,12 +111,50 @@ impl fmt::Debug for Rational {
     }
 }
 
+impl fmt::Display for Rational {
+    /// Formatting parameters other than width are not supported.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let buf = fmt_rational_sub(f, self.num, self.denom);
+        f.pad_integral(true, "", &buf)
+    }
+}
+
 /// A signed rational number, which is a pair of 32-bit signed integers.
 pub struct SRational { pub num: i32, pub denom: i32 }
 
 impl fmt::Debug for SRational {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "SRational({}/{})", self.num, self.denom)
+    }
+}
+
+impl fmt::Display for SRational {
+    /// Formatting parameters other than width are not supported.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let buf = fmt_rational_sub(
+            f, self.num.wrapping_abs() as u32, self.denom);
+        f.pad_integral(self.num >= 0, "", &buf)
+    }
+}
+
+// Only u32 or i32 are expected for T.
+fn fmt_rational_sub<T>(f: &mut fmt::Formatter, num: u32, denom: T)
+                       -> String where T: fmt::Display {
+    // The API to get the alignment is not yet stable as of Rust 1.16,
+    // so it is not fully supported.
+    match (f.sign_plus(), f.precision(), f.sign_aware_zero_pad()) {
+        (true, Some(prec), true) =>
+            format!("{}/{:+0w$}", num, denom, w = prec),
+        (true, Some(prec), false) =>
+            format!("{}/{:+w$}", num, denom, w = prec),
+        (true, None, _) =>
+            format!("{}/{:+}", num, denom),
+        (false, Some(prec), true) =>
+            format!("{}/{:0w$}", num, denom, w = prec),
+        (false, Some(prec), false) =>
+            format!("{}/{:w$}", num, denom, w = prec),
+        (false, None, _) =>
+            format!("{}/{}", num, denom),
     }
 }
 
@@ -495,5 +533,39 @@ mod tests {
     fn unknown() {
         let (unitlen, _parser) = get_type_info::<BigEndian>(0xffff);
         assert_eq!(unitlen, 0);
+    }
+
+    #[test]
+    fn rational_fmt_display() {
+        let r = Rational { num: u32::max_value(), denom: u32::max_value() };
+        assert_eq!(format!("{}", r), "4294967295/4294967295");
+
+        let r = Rational { num: 10, denom: 20 };
+        assert_eq!(format!("{}", r),         "10/20");
+        assert_eq!(format!("{:11}", r),      "      10/20");
+        assert_eq!(format!("{:3}", r),       "10/20");
+    }
+
+    #[test]
+    fn srational_fmt_display() {
+        let r = SRational { num: i32::min_value(), denom: i32::min_value() };
+        assert_eq!(format!("{}", r), "-2147483648/-2147483648");
+        let r = SRational { num: i32::max_value(), denom: i32::max_value() };
+        assert_eq!(format!("{}", r), "2147483647/2147483647");
+
+        let r = SRational { num: -10, denom: 20 };
+        assert_eq!(format!("{}", r),         "-10/20");
+        assert_eq!(format!("{:11}", r),      "     -10/20");
+        assert_eq!(format!("{:3}", r),       "-10/20");
+
+        let r = SRational { num: 10, denom: -20 };
+        assert_eq!(format!("{}", r),         "10/-20");
+        assert_eq!(format!("{:11}", r),      "     10/-20");
+        assert_eq!(format!("{:3}", r),       "10/-20");
+
+        let r = SRational { num: -10, denom: -20 };
+        assert_eq!(format!("{}", r),         "-10/-20");
+        assert_eq!(format!("{:11}", r),      "    -10/-20");
+        assert_eq!(format!("{:3}", r),       "-10/-20");
     }
 }
