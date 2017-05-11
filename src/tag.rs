@@ -71,20 +71,20 @@ impl Tag {
     /// Returns the description of the tag.
     #[inline]
     pub fn description(&self) -> Option<&str> {
-        get_tag_info(self).map(|ti| ti.desc)
+        get_tag_info(*self).map(|ti| ti.desc)
     }
 
     /// Returns the default value of the tag.  `None` is returned if
     /// it is not defined in the standard or it depends on the context.
     #[inline]
     pub fn default_value(&self) -> Option<Value> {
-        get_tag_info(self).and_then(|ti| (&ti.default).into())
+        get_tag_info(*self).and_then(|ti| (&ti.default).into())
     }
 }
 
 impl fmt::Display for Tag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match get_tag_info(self) {
+        match get_tag_info(*self) {
             Some(ti) => f.pad(ti.name),
             None => f.pad(&format!("{:?}", self)),
         }
@@ -153,8 +153,8 @@ macro_rules! generate_well_known_tag_constants {
             )+)+
         }
 
-        fn get_tag_info(tag: &Tag) -> Option<&tag_info::TagInfo> {
-            match *tag {
+        fn get_tag_info(tag: Tag) -> Option<&'static tag_info::TagInfo> {
+            match tag {
                 $($(
                     constants::$name => Some(&tag_info::$name),
                 )+)+
