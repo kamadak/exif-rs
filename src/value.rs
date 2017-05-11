@@ -68,6 +68,29 @@ pub enum Value<'a> {
     Unknown(u16, u32, u32),
 }
 
+impl<'a> Value<'a> {
+    /// Returns an object that implements `std::fmt::Display` for
+    /// printing a value in a tag-specific format.
+    /// The tag of the value is specified as the argument.
+    #[inline]
+    pub fn display_as(&self, tag: ::tag_priv::Tag) -> Display {
+        ::tag_priv::display_value_as(self, tag)
+    }
+}
+
+/// Helper struct for printing a value in a tag-specific format.
+pub struct Display<'a> {
+    pub fmt: fn(&mut fmt::Write, &Value) -> fmt::Result,
+    pub value: &'a Value<'a>,
+}
+
+impl<'a> fmt::Display for Display<'a> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        (self.fmt)(f, self.value)
+    }
+}
+
 // Static default values.
 pub enum DefaultValue {
     None,
