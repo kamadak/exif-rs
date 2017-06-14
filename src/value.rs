@@ -122,6 +122,7 @@ impl<'a> From<&'a DefaultValue> for Option<Value<'a>> {
 }
 
 /// An unsigned rational number, which is a pair of 32-bit unsigned integers.
+#[derive(Copy, Clone)]
 pub struct Rational { pub num: u32, pub denom: u32 }
 
 fn tuple2rational(t: (u32, u32)) -> Rational {
@@ -143,6 +144,7 @@ impl fmt::Display for Rational {
 }
 
 /// A signed rational number, which is a pair of 32-bit signed integers.
+#[derive(Copy, Clone)]
 pub struct SRational { pub num: i32, pub denom: i32 }
 
 impl fmt::Debug for SRational {
