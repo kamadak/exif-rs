@@ -24,6 +24,8 @@
 // SUCH DAMAGE.
 //
 
+use std::fmt;
+
 use endian::{Endian, BigEndian, LittleEndian};
 use error::Error;
 use tag;
@@ -157,6 +159,14 @@ pub fn is_tiff(buf: &[u8]) -> bool {
 }
 
 /// A struct used to parse a DateTime field.
+///
+/// # Examples
+/// ```
+/// use exif::DateTime;
+/// let dt = DateTime::from_ascii(b"2016:05:04 03:02:01").unwrap();
+/// assert_eq!(dt.year, 2016);
+/// assert_eq!(format!("{}", dt), "2016-05-04 03:02:01");
+/// ```
 #[derive(Debug)]
 pub struct DateTime {
     pub year: u16,
@@ -187,6 +197,14 @@ impl DateTime {
             minute: try!(atou16(&data[14..16])) as u8,
             second: try!(atou16(&data[17..19])) as u8,
         })
+    }
+}
+
+impl fmt::Display for DateTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+               self.year, self.month, self.day,
+               self.hour, self.minute, self.second)
     }
 }
 
