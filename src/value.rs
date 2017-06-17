@@ -72,6 +72,18 @@ impl<'a> Value<'a> {
     /// Returns an object that implements `std::fmt::Display` for
     /// printing a value in a tag-specific format.
     /// The tag of the value is specified as the argument.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use exif::{Value, tag};
+    /// let val = Value::Undefined(b"0231");
+    /// assert_eq!(format!("{}", val.display_as(tag::ExifVersion)),
+    ///            "2.31");
+    /// let val = Value::Short(vec![2]);
+    /// assert_eq!(format!("{}", val.display_as(tag::ResolutionUnit)),
+    ///            "pixels per inch");
+    /// ```
     #[inline]
     pub fn display_as(&self, tag: ::tag_priv::Tag) -> Display {
         ::tag_priv::display_value_as(self, tag)

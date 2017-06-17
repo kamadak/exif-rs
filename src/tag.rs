@@ -28,6 +28,7 @@ use std::fmt;
 
 use value;
 use value::Value;
+use util::atou16;
 
 /// A tag of a TIFF field.
 //
@@ -180,320 +181,320 @@ generate_well_known_tag_constants!(
 
     /// A pointer to the Exif IFD.  This is used for the internal structure
     /// of Exif data and will not be returned to the user.
-    (ExifIFDPointer, 0x8769, DefaultValue::None, d_tbd,
+    (ExifIFDPointer, 0x8769, DefaultValue::None, d_default,
      "Exif IFD pointer"),
     /// A pointer to the GPS IFD.  This is used for the internal structure
     /// of Exif data and will not be returned to the user.
-    (GPSInfoIFDPointer, 0x8825, DefaultValue::None, d_tbd,
+    (GPSInfoIFDPointer, 0x8825, DefaultValue::None, d_default,
      "GPS Info IFD pointer"),
 
     |Context::Exif|
 
     /// A pointer to the interoperability IFD.  This is used for the internal
     /// structure of Exif data and will not be returned to the user.
-    (InteropIFDPointer, 0xa005, DefaultValue::None, d_tbd,
+    (InteropIFDPointer, 0xa005, DefaultValue::None, d_default,
      "Interoperability IFD pointer"),
 
     // TIFF primary and thumbnail attributes [EXIF23 4.6.4 Table 4,
     // 4.6.8 Table 17, and 4.6.8 Table 21].
     |Context::Tiff|
 
-    (ImageWidth, 0x100, DefaultValue::None, d_tbd,
+    (ImageWidth, 0x100, DefaultValue::None, d_default,
      "Image width"),
-    (ImageLength, 0x101, DefaultValue::None, d_tbd,
+    (ImageLength, 0x101, DefaultValue::None, d_default,
      "Image height"),
-    (BitsPerSample, 0x102, DefaultValue::Short(&[8, 8, 8]), d_tbd,
+    (BitsPerSample, 0x102, DefaultValue::Short(&[8, 8, 8]), d_default,
      "Number of bits per component"),
-    (Compression, 0x103, DefaultValue::None, d_tbd,
+    (Compression, 0x103, DefaultValue::None, d_compression,
      "Compression scheme"),
-    (PhotometricInterpretation, 0x106, DefaultValue::None, d_tbd,
+    (PhotometricInterpretation, 0x106, DefaultValue::None, d_photointp,
      "Pixel composition"),
-    (ImageDescription, 0x10e, DefaultValue::None, d_tbd,
+    (ImageDescription, 0x10e, DefaultValue::None, d_default,
      "Image title"),
-    (Make, 0x10f, DefaultValue::None, d_tbd,
+    (Make, 0x10f, DefaultValue::None, d_default,
      "Manufacturer of image input equipment"),
-    (Model, 0x110, DefaultValue::None, d_tbd,
+    (Model, 0x110, DefaultValue::None, d_default,
      "Model of image input equipment"),
-    (StripOffsets, 0x111, DefaultValue::None, d_tbd,
+    (StripOffsets, 0x111, DefaultValue::None, d_default,
      "Image data location"),
-    (Orientation, 0x112, DefaultValue::Short(&[1]), d_tbd,
+    (Orientation, 0x112, DefaultValue::Short(&[1]), d_orientation,
      "Orientation of image"),
-    (SamplesPerPixel, 0x115, DefaultValue::Short(&[3]), d_tbd,
+    (SamplesPerPixel, 0x115, DefaultValue::Short(&[3]), d_default,
      "Number of components"),
-    (RowsPerStrip, 0x116, DefaultValue::None, d_tbd,
+    (RowsPerStrip, 0x116, DefaultValue::None, d_default,
      "Number of rows per strip"),
-    (StripByteCounts, 0x117, DefaultValue::None, d_tbd,
+    (StripByteCounts, 0x117, DefaultValue::None, d_default,
      "Bytes per compressed strip"),
-    (XResolution, 0x11a, DefaultValue::Rational(&[(72, 1)]), d_tbd,
+    (XResolution, 0x11a, DefaultValue::Rational(&[(72, 1)]), d_decimal,
      "Image resolution in width direction"),
-    (YResolution, 0x11b, DefaultValue::Rational(&[(72, 1)]), d_tbd,
+    (YResolution, 0x11b, DefaultValue::Rational(&[(72, 1)]), d_decimal,
      "Image resolution in height direction"),
-    (PlanarConfiguration, 0x11c, DefaultValue::Short(&[1]), d_tbd,
+    (PlanarConfiguration, 0x11c, DefaultValue::Short(&[1]), d_planarcfg,
      "Image data arrangement"),
-    (ResolutionUnit, 0x128, DefaultValue::Short(&[2]), d_tbd,
+    (ResolutionUnit, 0x128, DefaultValue::Short(&[2]), d_resunit,
      "Unit of X and Y resolution"),
-    (TransferFunction, 0x12d, DefaultValue::None, d_tbd,
+    (TransferFunction, 0x12d, DefaultValue::None, d_default,
      "Transfer function"),
-    (Software, 0x131, DefaultValue::None, d_tbd,
+    (Software, 0x131, DefaultValue::None, d_default,
      "Software used"),
-    (DateTime, 0x132, DefaultValue::None, d_tbd,
+    (DateTime, 0x132, DefaultValue::None, d_datetime,
      "File change date and time"),
-    (Artist, 0x13b, DefaultValue::None, d_tbd,
+    (Artist, 0x13b, DefaultValue::None, d_default,
      "Person who created the image"),
-    (WhitePoint, 0x13e, DefaultValue::None, d_tbd,
+    (WhitePoint, 0x13e, DefaultValue::None, d_decimal,
      "White point chromaticity"),
-    (PrimaryChromaticities, 0x13f, DefaultValue::None, d_tbd,
+    (PrimaryChromaticities, 0x13f, DefaultValue::None, d_decimal,
      "Chromaticities of primaries"),
-    (JPEGInterchangeFormat, 0x201, DefaultValue::None, d_tbd,
+    (JPEGInterchangeFormat, 0x201, DefaultValue::None, d_default,
      "Offset to JPEG SOI"),
-    (JPEGInterchangeFormatLength, 0x202, DefaultValue::None, d_tbd,
+    (JPEGInterchangeFormatLength, 0x202, DefaultValue::None, d_default,
      "Bytes of JPEG data"),
-    (YCbCrCoefficients, 0x211, DefaultValue::Unspecified, d_tbd,
+    (YCbCrCoefficients, 0x211, DefaultValue::Unspecified, d_decimal,
      "Color space transformation matrix coefficients"),
-    (YCbCrSubSampling, 0x212, DefaultValue::None, d_tbd,
+    (YCbCrSubSampling, 0x212, DefaultValue::None, d_ycbcrsubsamp,
      "Subsampling ratio of Y to C"),
-    (YCbCrPositioning, 0x213, DefaultValue::Short(&[1]), d_tbd,
+    (YCbCrPositioning, 0x213, DefaultValue::Short(&[1]), d_ycbcrpos,
      "Y and C positioning"),
-    (ReferenceBlackWhite, 0x214, DefaultValue::ContextDependent, d_tbd,
+    (ReferenceBlackWhite, 0x214, DefaultValue::ContextDependent, d_decimal,
      "Pair of black and white reference values"),
-    (Copyright, 0x8298, DefaultValue::None, d_tbd,
+    (Copyright, 0x8298, DefaultValue::None, d_default,
      "Copyright holder"),
 
     // Exif IFD attributes [EXIF23 4.6.5 Table 7 and 4.6.8 Table 18].
     |Context::Exif|
 
-    (ExposureTime, 0x829a, DefaultValue::None, d_tbd,
+    (ExposureTime, 0x829a, DefaultValue::None, d_exptime,
      "Exposure time"),
-    (FNumber, 0x829d, DefaultValue::None, d_tbd,
+    (FNumber, 0x829d, DefaultValue::None, d_fnumber,
      "F number"),
-    (ExposureProgram, 0x8822, DefaultValue::None, d_tbd,
+    (ExposureProgram, 0x8822, DefaultValue::None, d_expprog,
      "Exposure program"),
-    (SpectralSensitivity, 0x8824, DefaultValue::None, d_tbd,
+    (SpectralSensitivity, 0x8824, DefaultValue::None, d_default,
      "Spectral sensitivity"),
-    (PhotographicSensitivity, 0x8827, DefaultValue::None, d_tbd,
+    (PhotographicSensitivity, 0x8827, DefaultValue::None, d_default,
      "Photographic sensitivity"),
-    (OECF, 0x8828, DefaultValue::None, d_tbd,
+    (OECF, 0x8828, DefaultValue::None, d_default,
      "Optoelectric conversion factor"),
-    (SensitivityType, 0x8830, DefaultValue::None, d_tbd,
+    (SensitivityType, 0x8830, DefaultValue::None, d_sensitivitytype,
      "Sensitivity type"),
-    (StandardOutputSensitivity, 0x8831, DefaultValue::None, d_tbd,
+    (StandardOutputSensitivity, 0x8831, DefaultValue::None, d_default,
      "Standard output sensitivity"),
-    (RecommendedExposureIndex, 0x8832, DefaultValue::None, d_tbd,
+    (RecommendedExposureIndex, 0x8832, DefaultValue::None, d_default,
      "Recommended exposure index"),
-    (ISOSpeed, 0x8833, DefaultValue::None, d_tbd,
+    (ISOSpeed, 0x8833, DefaultValue::None, d_default,
      "ISO speed"),
-    (ISOSpeedLatitudeyyy, 0x8834, DefaultValue::None, d_tbd,
+    (ISOSpeedLatitudeyyy, 0x8834, DefaultValue::None, d_default,
      "ISO speed latitude yyy"),
-    (ISOSpeedLatitudezzz, 0x8835, DefaultValue::None, d_tbd,
+    (ISOSpeedLatitudezzz, 0x8835, DefaultValue::None, d_default,
      "ISO speed latitude zzz"),
     // The absence of this field means non-conformance to Exif, so the default
     // value specified in the standard (e.g., "0231") should not apply.
-    (ExifVersion, 0x9000, DefaultValue::None, d_tbd,
+    (ExifVersion, 0x9000, DefaultValue::None, d_exifver,
      "Exif version"),
-    (DateTimeOriginal, 0x9003, DefaultValue::None, d_tbd,
+    (DateTimeOriginal, 0x9003, DefaultValue::None, d_datetime,
      "Date and time of original data generation"),
-    (DateTimeDigitized, 0x9004, DefaultValue::None, d_tbd,
+    (DateTimeDigitized, 0x9004, DefaultValue::None, d_datetime,
      "Date and time of digital data generation"),
-    (OffsetTime, 0x9010, DefaultValue::None, d_tbd,
+    (OffsetTime, 0x9010, DefaultValue::None, d_default,
      "Offset data of DateTime"),
-    (OffsetTimeOriginal, 0x9011, DefaultValue::None, d_tbd,
+    (OffsetTimeOriginal, 0x9011, DefaultValue::None, d_default,
      "Offset data of DateTimeOriginal"),
-    (OffsetTimeDigitized, 0x9012, DefaultValue::None, d_tbd,
+    (OffsetTimeDigitized, 0x9012, DefaultValue::None, d_default,
      "Offset data of DateTimeDigitized"),
-    (ComponentsConfiguration, 0x9101, DefaultValue::ContextDependent, d_tbd,
+    (ComponentsConfiguration, 0x9101, DefaultValue::ContextDependent, d_cpntcfg,
      "Meaning of each component"),
-    (CompressedBitsPerPixel, 0x9102, DefaultValue::None, d_tbd,
+    (CompressedBitsPerPixel, 0x9102, DefaultValue::None, d_decimal,
      "Image compression mode"),
-    (ShutterSpeedValue, 0x9201, DefaultValue::None, d_tbd,
+    (ShutterSpeedValue, 0x9201, DefaultValue::None, d_decimal,
      "Shutter speed"),
-    (ApertureValue, 0x9202, DefaultValue::None, d_tbd,
+    (ApertureValue, 0x9202, DefaultValue::None, d_decimal,
      "Aperture"),
-    (BrightnessValue, 0x9203, DefaultValue::None, d_tbd,
+    (BrightnessValue, 0x9203, DefaultValue::None, d_decimal,
      "Brightness"),
-    (ExposureBiasValue, 0x9204, DefaultValue::None, d_tbd,
+    (ExposureBiasValue, 0x9204, DefaultValue::None, d_decimal,
      "Exposure bias"),
-    (MaxApertureValue, 0x9205, DefaultValue::None, d_tbd,
+    (MaxApertureValue, 0x9205, DefaultValue::None, d_decimal,
      "Maximum lens aperture"),
-    (SubjectDistance, 0x9206, DefaultValue::None, d_tbd,
+    (SubjectDistance, 0x9206, DefaultValue::None, d_subjdist,
      "Subject distance"),
-    (MeteringMode, 0x9207, DefaultValue::Short(&[0]), d_tbd,
+    (MeteringMode, 0x9207, DefaultValue::Short(&[0]), d_metering,
      "Metering mode"),
-    (LightSource, 0x9208, DefaultValue::Short(&[0]), d_tbd,
+    (LightSource, 0x9208, DefaultValue::Short(&[0]), d_lightsrc,
      "Light source"),
-    (Flash, 0x9209, DefaultValue::Unspecified, d_tbd,
+    (Flash, 0x9209, DefaultValue::Unspecified, d_flash,
      "Flash"),
-    (FocalLength, 0x920a, DefaultValue::None, d_tbd,
+    (FocalLength, 0x920a, DefaultValue::None, d_decimal,
      "Lens focal length"),
-    (SubjectArea, 0x9214, DefaultValue::None, d_tbd,
+    (SubjectArea, 0x9214, DefaultValue::None, d_subjarea,
      "Subject area"),
-    (MakerNote, 0x927c, DefaultValue::None, d_tbd,
+    (MakerNote, 0x927c, DefaultValue::None, d_default,
      "Manufacturer notes"),
-    (UserComment, 0x9286, DefaultValue::None, d_tbd,
+    (UserComment, 0x9286, DefaultValue::None, d_default,
      "User comments"),
-    (SubSecTime, 0x9290, DefaultValue::None, d_tbd,
+    (SubSecTime, 0x9290, DefaultValue::None, d_default,
      "DateTime subseconds"),
-    (SubSecTimeOriginal, 0x9291, DefaultValue::None, d_tbd,
+    (SubSecTimeOriginal, 0x9291, DefaultValue::None, d_default,
      "DateTimeOriginal subseconds"),
-    (SubSecTimeDigitized, 0x9292, DefaultValue::None, d_tbd,
+    (SubSecTimeDigitized, 0x9292, DefaultValue::None, d_default,
      "DateTimeDigitized subseconds"),
-    (Temperature, 0x9400, DefaultValue::None, d_tbd,
+    (Temperature, 0x9400, DefaultValue::None, d_optdecimal,
      "Temperature"),
-    (Humidity, 0x9401, DefaultValue::None, d_tbd,
+    (Humidity, 0x9401, DefaultValue::None, d_optdecimal,
      "Humidity"),
-    (Pressure, 0x9402, DefaultValue::None, d_tbd,
+    (Pressure, 0x9402, DefaultValue::None, d_optdecimal,
      "Pressure"),
-    (WaterDepth, 0x9403, DefaultValue::None, d_tbd,
+    (WaterDepth, 0x9403, DefaultValue::None, d_optdecimal,
      "Water depth"),
-    (Acceleration, 0x9404, DefaultValue::None, d_tbd,
+    (Acceleration, 0x9404, DefaultValue::None, d_optdecimal,
      "Acceleration"),
-    (CameraElevationAngle, 0x9405, DefaultValue::None, d_tbd,
+    (CameraElevationAngle, 0x9405, DefaultValue::None, d_optdecimal,
      "Camera elevation angle"),
-    (FlashpixVersion, 0xa000, DefaultValue::Undefined(b"0100"), d_tbd,
+    (FlashpixVersion, 0xa000, DefaultValue::Undefined(b"0100"), d_exifver,
      "Supported Flashpix version"),
-    (ColorSpace, 0xa001, DefaultValue::Unspecified, d_tbd,
+    (ColorSpace, 0xa001, DefaultValue::Unspecified, d_cspace,
      "Color space information"),
-    (PixelXDimension, 0xa002, DefaultValue::None, d_tbd,
+    (PixelXDimension, 0xa002, DefaultValue::None, d_default,
      "Valid image width"),
-    (PixelYDimension, 0xa003, DefaultValue::Unspecified, d_tbd,
+    (PixelYDimension, 0xa003, DefaultValue::Unspecified, d_default,
      "Valid image height"),
-    (RelatedSoundFile, 0xa004, DefaultValue::None, d_tbd,
+    (RelatedSoundFile, 0xa004, DefaultValue::None, d_default,
      "Related audio file"),
-    (FlashEnergy, 0xa20b, DefaultValue::None, d_tbd,
+    (FlashEnergy, 0xa20b, DefaultValue::None, d_decimal,
      "Flash energy"),
-    (SpatialFrequencyResponse, 0xa20c, DefaultValue::None, d_tbd,
+    (SpatialFrequencyResponse, 0xa20c, DefaultValue::None, d_default,
      "Spatial frequency response"),
-    (FocalPlaneXResolution, 0xa20e, DefaultValue::None, d_tbd,
+    (FocalPlaneXResolution, 0xa20e, DefaultValue::None, d_decimal,
      "Focal plane X resolution"),
-    (FocalPlaneYResolution, 0xa20f, DefaultValue::None, d_tbd,
+    (FocalPlaneYResolution, 0xa20f, DefaultValue::None, d_decimal,
      "Focal plane Y resolution"),
-    (FocalPlaneResolutionUnit, 0xa210, DefaultValue::Short(&[2]), d_tbd,
+    (FocalPlaneResolutionUnit, 0xa210, DefaultValue::Short(&[2]), d_resunit,
      "Focal plane resolution unit"),
-    (SubjectLocation, 0xa214, DefaultValue::None, d_tbd,
+    (SubjectLocation, 0xa214, DefaultValue::None, d_subjarea,
      "Subject location"),
-    (ExposureIndex, 0xa215, DefaultValue::None, d_tbd,
+    (ExposureIndex, 0xa215, DefaultValue::None, d_decimal,
      "Exposure index"),
-    (SensingMethod, 0xa217, DefaultValue::None, d_tbd,
+    (SensingMethod, 0xa217, DefaultValue::None, d_sensingmethod,
      "Sensing method"),
-    (FileSource, 0xa300, DefaultValue::Undefined(&[3]), d_tbd,
+    (FileSource, 0xa300, DefaultValue::Undefined(&[3]), d_filesrc,
      "File source"),
-    (SceneType, 0xa301, DefaultValue::Undefined(&[1]), d_tbd,
+    (SceneType, 0xa301, DefaultValue::Undefined(&[1]), d_scenetype,
      "Scene type"),
-    (CFAPattern, 0xa302, DefaultValue::None, d_tbd,
+    (CFAPattern, 0xa302, DefaultValue::None, d_default,
      "CFA pattern"),
-    (CustomRendered, 0xa401, DefaultValue::Short(&[0]), d_tbd,
+    (CustomRendered, 0xa401, DefaultValue::Short(&[0]), d_customrendered,
      "Custom image processing"),
-    (ExposureMode, 0xa402, DefaultValue::None, d_tbd,
+    (ExposureMode, 0xa402, DefaultValue::None, d_expmode,
      "Exposure mode"),
-    (WhiteBalance, 0xa403, DefaultValue::None, d_tbd,
+    (WhiteBalance, 0xa403, DefaultValue::None, d_whitebalance,
      "White balance"),
-    (DigitalZoomRatio, 0xa404, DefaultValue::None, d_tbd,
+    (DigitalZoomRatio, 0xa404, DefaultValue::None, d_dzoomratio,
      "Digital zoom ratio"),
-    (FocalLengthIn35mmFilm, 0xa405, DefaultValue::None, d_tbd,
+    (FocalLengthIn35mmFilm, 0xa405, DefaultValue::None, d_focallen35,
      "Focal length in 35 mm film"),
-    (SceneCaptureType, 0xa406, DefaultValue::Short(&[0]), d_tbd,
+    (SceneCaptureType, 0xa406, DefaultValue::Short(&[0]), d_scenecaptype,
      "Scene capture type"),
-    (GainControl, 0xa407, DefaultValue::None, d_tbd,
+    (GainControl, 0xa407, DefaultValue::None, d_gainctrl,
      "Gain control"),
-    (Contrast, 0xa408, DefaultValue::Short(&[0]), d_tbd,
+    (Contrast, 0xa408, DefaultValue::Short(&[0]), d_contrast,
      "Contrast"),
-    (Saturation, 0xa409, DefaultValue::Short(&[0]), d_tbd,
+    (Saturation, 0xa409, DefaultValue::Short(&[0]), d_saturation,
      "Saturation"),
-    (Sharpness, 0xa40a, DefaultValue::Short(&[0]), d_tbd,
+    (Sharpness, 0xa40a, DefaultValue::Short(&[0]), d_sharpness,
      "Sharpness"),
-    (DeviceSettingDescription, 0xa40b, DefaultValue::None, d_tbd,
+    (DeviceSettingDescription, 0xa40b, DefaultValue::None, d_default,
      "Device settings description"),
-    (SubjectDistanceRange, 0xa40c, DefaultValue::None, d_tbd,
+    (SubjectDistanceRange, 0xa40c, DefaultValue::None, d_subjdistrange,
      "Subject distance range"),
-    (ImageUniqueID, 0xa420, DefaultValue::None, d_tbd,
+    (ImageUniqueID, 0xa420, DefaultValue::None, d_default,
      "Unique image ID"),
-    (CameraOwnerName, 0xa430, DefaultValue::None, d_tbd,
+    (CameraOwnerName, 0xa430, DefaultValue::None, d_default,
      "Camera owner name"),
-    (BodySerialNumber, 0xa431, DefaultValue::None, d_tbd,
+    (BodySerialNumber, 0xa431, DefaultValue::None, d_default,
      "Body serial number"),
-    (LensSpecification, 0xa432, DefaultValue::None, d_tbd,
+    (LensSpecification, 0xa432, DefaultValue::None, d_lensspec,
      "Lens specification"),
-    (LensMake, 0xa433, DefaultValue::None, d_tbd,
+    (LensMake, 0xa433, DefaultValue::None, d_default,
      "Lens make"),
-    (LensModel, 0xa434, DefaultValue::None, d_tbd,
+    (LensModel, 0xa434, DefaultValue::None, d_default,
      "Lens model"),
-    (LensSerialNumber, 0xa435, DefaultValue::None, d_tbd,
+    (LensSerialNumber, 0xa435, DefaultValue::None, d_default,
      "Lens serial number"),
-    (Gamma, 0xa500, DefaultValue::None, d_tbd,
+    (Gamma, 0xa500, DefaultValue::None, d_decimal,
      "Gamma"),
 
     // GPS attributes [EXIF23 4.6.6 Table 15 and 4.6.8 Table 19].
     |Context::Gps|
 
     // Depends on the Exif version.
-    (GPSVersionID, 0x0, DefaultValue::ContextDependent, d_tbd,
+    (GPSVersionID, 0x0, DefaultValue::ContextDependent, d_gpsver,
      "GPS tag version"),
-    (GPSLatitudeRef, 0x1, DefaultValue::None, d_tbd,
+    (GPSLatitudeRef, 0x1, DefaultValue::None, d_default,
      "North or south latitude"),
-    (GPSLatitude, 0x2, DefaultValue::None, d_tbd,
+    (GPSLatitude, 0x2, DefaultValue::None, d_gpsdms,
      "Latitude"),
-    (GPSLongitudeRef, 0x3, DefaultValue::None, d_tbd,
+    (GPSLongitudeRef, 0x3, DefaultValue::None, d_default,
      "East or West Longitude"),
-    (GPSLongitude, 0x4, DefaultValue::None, d_tbd,
+    (GPSLongitude, 0x4, DefaultValue::None, d_gpsdms,
      "Longitude"),
-    (GPSAltitudeRef, 0x5, DefaultValue::Byte(&[0]), d_tbd,
+    (GPSAltitudeRef, 0x5, DefaultValue::Byte(&[0]), d_gpsaltref,
      "Altitude reference"),
-    (GPSAltitude, 0x6, DefaultValue::None, d_tbd,
+    (GPSAltitude, 0x6, DefaultValue::None, d_decimal,
      "Altitude"),
-    (GPSTimeStamp, 0x7, DefaultValue::None, d_tbd,
+    (GPSTimeStamp, 0x7, DefaultValue::None, d_gpstimestamp,
      "GPS time (atomic clock)"),
-    (GPSSatellites, 0x8, DefaultValue::None, d_tbd,
+    (GPSSatellites, 0x8, DefaultValue::None, d_default,
      "GPS satellites used for measurement"),
-    (GPSStatus, 0x9, DefaultValue::None, d_tbd,
+    (GPSStatus, 0x9, DefaultValue::None, d_gpsstatus,
      "GPS receiver status"),
-    (GPSMeasureMode, 0xa, DefaultValue::None, d_tbd,
+    (GPSMeasureMode, 0xa, DefaultValue::None, d_gpsmeasuremode,
      "GPS measurement mode"),
-    (GPSDOP, 0xb, DefaultValue::None, d_tbd,
+    (GPSDOP, 0xb, DefaultValue::None, d_decimal,
      "Measurement precision"),
-    (GPSSpeedRef, 0xc, DefaultValue::Ascii(&[b"K"]), d_tbd,
+    (GPSSpeedRef, 0xc, DefaultValue::Ascii(&[b"K"]), d_gpsspeedref,
      "Speed unit"),
-    (GPSSpeed, 0xd, DefaultValue::None, d_tbd,
+    (GPSSpeed, 0xd, DefaultValue::None, d_decimal,
      "Speed of GPS receiver"),
-    (GPSTrackRef, 0xe, DefaultValue::Ascii(&[b"T"]), d_tbd,
+    (GPSTrackRef, 0xe, DefaultValue::Ascii(&[b"T"]), d_gpsdirref,
      "Reference for direction of movement"),
-    (GPSTrack, 0xf, DefaultValue::None, d_tbd,
+    (GPSTrack, 0xf, DefaultValue::None, d_decimal,
      "Direction of movement"),
-    (GPSImgDirectionRef, 0x10, DefaultValue::Ascii(&[b"T"]), d_tbd,
+    (GPSImgDirectionRef, 0x10, DefaultValue::Ascii(&[b"T"]), d_gpsdirref,
      "Reference for direction of image"),
-    (GPSImgDirection, 0x11, DefaultValue::None, d_tbd,
+    (GPSImgDirection, 0x11, DefaultValue::None, d_decimal,
      "Direction of image"),
-    (GPSMapDatum, 0x12, DefaultValue::None, d_tbd,
+    (GPSMapDatum, 0x12, DefaultValue::None, d_default,
      "Geodetic survey data used"),
-    (GPSDestLatitudeRef, 0x13, DefaultValue::None, d_tbd,
+    (GPSDestLatitudeRef, 0x13, DefaultValue::None, d_default,
      "Reference for latitude of destination"),
-    (GPSDestLatitude, 0x14, DefaultValue::None, d_tbd,
+    (GPSDestLatitude, 0x14, DefaultValue::None, d_gpsdms,
      "Latitude of destination"),
-    (GPSDestLongitudeRef, 0x15, DefaultValue::None, d_tbd,
+    (GPSDestLongitudeRef, 0x15, DefaultValue::None, d_default,
      "Reference for longitude of destination"),
-    (GPSDestLongitude, 0x16, DefaultValue::None, d_tbd,
+    (GPSDestLongitude, 0x16, DefaultValue::None, d_gpsdms,
      "Longitude of destination"),
-    (GPSDestBearingRef, 0x17, DefaultValue::Ascii(&[b"T"]), d_tbd,
+    (GPSDestBearingRef, 0x17, DefaultValue::Ascii(&[b"T"]), d_gpsdirref,
      "Reference for bearing of destination"),
-    (GPSDestBearing, 0x18, DefaultValue::None, d_tbd,
+    (GPSDestBearing, 0x18, DefaultValue::None, d_decimal,
      "Bearing of destination"),
-    (GPSDestDistanceRef, 0x19, DefaultValue::Ascii(&[b"K"]), d_tbd,
+    (GPSDestDistanceRef, 0x19, DefaultValue::Ascii(&[b"K"]), d_gpsdistref,
      "Reference for distance to destination"),
-    (GPSDestDistance, 0x1a, DefaultValue::None, d_tbd,
+    (GPSDestDistance, 0x1a, DefaultValue::None, d_decimal,
      "Distance to destination"),
-    (GPSProcessingMethod, 0x1b, DefaultValue::None, d_tbd,
+    (GPSProcessingMethod, 0x1b, DefaultValue::None, d_ascii_in_undef,
      "Name of GPS processing method"),
-    (GPSAreaInformation, 0x1c, DefaultValue::None, d_tbd,
+    (GPSAreaInformation, 0x1c, DefaultValue::None, d_default,
      "Name of GPS area"),
-    (GPSDateStamp, 0x1d, DefaultValue::None, d_tbd,
+    (GPSDateStamp, 0x1d, DefaultValue::None, d_gpsdatestamp,
      "GPS date"),
-    (GPSDifferential, 0x1e, DefaultValue::None, d_tbd,
+    (GPSDifferential, 0x1e, DefaultValue::None, d_gpsdifferential,
      "GPS differential correction"),
-    (GPSHPositioningError, 0x1f, DefaultValue::None, d_tbd,
+    (GPSHPositioningError, 0x1f, DefaultValue::None, d_decimal,
      "Horizontal positioning error"),
 
     // Interoperability attributes [EXIF23 4.6.7 Table 16 and 4.6.8 Table 20].
     |Context::Interop|
 
-    (InteroperabilityIndex, 0x1, DefaultValue::None, d_tbd,
+    (InteroperabilityIndex, 0x1, DefaultValue::None, d_default,
      "Interoperability identification"),
 );
 
@@ -505,8 +506,668 @@ pub fn display_value_as<'a>(value: &'a Value, tag: Tag) -> value::Display<'a> {
     }
 }
 
-fn d_tbd(_w: &mut fmt::Write, _value: &Value) -> fmt::Result {
-    unimplemented!();
+// Compression (TIFF 0x103)
+fn d_compression(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "uncompressed",
+        Some(2) => "Modified Huffman",
+        Some(6) => "JPEG",
+        Some(32773) => "PackBits",
+        _ => return d_unknown(w, value, "unknown compression "),
+    };
+    w.write_str(s)
+}
+
+// PhotometricInterpretation (TIFF 0x106)
+fn d_photointp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "white is zero",
+        Some(1) => "black is zero",
+        Some(2) => "RGB",
+        Some(3) => "palette color",
+        Some(4) => "transparency mask",
+        Some(6) => "YCbCr",
+        _ => return d_unknown(w, value, "unknown photometric interpretation "),
+    };
+    w.write_str(s)
+}
+
+// Orientation (TIFF 0x112)
+fn d_orientation(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "row 0 at top and column 0 at left",
+        Some(2) => "row 0 at top and column 0 at right",
+        Some(3) => "row 0 at bottom and column 0 at right",
+        Some(4) => "row 0 at bottom and column 0 at left",
+        Some(5) => "row 0 at left and column 0 at top",
+        Some(6) => "row 0 at right and column 0 at top",
+        Some(7) => "row 0 at right and column 0 at bottom",
+        Some(8) => "row 0 at left and column 0 at bottom",
+        _ => return d_unknown(w, value, "unknown orientation "),
+    };
+    w.write_str(s)
+}
+
+// PlanarConfiguration (TIFF 0x11c)
+fn d_planarcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "chunky",
+        Some(2) => "planar",
+        _ => return d_unknown(w, value, "unknown planar configuration "),
+    };
+    w.write_str(s)
+}
+
+// ResolutionUnit (TIFF 0x128)
+fn d_resunit(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "no absolute unit",
+        Some(2) => "pixels per inch",
+        Some(3) => "pixels per centimeter",
+        _ => return d_unknown(w, value, "unknown unit "),
+    };
+    w.write_str(s)
+}
+
+// DateTime (TIFF 0x132), DateTimeOriginal (Exif 0x9003), and
+// DateTimeDigitized (Exif 0x9004)
+fn d_datetime(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    if let Value::Ascii(ref v) = *value {
+        if let Some(dt) = v.first() {
+            if let Ok(dt) = ::tiff::DateTime::from_ascii(dt) {
+                return write!(w, "{}", dt)
+            }
+        }
+    }
+    d_default(w, value)
+}
+
+// YCbCrSubSampling (TIFF 0x212)
+fn d_ycbcrsubsamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let horiz = value.get_uint(0).unwrap_or(0);
+    let vert = value.get_uint(1).unwrap_or(0);
+    let s = match (horiz, vert) {
+        (1, 1) => "full horizontally, full vertically (4:4:4)",
+        (1, 2) => "full horizontally, half vertically",
+        (1, 4) => "full horizontally, quarter vertically",
+        (2, 1) => "half horizontally, full vertically (4:2:2)",
+        (2, 2) => "half horizontally, half vertically (4:2:0)",
+        (2, 4) => "half horizontally, quarter vertically",
+        (4, 1) => "quarter horizontally, full vertically (4:1:1)",
+        (4, 2) => "quarter horizontally, half vertically",
+        (4, 4) => "quarter horizontally, quarter vertically",
+        _ => return d_default(w, value),
+    };
+    w.write_str(s)
+}
+
+// YCbCrPositioning (TIFF 0x213)
+fn d_ycbcrpos(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "centered",
+        Some(2) => "co-sited",
+        _ => return d_unknown(w, value, "unknown YCbCr positioning "),
+    };
+    w.write_str(s)
+}
+
+// ExposureTime (Exif 0x829a)
+fn d_exptime(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    if let Value::Rational(ref v) = *value {
+        if let Some(et) = v.first() {
+            if et.num >= et.denom {
+                return write!(w, "{}", et.to_f64());
+            } else if et.num != 0 {
+                return write!(w, "1/{}", et.denom as f64 / et.num as f64);
+            }
+        }
+    }
+    d_default(w, value)
+}
+
+// FNumber (Exif 0x829d)
+fn d_fnumber(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    try!(w.write_str("f/"));
+    d_decimal(w, value)
+}
+
+// ExposureProgram (Exif 0x8822)
+fn d_expprog(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "manual",
+        Some(2) => "normal program",
+        Some(3) => "aperture priority",
+        Some(4) => "shutter priority",
+        Some(5) => "creative program",
+        Some(6) => "action program",
+        Some(7) => "portrait mode",
+        Some(8) => "landscape mode",
+        _ => return d_unknown(w, value, "unknown exposure program "),
+    };
+    w.write_str(s)
+}
+
+// SensitivityType (Exif 0x8830)
+fn d_sensitivitytype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "SOS",
+        Some(2) => "REI",
+        Some(3) => "ISO speed",
+        Some(4) => "SOS/REI",
+        Some(5) => "SOS/ISO speed",
+        Some(6) => "REI/ISO speed",
+        Some(7) => "SOS/REI/ISO speed",
+        _ => return d_unknown(w, value, "unknown sensitivity type "),
+    };
+    w.write_str(s)
+}
+
+// ExifVersion (Exif 0x9000), FlashpixVersion (Exif 0xa000)
+fn d_exifver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    if let Value::Undefined(u) = *value {
+        if u.len() == 4 {
+            if let Ok(major) = atou16(&u[0..2]) {
+                if let Ok(minor) = atou16(&u[2..4]) {
+                    if minor % 10 == 0 {
+                        return write!(w, "{}.{}", major, minor / 10);
+                    } else {
+                        return write!(w, "{}.{:02}", major, minor);
+                    }
+                }
+            }
+        }
+    }
+    d_default(w, value)
+}
+
+// ComponentsConfiguration (Exif 0x9101)
+fn d_cpntcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    if let Value::Undefined(u) = *value {
+        for &x in u {
+            try!(match x {
+                0 => w.write_char('_'),
+                1 => w.write_char('Y'),
+                2 => w.write_str("Cb"),
+                3 => w.write_str("Cr"),
+                4 => w.write_char('R'),
+                5 => w.write_char('G'),
+                6 => w.write_char('B'),
+                _ => w.write_char('?'),
+            });
+        }
+        return Ok(());
+    }
+    d_default(w, value)
+}
+
+// SubjectDistance (Exif 0x9206)
+fn d_subjdist(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    if let Value::Rational(ref v) = *value {
+        if let Some(dist) = v.first() {
+            if dist.num == 0 {
+                return w.write_str("unknown");
+            } else if dist.num == 0xffffffff {
+                return w.write_str("infinity");
+            }
+        }
+    }
+    d_decimal(w, value)
+}
+
+// MeteringMode (Exif 0x9207)
+fn d_metering(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "average",
+        Some(2) => "center-weighted average",
+        Some(3) => "spot",
+        Some(4) => "multi-spot",
+        Some(5) => "pattern",
+        Some(6) => "partial",
+        Some(255) => "other",
+        _ => return d_unknown(w, value, "unknown metering mode "),
+    };
+    w.write_str(s)
+}
+
+// LightSource (Exif 0x9208)
+fn d_lightsrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "daylight",
+        Some(2) => "fluorescent",
+        Some(3) => "tungsten",
+        Some(4) => "flash",
+        Some(9) => "fine weather",
+        Some(10) => "cloudy weather",
+        Some(11) => "shade",
+        Some(12) => "daylight fluorescent (D 5700-7100K)",
+        Some(13) => "day white fluorescent (N 4600-5500K)",
+        Some(14) => "cool white fluorescent (W 3800-4500K)",
+        Some(15) => "white fluorescent (WW 3250-3800K)",
+        Some(16) => "warm white fluorescent (L 2600-3250K)",
+        Some(17) => "standard light A",
+        Some(18) => "standard light A",
+        Some(19) => "standard light A",
+        Some(20) => "D55",
+        Some(21) => "D55",
+        Some(22) => "D55",
+        Some(23) => "D55",
+        Some(24) => "ISO studio tungsten",
+        Some(255) => "other",
+        _ => return d_unknown(w, value, "unknown light source "),
+    };
+    w.write_str(s)
+}
+
+// Flash (Exif 0x9209)
+fn d_flash(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    const FIRED: &'static [&'static str] = &["not fired", "fired"];
+    const RETURN: &'static [&'static str] = &[
+        ", no return light detection function",
+        ", reserved return light",
+        ", return light not detected",
+        ", return light detected",
+    ];
+    const AUTO: &'static [&'static str] = &[
+        ", unknown auto mode", ", forced", ", suppressed", ", auto"];
+    const FUNCTION: &'static [&'static str] = &["", ", no function present"];
+    const RED_EYE: &'static [&'static str] = &["", ", red-eye reduction"];
+
+    if let Some(v) = value.get_uint(0) {
+        write!(w, "{}{}{}{}{}{}",
+               FIRED[v as usize & 1],
+               RETURN[v as usize >> 1 & 3],
+               AUTO[v as usize >> 3 & 3],
+               FUNCTION[v as usize >> 5 & 1],
+               RED_EYE[v as usize >> 6 & 1],
+               if v >> 7 != 0 { ", unknown MSB bits" } else { "" })
+    } else {
+        d_default(w, value)
+    }
+}
+
+// SubjectArea (Exif 0x9214), SubjectLocation (Exif 0xa214)
+// Only (x, y) case is valid for SubjectLocation.
+fn d_subjarea(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    if let Some(x) = value.get_uint(0) {
+        if let Some(y) = value.get_uint(1) {
+            if let Some(d) = value.get_uint(2) {
+                if let Some(h) = value.get_uint(3) {
+                    return write!(w, "rectangle (x={}, y={}, w={}, h={})",
+                                  x, y, d, h);
+                }
+                return write!(w, "circle (x={}, y={}, d={})", x, y, d);
+            }
+            return write!(w, "point (x={}, y={})", x, y);
+        }
+    }
+    d_default(w, value)
+}
+
+// Rational/SRational with 0xffffffff being unknown.
+// Temperature (Exif 0x9400), Humidity (Exif 0x9401),
+// Pressure (Exif 0x9402), WaterDepth (Exif 0x9403),
+// Acceleration (Exif 0x9404), CameraElevationAngle (Exif 0x9405)
+fn d_optdecimal(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match *value {
+        Value::Rational(ref v) if v.len() > 0 =>
+            if v[0].denom != 0xffffffff {
+                write!(w, "{}", v[0].to_f64())
+            } else {
+                w.write_str("unknown")
+            },
+        Value::SRational(ref v) if v.len() > 0 =>
+            if v[0].denom != -1 {
+                write!(w, "{}", v[0].to_f64())
+            } else {
+                w.write_str("unknown")
+            },
+        _ => d_decimal(w, value),
+    }
+}
+
+// ColorSpace (Exif 0xa001)
+fn d_cspace(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "sRGB",
+        Some(0xffff) => "uncalibrated",
+        _ => return d_unknown(w, value, "unknown color space "),
+    };
+    w.write_str(s)
+}
+
+// SensingMethod (Exif 0xa217)
+fn d_sensingmethod(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "not defined",
+        Some(2) => "one-chip color area sensor",
+        Some(3) => "two-chip color area sensor",
+        Some(4) => "three-chip color area sensor",
+        Some(5) => "color sequential area sensor",
+        Some(7) => "trilinear sensor",
+        Some(8) => "color sequential linear sensor",
+        _ => return d_unknown(w, value, "unknown sensing method "),
+    };
+    w.write_str(s)
+}
+
+// FileSource (Exif 0xa300)
+fn d_filesrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match match *value {
+        Value::Undefined(s) => s.first().map(|&x| x),
+        _ => None,
+    } {
+        Some(0) => "others",
+        Some(1) => "transparency scanner",
+        Some(2) => "reflective scanner",
+        Some(3) => "DSC",
+        _ => return d_unknown(w, value, "unknown file source "),
+    };
+    w.write_str(s)
+}
+
+// SceneType (Exif 0xa301)
+fn d_scenetype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match match *value {
+        Value::Undefined(s) => s.first().map(|&x| x),
+        _ => None,
+    } {
+        Some(1) => "directly photographed image",
+        _ => return d_unknown(w, value, "unknown scene type "),
+    };
+    w.write_str(s)
+}
+
+// CustomRendered (Exif 0xa401)
+fn d_customrendered(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "normal process",
+        Some(1) => "custom process",
+        _ => return d_unknown(w, value, "unknown custom rendered "),
+    };
+    w.write_str(s)
+}
+
+// ExposureMode (Exif 0xa402)
+fn d_expmode(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "auto exposure",
+        Some(1) => "manual exposure",
+        Some(2) => "auto bracket",
+        _ => return d_unknown(w, value, "unknown exposure mode "),
+    };
+    w.write_str(s)
+}
+
+// WhiteBalance (Exif 0xa403)
+fn d_whitebalance(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "auto white balance",
+        Some(1) => "manual white balance",
+        _ => return d_unknown(w, value, "unknown white balance mode "),
+    };
+    w.write_str(s)
+}
+
+// DigitalZoomRatio (Exif 0xa404)
+fn d_dzoomratio(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    if let Value::Rational(ref v) = *value {
+        if v.len() > 0 && v[0].num == 0 {
+            return w.write_str("unused");
+        }
+    }
+    d_decimal(w, value)
+}
+
+// FocalLengthIn35mmFilm (Exif 0xa405)
+fn d_focallen35(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match value.get_uint(0) {
+        Some(0) => w.write_str("unknown"),
+        _ => d_default(w, value),
+    }
+}
+
+// SceneCaptureType (Exif 0xa406)
+fn d_scenecaptype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "standard",
+        Some(1) => "landscape",
+        Some(2) => "portrait",
+        Some(3) => "night scene",
+        _ => return d_unknown(w, value, "unknown scene capture type "),
+    };
+    w.write_str(s)
+}
+
+// GainControl (Exif 0xa407)
+fn d_gainctrl(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "none",
+        Some(1) => "low gain up",
+        Some(2) => "high gain up",
+        Some(3) => "low gain down",
+        Some(4) => "high gain down",
+        _ => return d_unknown(w, value, "unknown gain control "),
+    };
+    w.write_str(s)
+}
+
+// Contrast (Exif 0xa408)
+fn d_contrast(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "normal",
+        Some(1) => "soft",
+        Some(2) => "hard",
+        _ => return d_unknown(w, value, "unknown contrast processing "),
+    };
+    w.write_str(s)
+}
+
+// Saturation (Exif 0xa409)
+fn d_saturation(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "normal",
+        Some(1) => "low saturation",
+        Some(2) => "high saturation",
+        _ => return d_unknown(w, value, "unknown saturation processing "),
+    };
+    w.write_str(s)
+}
+
+// Sharpness (Exif 0xa40a)
+fn d_sharpness(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "normal",
+        Some(1) => "soft",
+        Some(2) => "hard",
+        _ => return d_unknown(w, value, "unknown sharpness processing "),
+    };
+    w.write_str(s)
+}
+
+// SubjectDistanceRange (Exif 0xa40c)
+fn d_subjdistrange(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "macro",
+        Some(2) => "close view",
+        Some(3) => "distant view",
+        _ => return d_unknown(w, value, "unknown subject distance range "),
+    };
+    w.write_str(s)
+}
+
+// LensSpecification (Exif 0xa432)
+fn d_lensspec(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match *value {
+        Value::Rational(ref v) if v.len() >= 4 =>
+            // There are several notations: "F1.4" in Japan, "f/1.4"
+            // in the U.S., and so on.
+            write!(w, "{}-{} mm, f/{}-{}",
+                   v[0].to_f64(), v[1].to_f64(),
+                   v[2].to_f64(), v[3].to_f64()),
+        _ => d_default(w, value),
+    }
+}
+
+// GPSVersionID (Exif/GPS 0x0)
+fn d_gpsver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match *value {
+        Value::Byte(ref v) if v.len() >= 4 =>
+            write!(w, "{}.{}.{}.{}", v[0], v[1], v[2], v[3]),
+        _ => d_default(w, value),
+    }
+}
+
+// GPSLatitude (Exif/GPS 0x2), GPSLongitude (Exif 0x4),
+// GPSDestLatitude (Exif/GPS 0x14), GPSDestLongitude (Exif 0x16)
+fn d_gpsdms(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match *value {
+        Value::Rational(ref v) if v.len() >= 3 =>
+            write!(w, "{} deg {} min {} sec",
+                   v[0].to_f64(), v[1].to_f64(), v[2].to_f64()),
+        _ => d_default(w, value),
+    }
+}
+
+// GPSAltitudeRef (Exif/GPS 0x5)
+fn d_gpsaltref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "above sea level",
+        Some(1) => "below sea level",
+        _ => return d_unknown(w, value, "unknown GPS altitude ref "),
+    };
+    w.write_str(s)
+}
+
+// GPSTimeStamp (Exif/GPS 0x7)
+fn d_gpstimestamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match *value {
+        Value::Rational(ref v) if v.len() >= 3 => {
+            let (h, m, s) = (v[0].to_f64(), v[1].to_f64(), v[2].to_f64());
+            write!(w, "{}{}:{}{}:{}{}",
+                   if h < 10.0 { "0" } else { "" }, h,
+                   if m < 10.0 { "0" } else { "" }, m,
+                   if s < 10.0 { "0" } else { "" }, s)
+        },
+        _ => d_default(w, value),
+    }
+}
+
+// GPSStatus (Exif/GPS 0x9)
+fn d_gpsstatus(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match match *value {
+        Value::Ascii(ref v) => v.first().map(|&x| x),
+        _ => None,
+    } {
+        Some(b"A") => "measurement in progress",
+        Some(b"V") => "measurement interrupted",
+        _ => return d_unknown(w, value, "unknown GPS status "),
+    };
+    w.write_str(s)
+}
+
+// GPSMeasure (Exif/GPS 0xa)
+fn d_gpsmeasuremode(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match match *value {
+        Value::Ascii(ref v) => v.first().map(|&x| x),
+        _ => None,
+    } {
+        Some(b"2") => "2-dimensional measurement",
+        Some(b"3") => "3-dimensional measurement",
+        _ => return d_unknown(w, value, "unknown GPS measurement mode "),
+    };
+    w.write_str(s)
+}
+
+// GPSSpeedRef (Exif/GPS 0xc)
+fn d_gpsspeedref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match match *value {
+        Value::Ascii(ref v) => v.first().map(|&x| x),
+        _ => None,
+    } {
+        Some(b"K") => "km/h",
+        Some(b"M") => "mph",
+        Some(b"N") => "knots",
+        _ => return d_unknown(w, value, "unknown GPS speed ref "),
+    };
+    w.write_str(s)
+}
+
+// GPSTrackRef (Exif/GPS 0xe), GPSImgDirectionRef (Exif/GPS 0x10),
+// GPSDestBearingRef (Exif/GPS 0x17)
+fn d_gpsdirref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match match *value {
+        Value::Ascii(ref v) => v.first().map(|&x| x),
+        _ => None,
+    } {
+        Some(b"T") => "true direction",
+        Some(b"M") => "magnetic direction",
+        _ => return d_unknown(w, value, "unknown GPS direction ref "),
+    };
+    w.write_str(s)
+}
+
+// GPSDestDistanceRef (Exif/GPS 0x19)
+fn d_gpsdistref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match match *value {
+        Value::Ascii(ref v) => v.first().map(|&x| x),
+        _ => None,
+    } {
+        Some(b"K") => "km",
+        Some(b"M") => "miles",
+        Some(b"N") => "nautical miles",
+        _ => return d_unknown(w, value, "unknown GPS distance ref "),
+    };
+    w.write_str(s)
+}
+
+// GPSDateStamp (Exif/GPS 0x1d)
+fn d_gpsdatestamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    if let Value::Ascii(ref v) = *value {
+        if let Some(data) = v.first() {
+            if data.len() >= 10 && data[4] == b':' && data[7] == b':' {
+                if let Ok(year) = atou16(&data[0..4]) {
+                    if let Ok(month) = atou16(&data[5..7]) {
+                        if let Ok(day) = atou16(&data[8..10]) {
+                            return write!(w, "{:04}-{:02}-{:02}",
+                                          year, month, day)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    d_default(w, value)
+}
+
+// GPSDifferential (Exif/GPS 0x1e)
+fn d_gpsdifferential(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0) => "no differential correction",
+        Some(1) => "differential correction applied",
+        _ => return d_unknown(w, value, "unknown GPS differential correction "),
+    };
+    w.write_str(s)
+}
+
+fn d_ascii_in_undef(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match *value {
+        Value::Undefined(s) => d_sub_ascii(w, s),
+        _ => d_default(w, value),
+    }
+}
+
+fn d_decimal(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match *value {
+        Value::Rational(ref v) => d_sub_comma_f64(w, v),
+        Value::SRational(ref v) => d_sub_comma_f64(w, v),
+        _ => d_default(w, value),
+    }
+}
+
+#[inline(never)]
+fn d_unknown(w: &mut fmt::Write, value: &Value, prefix: &str) -> fmt::Result {
+    try!(w.write_str(prefix));
+    d_default(w, value)
 }
 
 fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
@@ -516,10 +1177,10 @@ fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
             let mut first = true;
             for x in v {
                 if !first {
-                    try!(w.write_char('\n'));
+                    try!(w.write_str(", "));
                 }
                 first = false;
-                try!(d_escape_ascii(w, x));
+                try!(d_sub_ascii(w, x));
             }
             Ok(())
         },
@@ -552,6 +1213,20 @@ fn d_sub_comma<T>(w: &mut fmt::Write, slice: &[T])
     Ok(())
 }
 
+fn d_sub_comma_f64<T>(w: &mut fmt::Write, slice: &[T])
+                      -> fmt::Result where T: Copy + Into<f64> {
+    let mut first = true;
+    for &x in slice {
+        let x: f64 = x.into();
+        try!(match first {
+            true => write!(w, "{}", x),
+            false => write!(w, ", {}", x),
+        });
+        first = false;
+    }
+    Ok(())
+}
+
 fn d_sub_hex(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
     try!(w.write_str("0x"));
     for x in bytes {
@@ -560,10 +1235,11 @@ fn d_sub_hex(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
     Ok(())
 }
 
-fn d_escape_ascii(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
+fn d_sub_ascii(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
+    try!(w.write_char('"'));
     for &c in bytes {
         match c {
-            b'\\' => {
+            b'\\' | b'"' => {
                 try!(w.write_char('\\'));
                 try!(w.write_char(c as char));
             },
@@ -571,12 +1247,13 @@ fn d_escape_ascii(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
             _ => try!(write!(w, "\\x{:02x}", c)),
         }
     }
-    Ok(())
+    w.write_char('"')
 }
 
 #[cfg(test)]
 mod tests {
     use tag;
+    use value::Rational;
     use super::*;
 
     // This test checks if Tag constants can be used in patterns.
@@ -633,5 +1310,28 @@ mod tests {
         assert_eq!(format!("{:15}", tag2), "Tag(Exif, 0)   ");
         assert_eq!(format!("{:>15}", tag2), "   Tag(Exif, 0)");
         assert_eq!(format!("{:5.6}", tag2), "Tag(Ex");
+    }
+
+    #[test]
+    fn disp_val_sub() {
+        let mut buf = String::new();
+        d_sub_comma(&mut buf, &[0u16, 1, 2]).unwrap();
+        assert_eq!(buf, "0, 1, 2");
+
+        let mut buf = String::new();
+        d_sub_comma(&mut buf, &[Rational { num: 3, denom: 5 }]).unwrap();
+        assert_eq!(buf, "3/5");
+
+        let mut buf = String::new();
+        d_sub_comma_f64(&mut buf, &[Rational { num: 1, denom: 2 }]).unwrap();
+        assert_eq!(buf, "0.5");
+
+        let mut buf = String::new();
+        d_sub_hex(&mut buf, b"abc\x00\xff").unwrap();
+        assert_eq!(buf, "0x61626300ff");
+
+        let mut buf = String::new();
+        d_sub_ascii(&mut buf, b"a \"\\b\"\n").unwrap();
+        assert_eq!(buf, r#""a \"\\b\"\x0a""#);
     }
 }
