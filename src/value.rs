@@ -76,6 +76,18 @@ impl<'a> Value<'a> {
     pub fn display_as(&self, tag: ::tag_priv::Tag) -> Display {
         ::tag_priv::display_value_as(self, tag)
     }
+
+    /// Returns the unsigned integer at the given position.
+    /// None is returned if the value type is not unsigned integer
+    /// (BYTE, SHORT, or LONG) or the position is out of bounds.
+    pub fn get_uint(&self, index: usize) -> Option<u32> {
+        match *self {
+            Value::Byte(ref v) if v.len() > index => Some(v[index] as u32),
+            Value::Short(ref v) if v.len() > index => Some(v[index] as u32),
+            Value::Long(ref v) if v.len() > index => Some(v[index]),
+            _ => None,
+        }
+    }
 }
 
 /// Helper struct for printing a value in a tag-specific format.
@@ -594,6 +606,26 @@ mod tests {
     fn unknown() {
         let (unitlen, _parser) = get_type_info::<BigEndian>(0xffff);
         assert_eq!(unitlen, 0);
+    }
+
+    #[test]
+    fn get_uint() {
+        let v = Value::Byte(vec![1, 2]);
+        assert_eq!(v.get_uint(0), Some(1));
+        assert_eq!(v.get_uint(1), Some(2));
+        assert_eq!(v.get_uint(2), None);
+        let v = Value::Short(vec![1, 2]);
+        assert_eq!(v.get_uint(0), Some(1));
+        assert_eq!(v.get_uint(1), Some(2));
+        assert_eq!(v.get_uint(2), None);
+        let v = Value::Long(vec![1, 2]);
+        assert_eq!(v.get_uint(0), Some(1));
+        assert_eq!(v.get_uint(1), Some(2));
+        assert_eq!(v.get_uint(2), None);
+        let v = Value::SLong(vec![1, 2]);
+        assert_eq!(v.get_uint(0), None);
+        assert_eq!(v.get_uint(1), None);
+        assert_eq!(v.get_uint(2), None);
     }
 
     #[test]
