@@ -75,7 +75,7 @@ impl Reader {
         }
 
         // Cheat on the type system and erase the lifetime by transmute().
-        // The scope releases the innter `v` to unborrow `buf`.
+        // The scope releases the inner `v` to unborrow `buf`.
         let (v, le) = {
             let (v, le) = try!(tiff::parse_exif(&buf));
             (unsafe { mem::transmute(v) }, le) };

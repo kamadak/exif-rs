@@ -93,7 +93,7 @@ impl fmt::Display for Tag {
     }
 }
 
-/// An enum that indicates how a tag value is interpreted.
+/// An enum that indicates how a tag number is interpreted.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Context {
     /// TIFF attributes defined in the TIFF Rev. 6.0 specification.
