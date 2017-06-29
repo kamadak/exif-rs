@@ -24,6 +24,7 @@
 // SUCH DAMAGE.
 //
 
+use std::io;
 use std::mem;
 
 // This is a module to select endianess by using generics
@@ -34,6 +35,9 @@ pub trait Endian {
     fn loadu16(buf: &[u8], from: usize) -> u16;
     fn loadu32(buf: &[u8], from: usize) -> u32;
     fn loadu64(buf: &[u8], from: usize) -> u64;
+    fn writeu16<W>(w: &mut W, num: u16) -> io::Result<()> where W: io::Write;
+    fn writeu32<W>(w: &mut W, num: u32) -> io::Result<()> where W: io::Write;
+    fn writeu64<W>(w: &mut W, num: u64) -> io::Result<()> where W: io::Write;
 }
 
 pub struct BigEndian;
@@ -53,16 +57,33 @@ macro_rules! generate_load {
     )
 }
 
+macro_rules! generate_write {
+    ($name:ident, $int_type:ident, $type_size:expr, $to_func:ident) => (
+        fn $name<W>(w: &mut W, num: $int_type)
+                    -> io::Result<()> where W: io::Write {
+            let buf: [u8; $type_size] =
+                unsafe { mem::transmute(num.$to_func()) };
+            w.write_all(&buf)
+        }
+    )
+}
+
 impl Endian for BigEndian {
     generate_load!(loadu16, u16, from_be);
     generate_load!(loadu32, u32, from_be);
     generate_load!(loadu64, u64, from_be);
+    generate_write!(writeu16, u16, 2, to_be);
+    generate_write!(writeu32, u32, 4, to_be);
+    generate_write!(writeu64, u64, 8, to_be);
 }
 
 impl Endian for LittleEndian {
     generate_load!(loadu16, u16, from_le);
     generate_load!(loadu32, u32, from_le);
     generate_load!(loadu64, u64, from_le);
+    generate_write!(writeu16, u16, 2, to_le);
+    generate_write!(writeu32, u32, 4, to_le);
+    generate_write!(writeu64, u64, 8, to_le);
 }
 
 #[cfg(test)]
@@ -103,6 +124,31 @@ mod tests {
         assert_eq!(LittleEndian::loadu64(&[0x01, 0x02, 0x03, 0x04, 0x05,
                                            0x06, 0x07, 0x08, 0x09], 1),
                    0x0908070605040302);
+    }
+
+    #[test]
+    fn writeu16() {
+        let mut buf = Vec::new();
+        BigEndian::writeu16(&mut buf, 0x0102).unwrap();
+        LittleEndian::writeu16(&mut buf, 0x0304).unwrap();
+        assert_eq!(buf, b"\x01\x02\x04\x03");
+    }
+
+    #[test]
+    fn writeu32() {
+        let mut buf = Vec::new();
+        BigEndian::writeu32(&mut buf, 0x01020304).unwrap();
+        LittleEndian::writeu32(&mut buf, 0x05060708).unwrap();
+        assert_eq!(buf, b"\x01\x02\x03\x04\x08\x07\x06\x05");
+    }
+
+    #[test]
+    fn writeu64() {
+        let mut buf = Vec::new();
+        BigEndian::writeu64(&mut buf, 0x0102030405060708).unwrap();
+        LittleEndian::writeu64(&mut buf, 0x090a0b0c0d0e0f10).unwrap();
+        assert_eq!(buf, b"\x01\x02\x03\x04\x05\x06\x07\x08\
+                          \x10\x0f\x0e\x0d\x0c\x0b\x0a\x09");
     }
 
     #[test]
