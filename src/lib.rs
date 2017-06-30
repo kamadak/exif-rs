@@ -76,3 +76,4 @@ mod tag_priv;
 mod tiff;
 mod util;
 mod value;
+mod writer;
