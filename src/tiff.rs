@@ -38,8 +38,8 @@ use util::atou16;
 const TIFF_BE: u16 = 0x4d4d;
 const TIFF_LE: u16 = 0x4949;
 const TIFF_FORTY_TWO: u16 = 0x002a;
-const TIFF_BE_SIG: [u8; 4] = [0x4d, 0x4d, 0x00, 0x2a];
-const TIFF_LE_SIG: [u8; 4] = [0x49, 0x49, 0x2a, 0x00];
+pub const TIFF_BE_SIG: [u8; 4] = [0x4d, 0x4d, 0x00, 0x2a];
+pub const TIFF_LE_SIG: [u8; 4] = [0x49, 0x49, 0x2a, 0x00];
 
 /// A TIFF field.
 #[derive(Debug)]

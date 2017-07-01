@@ -63,6 +63,11 @@ pub use tiff::parse_exif;
 pub use value::Value;
 pub use value::{Rational, SRational};
 
+/// The interfaces in this module is experimental and unstable.
+pub mod experimental {
+    pub use writer::Writer;
+}
+
 #[cfg(test)]
 #[macro_use]
 mod tmacro;
