@@ -175,6 +175,19 @@ impl<'a> Writer<'a> {
         let next_ifd_offset_offset =
             try!(synthesize_fields(w, ws, false, little_endian));
 
+        // Do not output the thumbnail IFD if there are no data in it.
+        let thumbnail_absent =
+            self.tn_tiff_fields.len() == 0 &&
+            self.tn_exif_fields.len() == 0 &&
+            self.tn_gps_fields.len() == 0 &&
+            self.tn_interop_fields.len() == 0 &&
+            self.tn_strips == None &&
+            self.tn_jpeg == None;
+        if thumbnail_absent {
+            try!(w.flush());
+            return Ok(());
+        }
+
         let next_ifd_offset = try!(pad_and_get_offset(w));
         let origpos = try!(w.seek(SeekFrom::Current(0)));
         try!(w.seek(SeekFrom::Start(next_ifd_offset_offset as u64)));
