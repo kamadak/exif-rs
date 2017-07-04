@@ -538,8 +538,136 @@ fn get_offset<W>(w: &mut W)
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
     use value::{Rational, SRational};
     use super::*;
+
+    #[test]
+    fn primary() {
+        let image_desc = Field {
+            tag: tag::ImageDescription,
+            thumbnail: false,
+            value: Value::Ascii(vec![b"Sample"]),
+        };
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        writer.push_field(&image_desc);
+        writer.write(&mut buf, false).unwrap();
+        let expected: &[u8] =
+            b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
+              \x00\x01\x01\x0e\x00\x02\x00\x00\x00\x07\x00\x00\x00\x1a\
+              \x00\x00\x00\x00\
+              Sample\0";
+        assert_eq!(buf.into_inner(), expected);
+    }
+
+    #[test]
+    fn primary_exif_only() {
+        let exif_ver = Field {
+            tag: tag::ExifVersion,
+            thumbnail: false,
+            value: Value::Undefined(b"0231"),
+        };
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        writer.push_field(&exif_ver);
+        writer.write(&mut buf, false).unwrap();
+        let expected: &[u8] =
+            b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
+              \x00\x01\x87\x69\x00\x04\x00\x00\x00\x01\x00\x00\x00\x1a\
+              \x00\x00\x00\x00\
+              \x00\x01\x90\x00\x00\x07\x00\x00\x00\x040231\
+              \x00\x00\x00\x00";
+        assert_eq!(buf.into_inner(), expected);
+    }
+
+    #[test]
+    fn thumbnail_jpeg() {
+        // This is not a valid JPEG data (only for testing).
+        let jpeg = b"JPEG";
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        writer.set_thumbnail_jpeg(jpeg);
+        writer.write(&mut buf, false).unwrap();
+        let expected: &[u8] =
+            b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
+              \x00\x00\x00\x00\x00\x0e\
+              \x00\x02\x02\x01\x00\x04\x00\x00\x00\x01\x00\x00\x00\x2c\
+                      \x02\x02\x00\x04\x00\x00\x00\x01\x00\x00\x00\x04\
+              \x00\x00\x00\x00\
+              JPEG";
+        assert_eq!(buf.into_inner(), expected);
+    }
+
+    #[test]
+    fn thumbnail_tiff() {
+        // This is not a valid TIFF strip (only for testing).
+        let strips: &[&[u8]] = &[b"STRIP"];
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        writer.set_thumbnail_strips(strips);
+        writer.write(&mut buf, false).unwrap();
+        let expected: &[u8] =
+            b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
+              \x00\x00\x00\x00\x00\x0e\
+              \x00\x02\x01\x11\x00\x04\x00\x00\x00\x01\x00\x00\x00\x2c\
+                      \x01\x17\x00\x04\x00\x00\x00\x01\x00\x00\x00\x05\
+              \x00\x00\x00\x00\
+              STRIP";
+        assert_eq!(buf.into_inner(), expected);
+    }
+
+    #[test]
+    fn primary_and_thumbnail() {
+        let image_desc = Field {
+            tag: tag::ImageDescription,
+            thumbnail: false,
+            value: Value::Ascii(vec![b"Sample"]),
+        };
+        let exif_ver = Field {
+            tag: tag::ExifVersion,
+            thumbnail: false,
+            value: Value::Undefined(b"0231"),
+        };
+        let gps_ver = Field {
+            tag: tag::GPSVersionID,
+            thumbnail: false,
+            value: Value::Byte(vec![2, 3, 0, 0]),
+        };
+        let interop_index = Field {
+            tag: tag::InteroperabilityIndex,
+            thumbnail: false,
+            value: Value::Ascii(vec![b"ABC"]),
+        };
+        let jpeg = b"JPEG";
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        writer.push_field(&image_desc);
+        writer.push_field(&exif_ver);
+        writer.push_field(&gps_ver);
+        writer.push_field(&interop_index);
+        writer.set_thumbnail_jpeg(jpeg);
+        writer.write(&mut buf, false).unwrap();
+        let expected: &[u8] =
+            b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
+              \x00\x03\x01\x0e\x00\x02\x00\x00\x00\x07\x00\x00\x00\x74\
+                      \x87\x69\x00\x04\x00\x00\x00\x01\x00\x00\x00\x32\
+                      \x88\x25\x00\x04\x00\x00\x00\x01\x00\x00\x00\x50\
+              \x00\x00\x00\x7c\
+              \x00\x02\x90\x00\x00\x07\x00\x00\x00\x040231\
+                      \xa0\x05\x00\x04\x00\x00\x00\x01\x00\x00\x00\x62\
+              \x00\x00\x00\x00\
+              \x00\x01\x00\x00\x00\x01\x00\x00\x00\x04\x02\x03\x00\x00\
+              \x00\x00\x00\x00\
+              \x00\x01\x00\x01\x00\x02\x00\x00\x00\x04ABC\0\
+              \x00\x00\x00\x00\
+              Sample\0\0\
+              \x00\x02\x02\x01\x00\x04\x00\x00\x00\x01\x00\x00\x00\x9a\
+                      \x02\x02\x00\x04\x00\x00\x00\x01\x00\x00\x00\x04\
+              \x00\x00\x00\x00\
+              JPEG";
+        assert_eq!(buf.into_inner(), expected);
+    }
 
     #[test]
     fn compose_field_value() {
