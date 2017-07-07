@@ -47,6 +47,7 @@ pub struct Writer<'a> {
     tn_interop_fields: Vec<&'a Field<'a>>,
     strips: Option<&'a [&'a [u8]]>,
     tn_strips: Option<&'a [&'a [u8]]>,
+    tiles: Option<&'a [&'a [u8]]>,
     tn_jpeg: Option<&'a [u8]>,
 }
 
@@ -60,6 +61,7 @@ struct WriterState<'a> {
     gps_ifd_offset: u32,
     interop_ifd_offset: u32,
     strips: Option<&'a [&'a [u8]]>,
+    tiles: Option<&'a [&'a [u8]]>,
     jpeg: Option<&'a [u8]>,
 }
 
@@ -77,6 +79,7 @@ impl<'a> Writer<'a> {
             tn_interop_fields: Vec::new(),
             strips: None,
             tn_strips: None,
+            tiles: None,
             tn_jpeg: None,
         }
     }
@@ -86,19 +89,21 @@ impl<'a> Writer<'a> {
     /// The fields can be appended in any order.
     /// Duplicate fields must not be appended.
     ///
+    /// The following fields are ignored and synthesized when needed:
     /// ExifIFDPointer, GPSInfoIFDPointer, InteropIFDPointer,
-    /// StripOffsets, StripByteCounts, JPEGInterchangeFormat, and
-    /// JPEGInterchangeFormatLength are ignored.
-    /// They are synthesized when needed.
+    /// StripOffsets, StripByteCounts, TileOffsets, TileByteCounts,
+    /// JPEGInterchangeFormat, and JPEGInterchangeFormatLength.
     pub fn push_field(&mut self, field: &'a Field) {
         match *field {
             // Ignore the tags for the internal data structure.
             Field { tag: tag::ExifIFDPointer, .. } |
             Field { tag: tag::GPSInfoIFDPointer, .. } |
             Field { tag: tag::InteropIFDPointer, .. } => {},
-            // These tags are synthesized from the actual strip data.
+            // These tags are synthesized from the actual strip/tile data.
             Field { tag: tag::StripOffsets, .. } |
-            Field { tag: tag::StripByteCounts, .. } => {},
+            Field { tag: tag::StripByteCounts, .. } |
+            Field { tag: tag::TileOffsets, .. } |
+            Field { tag: tag::TileByteCounts, .. } => {},
             // These tags are synthesized from the actual JPEG thumbnail.
             Field { tag: tag::JPEGInterchangeFormat, .. } |
             Field { tag: tag::JPEGInterchangeFormatLength, .. } => {},
@@ -132,6 +137,12 @@ impl<'a> Writer<'a> {
     /// If this method is called multiple times, the last one is used.
     pub fn set_thumbnail_strips(&mut self, strips: &'a [&'a [u8]]) {
         self.tn_strips = Some(strips);
+    }
+
+    /// Sets TIFF tiles for the primary image.
+    /// If this method is called multiple times, the last one is used.
+    pub fn set_tiles(&mut self, tiles: &'a [&'a [u8]]) {
+        self.tiles = Some(tiles);
     }
 
     /// Sets JPEG data for the thumbnail image.
@@ -170,6 +181,7 @@ impl<'a> Writer<'a> {
             gps_ifd_offset: 0,
             interop_ifd_offset: 0,
             strips: self.strips,
+            tiles: self.tiles,
             jpeg: None,
         };
         let next_ifd_offset_offset =
@@ -208,6 +220,7 @@ impl<'a> Writer<'a> {
             gps_ifd_offset: 0,
             interop_ifd_offset: 0,
             strips: self.tn_strips,
+            tiles: None,
             jpeg: self.tn_jpeg,
         };
         try!(synthesize_fields(w, ws, true, little_endian));
@@ -227,6 +240,8 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     let interop_in_exif;
     let strip_offsets;
     let strip_byte_counts;
+    let tile_offsets;
+    let tile_byte_counts;
     let jpeg_offset;
     let jpeg_length;
     // Shrink the scope so that referenced fields live longer than ws.
@@ -246,6 +261,21 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
                 strips.iter().map(|s| s.len() as u32).collect()),
         };
         ws.tiff_fields.push(&strip_byte_counts);
+    }
+    if let Some(tiles) = ws.tiles {
+        tile_offsets = Field {
+            tag: tag::TileOffsets,
+            thumbnail: thumbnail,
+            value: Value::Long(vec![0; tiles.len()]),
+        };
+        ws.tiff_fields.push(&tile_offsets);
+        tile_byte_counts = Field {
+            tag: tag::TileByteCounts,
+            thumbnail: thumbnail,
+            value: Value::Long(
+                tiles.iter().map(|s| s.len() as u32).collect()),
+        };
+        ws.tiff_fields.push(&tile_byte_counts);
     }
     if let Some(jpeg) = ws.jpeg {
         jpeg_offset = Field {
@@ -313,7 +343,8 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
 // Writes an image and returns the offset of the next IFD offset.
 fn write_image<W, E>(w: &mut W, ws: WriterState)
                      -> Result<u32, Error> where W: Write + Seek, E: Endian {
-    let (next_ifd_offset_offset, strip_offsets_offset, jpeg_offset) =
+    let (next_ifd_offset_offset,
+         strip_offsets_offset, tile_offsets_offset, jpeg_offset) =
         try!(write_ifd_and_fields::<_, E>(
             w, &ws.tiff_fields, ws.tiff_ifd_offset));
     if ws.exif_fields.len() > 0 {
@@ -338,6 +369,19 @@ fn write_image<W, E>(w: &mut W, ws: WriterState)
         let origpos = try!(w.seek(SeekFrom::Current(0)));
         try!(w.seek(SeekFrom::Start(strip_offsets_offset as u64)));
         for ofs in strip_offsets {
+            try!(E::writeu32(w, ofs));
+        }
+        try!(w.seek(SeekFrom::Start(origpos)));
+    }
+    if let Some(tiles) = ws.tiles {
+        let mut tile_offsets = Vec::new();
+        for tile in tiles {
+            tile_offsets.push(try!(get_offset(w)));
+            try!(w.write_all(tile));
+        }
+        let origpos = try!(w.seek(SeekFrom::Current(0)));
+        try!(w.seek(SeekFrom::Start(tile_offsets_offset as u64)));
+        for ofs in tile_offsets {
             try!(E::writeu32(w, ofs));
         }
         try!(w.seek(SeekFrom::Start(origpos)));
@@ -367,13 +411,14 @@ fn reserve_ifd<W>(w: &mut W, count: usize)
 }
 
 // Writes an IFD and its fields, and
-// returns the offsets of the next IFD offset, StripOffsets value, and
-// JPEGInterchangeFormat value.
+// returns the offsets of the next IFD offset, StripOffsets value,
+// TileOffsets value, and JPEGInterchangeFormat value.
 fn write_ifd_and_fields<W, E>(
     w: &mut W, fields: &Vec<&Field>, ifd_offset: u32)
-    -> Result<(u32, u32, u32), Error> where W: Write + Seek, E: Endian
+    -> Result<(u32, u32, u32, u32), Error> where W: Write + Seek, E: Endian
 {
     let mut strip_offsets_offset = 0;
+    let mut tile_offsets_offset = 0;
     let mut jpeg_offset = 0;
     let mut ifd = Vec::new();
 
@@ -406,6 +451,12 @@ fn write_ifd_and_fields<W, E>(
                 _ => try!(get_offset(w)) - valbuf.len() as u32,
             };
         }
+        if f.tag == tag::TileOffsets {
+            tile_offsets_offset = match valbuf.len() {
+                0...4 => ifd_offset + ifd.len() as u32 - 4,
+                _ => try!(get_offset(w)) - valbuf.len() as u32,
+            };
+        }
         if f.tag == tag::JPEGInterchangeFormat {
             jpeg_offset = ifd_offset + ifd.len() as u32 - 4;
         }
@@ -417,7 +468,8 @@ fn write_ifd_and_fields<W, E>(
     // Write the IFD.
     try!(write_at(w, &ifd, ifd_offset));
 
-    Ok((next_ifd_offset_offset, strip_offsets_offset, jpeg_offset))
+    Ok((next_ifd_offset_offset,
+        strip_offsets_offset, tile_offsets_offset, jpeg_offset))
 }
 
 // Returns the type, count, and encoded value.
@@ -578,6 +630,23 @@ mod tests {
               \x00\x00\x00\x00\
               \x00\x01\x90\x00\x00\x07\x00\x00\x00\x040231\
               \x00\x00\x00\x00";
+        assert_eq!(buf.into_inner(), expected);
+    }
+
+    #[test]
+    fn primary_tiff_tiled() {
+        // This is not a valid TIFF tile (only for testing).
+        let tiles: &[&[u8]] = &[b"TILE"];
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        writer.set_tiles(tiles);
+        writer.write(&mut buf, false).unwrap();
+        let expected: &[u8] =
+            b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
+              \x00\x02\x01\x44\x00\x04\x00\x00\x00\x01\x00\x00\x00\x26\
+                      \x01\x45\x00\x04\x00\x00\x00\x01\x00\x00\x00\x04\
+              \x00\x00\x00\x00\
+              TILE";
         assert_eq!(buf.into_inner(), expected);
     }
 

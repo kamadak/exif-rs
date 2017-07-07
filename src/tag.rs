@@ -245,6 +245,12 @@ generate_well_known_tag_constants!(
      "White point chromaticity"),
     (PrimaryChromaticities, 0x13f, DefaultValue::None, d_decimal,
      "Chromaticities of primaries"),
+    // Not referenced in Exif.
+    (TileOffsets, 0x144, DefaultValue::None, d_default,
+     "Tiled image data location"),
+    // Not referenced in Exif.
+    (TileByteCounts, 0x145, DefaultValue::None, d_default,
+     "Bytes per compressed tile"),
     (JPEGInterchangeFormat, 0x201, DefaultValue::None, d_default,
      "Offset to JPEG SOI"),
     (JPEGInterchangeFormatLength, 0x202, DefaultValue::None, d_default,
