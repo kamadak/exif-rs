@@ -24,12 +24,14 @@
 // SUCH DAMAGE.
 //
 
+use std::collections::HashMap;
 use std::io;
 use std::io::Read;
 use std::mem;
 
 use error::Error;
 use jpeg;
+use tag_priv::Tag;
 use tiff;
 use tiff::Field;
 
@@ -55,6 +57,8 @@ pub struct Reader {
     fields: Vec<Field<'static>>,
     // True if the TIFF data is little endian.
     little_endian: bool,
+    // HashMap to find a field quickly.
+    field_map: HashMap<(Tag, bool), &'static Field<'static>>,
 }
 
 impl Reader {
@@ -76,11 +80,23 @@ impl Reader {
 
         // Cheat on the type system and erase the lifetime by transmute().
         // The scope releases the inner `v` to unborrow `buf`.
-        let (v, le) = {
+        let (fields, le) = {
             let (v, le) = try!(tiff::parse_exif(&buf));
-            (unsafe { mem::transmute(v) }, le) };
-        let r = Reader { buf: buf, fields: v, little_endian: le };
-        Ok(r)
+            (unsafe { mem::transmute::<Vec<Field>, Vec<Field>>(v) }, le) };
+
+        // Initialize the HashMap of all fields.
+        let mut field_map = HashMap::new();
+        for f in &fields {
+            field_map.insert((f.tag, f.thumbnail),
+                             unsafe { mem::transmute::<&Field, &Field>(f) });
+        }
+
+        Ok(Reader {
+            buf: buf,
+            fields: fields,
+            little_endian: le,
+            field_map: field_map
+        })
     }
 
     /// Returns the slice that contains the TIFF data.
@@ -100,12 +116,21 @@ impl Reader {
     pub fn little_endian(&self) -> bool {
         self.little_endian
     }
+
+    /// Returns a reference to the Exif field specified by the tag
+    /// and the thumbnail flag.
+    #[inline]
+    pub fn get_field(&self, tag: Tag, thumbnail: bool) -> Option<&Field> {
+        self.field_map.get(&(tag, thumbnail)).map(|&f| f)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
     use std::io::BufReader;
     use value::Value;
+    use tag_priv::constants as tag;
     use super::*;
 
     static TIFF_ASCII: &'static [u8] =
@@ -154,5 +179,13 @@ mod tests {
         } else {
             panic!("TIFF ASCII field is expected");
         }
+    }
+
+    #[test]
+    fn get_field() {
+        let file = File::open("tests/exif.jpg").unwrap();
+        let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
+        assert_pat!(reader.get_field(tag::ExifVersion, false).unwrap().value,
+                    Value::Undefined(b"0230"));
     }
 }
