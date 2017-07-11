@@ -47,7 +47,7 @@ use util::atou16;
 // PartialEq and Eq need to be _automatically derived_ for Tag to
 // emulate structural equivalency.
 // <https://github.com/rust-lang/rfcs/pull/1445>
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Tag(pub Context, pub u16);
 
 impl Tag {
@@ -94,7 +94,7 @@ impl fmt::Display for Tag {
 }
 
 /// An enum that indicates how a tag number is interpreted.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Context {
     /// TIFF attributes defined in the TIFF Rev. 6.0 specification.
     Tiff,	// 0th/1st IFD
