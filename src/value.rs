@@ -100,7 +100,46 @@ impl<'a> Value<'a> {
             _ => None,
         }
     }
+
+    /// Returns an iterator over the unsigned integers (BYTE, SHORT, or LONG).
+    /// The iterator yields `u32` regardless of the underlying integer size.
+    /// The returned iterator implements `Iterator` and `ExactSizeIterator`
+    /// traits.
+    /// `None` is returned if the value is not an unsigned integer type.
+    #[inline]
+    pub fn iter_uint(&self) -> Option<UIntIter> {
+        match *self {
+            Value::Byte(ref v) =>
+                Some(UIntIter { iter: Box::new(v.iter().map(|&x| x as u32)) }),
+            Value::Short(ref v) =>
+                Some(UIntIter { iter: Box::new(v.iter().map(|&x| x as u32)) }),
+            Value::Long(ref v) =>
+                Some(UIntIter { iter: Box::new(v.iter().map(|&x| x)) }),
+            _ => None,
+        }
+    }
 }
+
+// A struct that wraps std::slice::Iter<'a, u8/u16/u32>.
+pub struct UIntIter<'a> {
+    iter: Box<ExactSizeIterator<Item=u32> + 'a>
+}
+
+impl<'a> Iterator for UIntIter<'a> {
+    type Item = u32;
+
+    #[inline]
+    fn next(&mut self) -> Option<u32> {
+        self.iter.next()
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a> ExactSizeIterator for UIntIter<'a> {}
 
 /// Helper struct for printing a value in a tag-specific format.
 pub struct Display<'a> {
@@ -638,6 +677,33 @@ mod tests {
         assert_eq!(v.get_uint(0), None);
         assert_eq!(v.get_uint(1), None);
         assert_eq!(v.get_uint(2), None);
+    }
+
+    #[test]
+    fn iter_uint() {
+        let vlist = &[
+            Value::Byte(vec![1, 2]),
+            Value::Short(vec![1, 2]),
+            Value::Long(vec![1, 2]),
+        ];
+        for v in vlist {
+            let mut it = v.iter_uint().unwrap();
+            assert_eq!(it.next(), Some(1));
+            assert_eq!(it.next(), Some(2));
+            assert_eq!(it.next(), None);
+        }
+
+        let v = Value::SLong(vec![1, 2]);
+        assert!(v.iter_uint().is_none());
+    }
+
+    #[test]
+    fn iter_uint_is_exact_size_iter() {
+        let v = Value::Byte(vec![1, 2, 3]);
+        let mut it = v.iter_uint().unwrap();
+        assert_eq!(it.len(), 3);
+        assert_eq!(it.next(), Some(1));
+        assert_eq!(it.len(), 2);
     }
 
     #[test]
