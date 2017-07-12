@@ -739,6 +739,22 @@ mod tests {
     }
 
     #[test]
+    fn write_twice() {
+        let image_desc = Field {
+            tag: tag::ImageDescription,
+            thumbnail: false,
+            value: Value::Ascii(vec![b"Sample"]),
+        };
+        let mut writer = Writer::new();
+        writer.push_field(&image_desc);
+        let mut buf1 = Cursor::new(Vec::new());
+        writer.write(&mut buf1, false).unwrap();
+        let mut buf2 = Cursor::new(Vec::new());
+        writer.write(&mut buf2, false).unwrap();
+        assert_eq!(buf1.into_inner(), buf2.into_inner());
+    }
+
+    #[test]
     fn compose_field_value() {
         let patterns = vec![
             (Value::Byte(vec![1, 2]),
