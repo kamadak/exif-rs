@@ -569,7 +569,7 @@ fn write_at<W>(w: &mut W, buf: &[u8], offset: u32)
 fn pad_and_get_offset<W>(w: &mut W)
                          -> Result<u32, Error> where W: Write + Seek {
     let mut pos = try!(w.seek(SeekFrom::Current(0)));
-    if pos >= 1 << 32 - 1 {
+    if pos >= (1 << 32) - 1 {
         return Err(Error::InvalidFormat("Offset too large"));
     }
     if pos % 2 != 0 {
