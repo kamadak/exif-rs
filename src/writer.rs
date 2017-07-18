@@ -155,10 +155,6 @@ impl<'a> Writer<'a> {
     ///
     /// The write position of `w` must be set to zero before calling
     /// this method.
-    ///
-    /// A new `exif::Error` variant will be introduced in the next
-    /// API-version bump to return write errors.  `Error::InvalidFormat`
-    /// is used until then.
     pub fn write<W>(&mut self, w: &mut W, little_endian: bool)
                     -> Result<(), Error> where W: Write + Seek {
         // TIFF signature and the offset of the 0th IFD.
@@ -428,7 +424,7 @@ fn write_ifd_and_fields<W, E>(
     for f in fields {
         let (typ, cnt, mut valbuf) = try!(compose_value::<E>(&f.value));
         if cnt as u32 as usize != cnt {
-            return Err(Error::InvalidFormat("Too long array"));
+            return Err(Error::TooBig("Too long array"));
         }
         try!(E::writeu16(&mut ifd, f.tag.number()));
         try!(E::writeu16(&mut ifd, typ));
@@ -552,7 +548,7 @@ fn compose_value<E>(value: &Value)
             Ok((12, vec.len(), buf))
         },
         Value::Unknown(_, _, _) =>
-            Err(Error::InvalidFormat("Cannot write unknown field types")),
+            Err(Error::NotSupported("Cannot write unknown field types")),
     }
 }
 
@@ -570,7 +566,7 @@ fn pad_and_get_offset<W>(w: &mut W)
                          -> Result<u32, Error> where W: Write + Seek {
     let mut pos = try!(w.seek(SeekFrom::Current(0)));
     if pos >= (1 << 32) - 1 {
-        return Err(Error::InvalidFormat("Offset too large"));
+        return Err(Error::TooBig("Offset too large"));
     }
     if pos % 2 != 0 {
         try!(w.write_all(&[0]));
@@ -583,7 +579,7 @@ fn get_offset<W>(w: &mut W)
                  -> Result<u32, Error> where W: Write + Seek {
     let pos = try!(w.seek(SeekFrom::Current(0)));
     if pos as u32 as u64 != pos {
-        return Err(Error::InvalidFormat("Offset too large"));
+        return Err(Error::TooBig("Offset too large"));
     }
     Ok(pos as u32)
 }

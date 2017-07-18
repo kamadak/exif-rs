@@ -42,6 +42,10 @@ pub enum Error {
     /// whose meanings are defined as "unknown".  Such a blank value
     /// should be treated the same as the absence of the field.
     BlankValue(&'static str),
+    /// Field values or image data are too big to encode.
+    TooBig(&'static str),
+    /// The field type is not supported and cannnot be encoded.
+    NotSupported(&'static str),
 }
 
 impl From<io::Error> for Error {
@@ -57,6 +61,8 @@ impl fmt::Display for Error {
             Error::Io(ref err) => err.fmt(f),
             Error::NotFound(msg) => f.write_str(msg),
             Error::BlankValue(msg) => f.write_str(msg),
+            Error::TooBig(msg) => f.write_str(msg),
+            Error::NotSupported(msg) => f.write_str(msg),
         }
     }
 }
@@ -68,6 +74,8 @@ impl error::Error for Error {
             Error::Io(ref err) => err.description(),
             Error::NotFound(msg) => msg,
             Error::BlankValue(msg) => msg,
+            Error::TooBig(msg) => msg,
+            Error::NotSupported(msg) => msg,
         }
     }
 
@@ -77,6 +85,8 @@ impl error::Error for Error {
             Error::Io(ref err) => Some(err),
             Error::NotFound(_) => None,
             Error::BlankValue(_) => None,
+            Error::TooBig(_) => None,
+            Error::NotSupported(_) => None,
         }
     }
 }

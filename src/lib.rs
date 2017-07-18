@@ -47,6 +47,7 @@
 //!
 //! Major changes between 0.2.3 and 0.3 are listed below.
 //!
+//! * Enum Error has two new variants: TooBig and NotSupported.
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;

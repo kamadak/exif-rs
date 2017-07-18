@@ -99,7 +99,7 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
     #[cfg(not(test))]
     match writer.write(&mut out, reader1.little_endian()) {
         Ok(_) => {},
-        Err(Error::InvalidFormat("Cannot write unknown field types")) => {
+        Err(Error::NotSupported(_)) => {
             println!("{}: Contains unknown type", path.display());
             return;
         },
