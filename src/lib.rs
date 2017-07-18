@@ -45,13 +45,8 @@
 //!
 //! # Compatibility
 //!
-//! Major changes between 0.1.3 and 0.2 follow.
+//! Major changes between 0.2.3 and 0.3 are listed below.
 //!
-//! * Rust 1.15 is now required to compile.
-//! * `Reader.fields()` now returns a slice instead of a reference to a Vec.
-//! * `Tag.value()` was renamed to `Tag.number()`.
-//! * A new variant `Error::BlankValue` has been added.
-//! * The `parse_image()` function has been removed.
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
