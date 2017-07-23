@@ -28,6 +28,9 @@ use std::io;
 
 use error::Error;
 
+const ASCII_A: u8 = 0x41;
+const ASCII_Z: u8 = 0x5a;
+
 pub fn read8<R>(reader: &mut R) -> Result<u8, io::Error> where R: io::Read {
     let mut buf: [u8; 1] = unsafe { ::std::mem::uninitialized() };
     reader.read_exact(&mut buf).and(Ok(buf[0]))
@@ -58,6 +61,10 @@ pub fn atou16(bytes: &[u8]) -> Result<u16, Error> {
         n = n * 10 + (c - ASCII_0) as u16;
     }
     Ok(n)
+}
+
+pub fn isupper(c: u8) -> bool {
+    ASCII_A <= c && c <= ASCII_Z
 }
 
 #[cfg(test)]
@@ -104,5 +111,14 @@ mod tests {
         assert_err_pat!(atou16(b"/"), Error::InvalidFormat(_));
         assert_err_pat!(atou16(b":"), Error::InvalidFormat(_));
         assert_err_pat!(atou16(b"-1"), Error::InvalidFormat(_));
+    }
+
+    #[test]
+    fn isupper() {
+        assert!(super::isupper(b'A'));
+        assert!(super::isupper(b'Z'));
+        assert!(!super::isupper(b'A' - 1));
+        assert!(!super::isupper(b'Z' + 1));
+        assert!(!super::isupper(b'a'));
     }
 }

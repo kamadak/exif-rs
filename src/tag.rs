@@ -28,7 +28,7 @@ use std::fmt;
 
 use value;
 use value::Value;
-use util::atou16;
+use util::{atou16, isupper};
 
 /// A tag of a TIFF field.
 //
@@ -434,11 +434,11 @@ generate_well_known_tag_constants!(
     // Depends on the Exif version.
     (GPSVersionID, 0x0, DefaultValue::ContextDependent, d_gpsver,
      "GPS tag version"),
-    (GPSLatitudeRef, 0x1, DefaultValue::None, d_default,
+    (GPSLatitudeRef, 0x1, DefaultValue::None, d_gpslatlongref,
      "North or south latitude"),
     (GPSLatitude, 0x2, DefaultValue::None, d_gpsdms,
      "Latitude"),
-    (GPSLongitudeRef, 0x3, DefaultValue::None, d_default,
+    (GPSLongitudeRef, 0x3, DefaultValue::None, d_gpslatlongref,
      "East or West Longitude"),
     (GPSLongitude, 0x4, DefaultValue::None, d_gpsdms,
      "Longitude"),
@@ -470,11 +470,11 @@ generate_well_known_tag_constants!(
      "Direction of image"),
     (GPSMapDatum, 0x12, DefaultValue::None, d_default,
      "Geodetic survey data used"),
-    (GPSDestLatitudeRef, 0x13, DefaultValue::None, d_default,
+    (GPSDestLatitudeRef, 0x13, DefaultValue::None, d_gpslatlongref,
      "Reference for latitude of destination"),
     (GPSDestLatitude, 0x14, DefaultValue::None, d_gpsdms,
      "Latitude of destination"),
-    (GPSDestLongitudeRef, 0x15, DefaultValue::None, d_default,
+    (GPSDestLongitudeRef, 0x15, DefaultValue::None, d_gpslatlongref,
      "Reference for longitude of destination"),
     (GPSDestLongitude, 0x16, DefaultValue::None, d_gpsdms,
      "Longitude of destination"),
@@ -1019,6 +1019,17 @@ fn d_gpsver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Byte(ref v) if v.len() >= 4 =>
             write!(w, "{}.{}.{}.{}", v[0], v[1], v[2], v[3]),
+        _ => d_default(w, value),
+    }
+}
+
+// GPSLatitudeRef (Exif/GPS 0x1), GPSLongitudeRef (Exif/GPS 0x3)
+// GPSDestLatitudeRef (Exif/GPS 0x13), GPSDestLongitudeRef (Exif/GPS 0x15)
+fn d_gpslatlongref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+    match *value {
+        Value::Ascii(ref v) if (v.len() == 1 && v[0].len() == 1 &&
+                                isupper(v[0][0])) =>
+            w.write_char(v[0][0] as char),
         _ => d_default(w, value),
     }
 }
