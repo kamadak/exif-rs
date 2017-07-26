@@ -103,6 +103,7 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
             Error::InvalidFormat("Invalid entry count")));
         let val;
         if unitlen == 0 {
+            let ofs = offset + 2 + i * 12 + 8;
             val = Value::Unknown(typ, cnt as u32, ofs as u32);
         } else if vallen <= 4 {
             val = parser(data, offset + 2 + i * 12 + 8, cnt);
@@ -228,6 +229,6 @@ mod tests {
                      \0\x01\x01\0\xff\xff\0\0\0\x01\0\x14\0\0\0\0\0\0";
         let (v, _) = parse_exif(data).unwrap();
         assert_eq!(v.len(), 1);
-        assert_pat!(v[0].value, Value::Unknown(0xffff, 1, 0x140000));
+        assert_pat!(v[0].value, Value::Unknown(0xffff, 1, 0x12));
     }
 }
