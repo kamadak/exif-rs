@@ -76,12 +76,15 @@ fn parse_exif_sub<E>(data: &[u8])
         return Err(Error::InvalidFormat("Invalid forty two"));
     }
     let ifd_offset = E::loadu32(data, 4) as usize;
-    parse_ifd::<E>(data, ifd_offset, Context::Tiff, false)
+    let mut fields = Vec::new();
+    try!(parse_ifd::<E>(&mut fields, data, ifd_offset, Context::Tiff, false));
+    Ok(fields)
 }
 
 // Parse IFD [EXIF23 4.6.2].
-fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
-                -> Result<Vec<Field>, Error> where E: Endian {
+fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
+                    offset: usize, ctx: Context, thumbnail: bool)
+                    -> Result<(), Error> where E: Endian {
     // Count (the number of the entries).
     if data.len() < offset || data.len() - offset < 2 {
         return Err(Error::InvalidFormat("Truncated IFD count"));
@@ -92,22 +95,21 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
     if data.len() - offset - 2 < count * 12 {
         return Err(Error::InvalidFormat("Truncated IFD"));
     }
-    let mut fields = Vec::with_capacity(count);
     for i in 0..count as usize {
         let tag = E::loadu16(data, offset + 2 + i * 12);
         let typ = E::loadu16(data, offset + 2 + i * 12 + 2);
         let cnt = E::loadu32(data, offset + 2 + i * 12 + 4) as usize;
-        let ofs = E::loadu32(data, offset + 2 + i * 12 + 8) as usize;
+        let valofs_at = offset + 2 + i * 12 + 8;
         let (unitlen, parser) = get_type_info::<E>(typ);
         let vallen = try!(unitlen.checked_mul(cnt).ok_or(
             Error::InvalidFormat("Invalid entry count")));
         let val;
         if unitlen == 0 {
-            let ofs = offset + 2 + i * 12 + 8;
-            val = Value::Unknown(typ, cnt as u32, ofs as u32);
+            val = Value::Unknown(typ, cnt as u32, valofs_at as u32);
         } else if vallen <= 4 {
-            val = parser(data, offset + 2 + i * 12 + 8, cnt);
+            val = parser(data, valofs_at, cnt);
         } else {
+            let ofs = E::loadu32(data, valofs_at) as usize;
             if data.len() < ofs || data.len() - ofs < vallen {
                 return Err(Error::InvalidFormat("Truncated field value"));
             }
@@ -116,25 +118,16 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
 
         // No infinite recursion will occur because the context is not
         // recursively defined.
-        // XXX Should we check the type and count of a pointer?
-        // A pointer field has type == LONG and count == 1, so the
-        // value (IFD offset) must be embedded in the "value offset"
-        // element of the field.
         let tag = Tag(ctx, tag);
-        if tag == tag::ExifIFDPointer {
-            let mut v = try!(
-                parse_ifd::<E>(data, ofs, Context::Exif, thumbnail));
-            fields.append(&mut v);
-        } else if tag == tag::GPSInfoIFDPointer {
-            let mut v = try!(
-                parse_ifd::<E>(data, ofs, Context::Gps, thumbnail));
-            fields.append(&mut v);
-        } else if tag == tag::InteropIFDPointer {
-            let mut v = try!(
-                parse_ifd::<E>(data, ofs, Context::Interop, thumbnail));
-            fields.append(&mut v);
-        } else {
-            fields.push(Field { tag: tag, thumbnail: thumbnail, value: val });
+        match tag {
+            tag::ExifIFDPointer => try!(parse_child_ifd::<E>(
+                fields, data, &val, Context::Exif, thumbnail)),
+            tag::GPSInfoIFDPointer => try!(parse_child_ifd::<E>(
+                fields, data, &val, Context::Gps, thumbnail)),
+            tag::InteropIFDPointer => try!(parse_child_ifd::<E>(
+                fields, data, &val, Context::Interop, thumbnail)),
+            _ => fields.push(Field { tag: tag, thumbnail: thumbnail,
+                                     value: val }),
         }
     }
 
@@ -143,16 +136,24 @@ fn parse_ifd<E>(data: &[u8], offset: usize, ctx: Context, thumbnail: bool)
         return Err(Error::InvalidFormat("Truncated next IFD offset"));
     }
     let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12) as usize;
-    if next_ifd_offset != 0 {
-        if ctx != Context::Tiff || thumbnail {
-            return Err(Error::InvalidFormat("Unexpected next IFD"));
-        }
-        let mut v = try!(
-            parse_ifd::<E>(data, next_ifd_offset, Context::Tiff, true));
-        fields.append(&mut v);
+    if next_ifd_offset == 0 {
+        return Ok(());
     }
+    if ctx != Context::Tiff || thumbnail {
+        return Err(Error::InvalidFormat("Unexpected next IFD"));
+    }
+    parse_ifd::<E>(fields, data, next_ifd_offset, Context::Tiff, true)
+}
 
-    Ok(fields)
+fn parse_child_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
+                          pointer: &Value, ctx: Context, thumbnail: bool)
+                          -> Result<(), Error> where E: Endian {
+    // A pointer field has type == LONG and count == 1, so the
+    // value (IFD offset) must be embedded in the "value offset"
+    // element of the field.
+    let ofs = try!(pointer.get_uint(0).ok_or(
+        Error::InvalidFormat("Invalid pointer"))) as usize;
+    parse_ifd::<E>(fields, data, ofs, ctx, thumbnail)
 }
 
 pub fn is_tiff(buf: &[u8]) -> bool {
