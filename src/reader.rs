@@ -186,6 +186,6 @@ mod tests {
         let file = File::open("tests/exif.jpg").unwrap();
         let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
         assert_pat!(reader.get_field(tag::ExifVersion, false).unwrap().value,
-                    Value::Undefined(b"0230"));
+                    Value::Undefined(b"0230", _));
     }
 }

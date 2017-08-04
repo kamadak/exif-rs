@@ -48,7 +48,12 @@ pub enum Value<'a> {
     /// Vector of 8-bit signed integers.  Unused in the Exif specification.
     SByte(Vec<i8>),
     /// Slice of 8-bit bytes.
-    Undefined(&'a [u8]),
+    ///
+    /// The second member keeps the offset of the value in the Exif data.
+    /// The interpretation of the value does not generally depend on
+    /// the location, but if it does, the offset information helps.
+    /// When encoding Exif, it is ignored.
+    Undefined(&'a [u8], u32),
     /// Vector of 16-bit signed integers.  Unused in the Exif specification.
     SShort(Vec<i16>),
     /// Vector of 32-bit signed integers.
@@ -77,7 +82,7 @@ impl<'a> Value<'a> {
     ///
     /// ```
     /// use exif::{Value, tag};
-    /// let val = Value::Undefined(b"0231");
+    /// let val = Value::Undefined(b"0231", 0);
     /// assert_eq!(format!("{}", val.display_as(tag::ExifVersion)),
     ///            "2.31");
     /// let val = Value::Short(vec![2]);
@@ -177,7 +182,7 @@ impl<'a> From<&'a DefaultValue> for Option<Value<'a>> {
             DefaultValue::Short(s) => Some(Value::Short(s.to_vec())),
             DefaultValue::Rational(s) => Some(Value::Rational(
                 s.iter().map(|&t| tuple2rational(t)).collect())),
-            DefaultValue::Undefined(s) => Some(Value::Undefined(s)),
+            DefaultValue::Undefined(s) => Some(Value::Undefined(s, 0)),
             DefaultValue::ContextDependent => None,
             DefaultValue::Unspecified => None,
         }
@@ -361,7 +366,7 @@ fn parse_sbyte<'a>(data: &'a [u8], offset: usize, count: usize)
 
 fn parse_undefined<'a>(data: &'a [u8], offset: usize, count: usize)
                        -> Value<'a> {
-    Value::Undefined(&data[offset .. offset + count])
+    Value::Undefined(&data[offset .. offset + count], offset as u32)
 }
 
 fn parse_sshort<'a, E>(data: &'a [u8], offset: usize, count: usize)
@@ -546,7 +551,10 @@ mod tests {
         for &(data, ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
             match parser(data, 1, (data.len() - 1) / unitlen) {
-                Value::Undefined(v) => assert_eq!(v, ans),
+                Value::Undefined(v, o) => {
+                    assert_eq!(v, ans);
+                    assert_eq!(o, 1);
+                },
                 v => panic!("wrong variant {:?}", v),
             }
         }

@@ -155,7 +155,7 @@ fn compare_field_value(value1: &Value, value2: &Value) {
         },
         (&Value::SByte(ref v1), &Value::SByte(ref v2)) =>
             assert_eq!(v1, v2),
-        (&Value::Undefined(ref v1), &Value::Undefined(ref v2)) =>
+        (&Value::Undefined(ref v1, _), &Value::Undefined(ref v2, _)) =>
             assert_eq!(v1, v2),
         (&Value::SShort(ref v1), &Value::SShort(ref v2)) =>
             assert_eq!(v1, v2),

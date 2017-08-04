@@ -509,7 +509,7 @@ fn compose_value<E>(value: &Value)
                 vec.as_ptr() as *const u8, vec.len()) };
             Ok((6, vec.len(), uslice.to_vec()))
         },
-        Value::Undefined(ref s) =>
+        Value::Undefined(ref s, _) =>
             Ok((7, s.len(), s.to_vec())),
         Value::SShort(ref vec) => {
             let mut buf = Vec::new();
@@ -614,7 +614,7 @@ mod tests {
         let exif_ver = Field {
             tag: tag::ExifVersion,
             thumbnail: false,
-            value: Value::Undefined(b"0231"),
+            value: Value::Undefined(b"0231", 0),
         };
         let mut writer = Writer::new();
         let mut buf = Cursor::new(Vec::new());
@@ -692,7 +692,7 @@ mod tests {
         let exif_ver = Field {
             tag: tag::ExifVersion,
             thumbnail: false,
-            value: Value::Undefined(b"0231"),
+            value: Value::Undefined(b"0231", 0),
         };
         let gps_ver = Field {
             tag: tag::GPSVersionID,
@@ -772,7 +772,7 @@ mod tests {
             (Value::SByte(vec![-2, -128]),
              (6, 2, b"\xfe\x80".to_vec()),
              (6, 2, b"\xfe\x80".to_vec())),
-            (Value::Undefined(b"abc"),
+            (Value::Undefined(b"abc", 0),
              (7, 3, b"abc".to_vec()),
              (7, 3, b"abc".to_vec())),
             (Value::SShort(vec![-2, -0x8000]),

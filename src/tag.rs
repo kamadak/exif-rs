@@ -670,7 +670,7 @@ fn d_sensitivitytype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // ExifVersion (Exif 0x9000), FlashpixVersion (Exif 0xa000)
 fn d_exifver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Undefined(u) = *value {
+    if let Value::Undefined(u, _) = *value {
         if u.len() == 4 {
             if let Ok(major) = atou16(&u[0..2]) {
                 if let Ok(minor) = atou16(&u[2..4]) {
@@ -688,7 +688,7 @@ fn d_exifver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // ComponentsConfiguration (Exif 0x9101)
 fn d_cpntcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Undefined(u) = *value {
+    if let Value::Undefined(u, _) = *value {
         for &x in u {
             try!(match x {
                 0 => w.write_char('_'),
@@ -859,7 +859,7 @@ fn d_sensingmethod(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 // FileSource (Exif 0xa300)
 fn d_filesrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
-        Value::Undefined(s) => s.first().map(|&x| x),
+        Value::Undefined(s, _) => s.first().map(|&x| x),
         _ => None,
     } {
         Some(0) => "others",
@@ -874,7 +874,7 @@ fn d_filesrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 // SceneType (Exif 0xa301)
 fn d_scenetype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
-        Value::Undefined(s) => s.first().map(|&x| x),
+        Value::Undefined(s, _) => s.first().map(|&x| x),
         _ => None,
     } {
         Some(1) => "directly photographed image",
@@ -1168,7 +1168,7 @@ fn d_gpsdifferential(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 fn d_ascii_in_undef(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     match *value {
-        Value::Undefined(s) => d_sub_ascii(w, s),
+        Value::Undefined(s, _) => d_sub_ascii(w, s),
         _ => d_default(w, value),
     }
 }
@@ -1205,7 +1205,7 @@ fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
         Value::Long(ref v) => d_sub_comma(w, v),
         Value::Rational(ref v) => d_sub_comma(w, v),
         Value::SByte(ref v) => d_sub_comma(w, v),
-        Value::Undefined(ref s) => d_sub_hex(w, s),
+        Value::Undefined(ref s, _) => d_sub_hex(w, s),
         Value::SShort(ref v) => d_sub_comma(w, v),
         Value::SLong(ref v) => d_sub_comma(w, v),
         Value::SRational(ref v) => d_sub_comma(w, v),
@@ -1304,7 +1304,7 @@ mod tests {
             _ => panic!(),
         }
         match tag::FileSource.default_value() {
-            Some(Value::Undefined(v)) => assert_eq!(v, &[3]),
+            Some(Value::Undefined(v, _)) => assert_eq!(v, &[3]),
             _ => panic!(),
         }
         match tag::GPSAltitudeRef.default_value() {
