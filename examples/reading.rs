@@ -38,7 +38,7 @@ fn main() {
     // To obtain a string representation, `Value::display_as` can be used
     // for any tag.
     let tag_list = [tag::ExifVersion,
-                    tag::ImageWidth,
+                    tag::PixelXDimension,
                     tag::XResolution,
                     tag::ImageDescription,
                     tag::DateTime];
@@ -50,9 +50,9 @@ fn main() {
 
     // To get unsigned integer value(s) from either of BYTE, SHORT,
     // or LONG, `Value::get_uint` or `Value::iter_uint` can be used.
-    if let Some(field) = reader.get_field(tag::ImageWidth, false) {
+    if let Some(field) = reader.get_field(tag::PixelXDimension, false) {
         if let Some(width) = field.value.get_uint(0) {
-            println!("Image width is {}.", width);
+            println!("Valid width of the image is {}.", width);
         }
     }
 
