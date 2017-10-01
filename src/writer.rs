@@ -36,6 +36,7 @@ use tiff::{Field, TIFF_BE_SIG, TIFF_LE_SIG};
 use value::Value;
 
 /// The `Writer` struct is used to encode and write Exif data.
+#[derive(Debug)]
 pub struct Writer<'a> {
     tiff_fields: Vec<&'a Field<'a>>,
     exif_fields: Vec<&'a Field<'a>>,
