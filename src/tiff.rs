@@ -32,7 +32,7 @@ use tag;
 use tag_priv::{Context, Tag};
 use value::Value;
 use value::get_type_info;
-use util::atou16;
+use util::{atou16, ctou32};
 
 // TIFF header magic numbers [EXIF23 4.5.2].
 const TIFF_BE: u16 = 0x4d4d;
@@ -177,6 +177,11 @@ pub struct DateTime {
     pub hour: u8,
     pub minute: u8,
     pub second: u8,
+    /// The subsecond data in nanoseconds.  If the Exif attribute has
+    /// more sigfinicant digits, they are rounded down.
+    pub nanosecond: Option<u32>,
+    /// The offset of the time zone in minutes.
+    pub offset: Option<i16>,
 }
 
 impl DateTime {
@@ -198,7 +203,54 @@ impl DateTime {
             hour: try!(atou16(&data[11..13])) as u8,
             minute: try!(atou16(&data[14..16])) as u8,
             second: try!(atou16(&data[17..19])) as u8,
+            nanosecond: None,
+            offset: None,
         })
+    }
+
+    /// Parses an SubsecTime-like field.
+    pub fn parse_subsec(&mut self, data: &[u8]) -> Result<(), Error> {
+        let mut subsec = 0;
+        let mut ndigits = 0;
+        for &c in data {
+            if c == b' ' {
+                break;
+            }
+            subsec = subsec * 10 + try!(ctou32(c));
+            ndigits += 1;
+            if ndigits >= 9 {
+                break;
+            }
+        }
+        if ndigits == 0 {
+            self.nanosecond = None;
+        } else {
+            for _ in ndigits..9 {
+                subsec *= 10;
+            }
+            self.nanosecond = Some(subsec);
+        }
+        Ok(())
+    }
+
+    /// Parses an OffsetTime-like field.
+    pub fn parse_offset(&mut self, data: &[u8]) -> Result<(), Error> {
+        if data == b"   :  " || data == b"      " {
+            return Err(Error::BlankValue("OffsetTime is blank"));
+        } else if data.len() < 6 {
+            return Err(Error::InvalidFormat("OffsetTime too short"));
+        } else if data[3] != b':' {
+            return Err(Error::InvalidFormat("Invalid OffsetTime delimiter"));
+        }
+        let hour = try!(atou16(&data[1..3]));
+        let min = try!(atou16(&data[4..6]));
+        let offset = (hour * 60 + min) as i16;
+        self.offset = Some(match data[0] {
+            b'+' => offset,
+            b'-' => -offset,
+            _ => return Err(Error::InvalidFormat("Invalid OffsetTime sign")),
+        });
+        Ok(())
     }
 }
 
@@ -231,5 +283,42 @@ mod tests {
         let (v, _) = parse_exif(data).unwrap();
         assert_eq!(v.len(), 1);
         assert_pat!(v[0].value, Value::Unknown(0xffff, 1, 0x12));
+    }
+
+    #[test]
+    fn date_time() {
+        let mut dt = DateTime::from_ascii(b"2016:05:04 03:02:01").unwrap();
+        assert_eq!(dt.year, 2016);
+        assert_eq!(format!("{}", dt), "2016-05-04 03:02:01");
+
+        dt.parse_subsec(b"987").unwrap();
+        assert_eq!(dt.nanosecond.unwrap(), 987000000);
+        dt.parse_subsec(b"000987").unwrap();
+        assert_eq!(dt.nanosecond.unwrap(), 987000);
+        dt.parse_subsec(b"987654321").unwrap();
+        assert_eq!(dt.nanosecond.unwrap(), 987654321);
+        dt.parse_subsec(b"9876543219").unwrap();
+        assert_eq!(dt.nanosecond.unwrap(), 987654321);
+        dt.parse_subsec(b"130   ").unwrap();
+        assert_eq!(dt.nanosecond.unwrap(), 130000000);
+        dt.parse_subsec(b"0").unwrap();
+        assert_eq!(dt.nanosecond.unwrap(), 0);
+        dt.parse_subsec(b"").unwrap();
+        assert!(dt.nanosecond.is_none());
+        dt.parse_subsec(b" ").unwrap();
+        assert!(dt.nanosecond.is_none());
+
+        dt.parse_offset(b"+00:00").unwrap();
+        assert_eq!(dt.offset.unwrap(), 0);
+        dt.parse_offset(b"+01:23").unwrap();
+        assert_eq!(dt.offset.unwrap(), 83);
+        dt.parse_offset(b"+99:99").unwrap();
+        assert_eq!(dt.offset.unwrap(), 6039);
+        dt.parse_offset(b"-01:23").unwrap();
+        assert_eq!(dt.offset.unwrap(), -83);
+        dt.parse_offset(b"-99:99").unwrap();
+        assert_eq!(dt.offset.unwrap(), -6039);
+        assert_err_pat!(dt.parse_offset(b"   :  "), Error::BlankValue(_));
+        assert_err_pat!(dt.parse_offset(b"      "), Error::BlankValue(_));
     }
 }

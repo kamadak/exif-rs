@@ -28,6 +28,8 @@ use std::io;
 
 use error::Error;
 
+const ASCII_0: u8 = 0x30;
+const ASCII_9: u8 = 0x39;
 const ASCII_A: u8 = 0x41;
 const ASCII_Z: u8 = 0x5a;
 
@@ -44,9 +46,6 @@ pub fn read16<R>(reader: &mut R) -> Result<u16, io::Error> where R: io::Read {
 
 // This function must not be called with more than 4 bytes.
 pub fn atou16(bytes: &[u8]) -> Result<u16, Error> {
-    const ASCII_0: u8 = 0x30;
-    const ASCII_9: u8 = 0x39;
-
     if cfg!(debug_assertions) && bytes.len() >= 5 {
         panic!("atou16 accepts up to 4 bytes");
     }
@@ -61,6 +60,13 @@ pub fn atou16(bytes: &[u8]) -> Result<u16, Error> {
         n = n * 10 + (c - ASCII_0) as u16;
     }
     Ok(n)
+}
+
+pub fn ctou32(c: u8) -> Result<u32, Error> {
+    if c < ASCII_0 || ASCII_9 < c {
+        return Err(Error::InvalidFormat("Not a number"));
+    }
+    Ok((c - ASCII_0) as u32)
 }
 
 pub fn isupper(c: u8) -> bool {

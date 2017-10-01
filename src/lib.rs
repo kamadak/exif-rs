@@ -49,6 +49,7 @@
 //!
 //! * Enum Error has two new variants: TooBig and NotSupported.
 //! * Value::Undefined has the 2nd member to keep the offset of the value.
+//! * Struct DateTime has two new fields: nanosecond and offset.
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
