@@ -31,7 +31,7 @@ use std::slice;
 
 use endian::{Endian, BigEndian, LittleEndian};
 use error::Error;
-use tag_priv::{Context, Tag, constants as tag};
+use tag_priv::{Context, Tag};
 use tiff::{Field, TIFF_BE_SIG, TIFF_LE_SIG};
 use value::Value;
 
@@ -97,17 +97,17 @@ impl<'a> Writer<'a> {
     pub fn push_field(&mut self, field: &'a Field) {
         match *field {
             // Ignore the tags for the internal data structure.
-            Field { tag: tag::ExifIFDPointer, .. } |
-            Field { tag: tag::GPSInfoIFDPointer, .. } |
-            Field { tag: tag::InteropIFDPointer, .. } => {},
+            Field { tag: Tag::ExifIFDPointer, .. } |
+            Field { tag: Tag::GPSInfoIFDPointer, .. } |
+            Field { tag: Tag::InteropIFDPointer, .. } => {},
             // These tags are synthesized from the actual strip/tile data.
-            Field { tag: tag::StripOffsets, .. } |
-            Field { tag: tag::StripByteCounts, .. } |
-            Field { tag: tag::TileOffsets, .. } |
-            Field { tag: tag::TileByteCounts, .. } => {},
+            Field { tag: Tag::StripOffsets, .. } |
+            Field { tag: Tag::StripByteCounts, .. } |
+            Field { tag: Tag::TileOffsets, .. } |
+            Field { tag: Tag::TileByteCounts, .. } => {},
             // These tags are synthesized from the actual JPEG thumbnail.
-            Field { tag: tag::JPEGInterchangeFormat, .. } |
-            Field { tag: tag::JPEGInterchangeFormatLength, .. } => {},
+            Field { tag: Tag::JPEGInterchangeFormat, .. } |
+            Field { tag: Tag::JPEGInterchangeFormatLength, .. } => {},
             // Other normal tags.
             Field { tag: Tag(Context::Tiff, _), thumbnail: false, .. } =>
                 self.tiff_fields.push(field),
@@ -246,13 +246,13 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
 
     if let Some(strips) = ws.strips {
         strip_offsets = Field {
-            tag: tag::StripOffsets,
+            tag: Tag::StripOffsets,
             thumbnail: thumbnail,
             value: Value::Long(vec![0; strips.len()]),
         };
         ws.tiff_fields.push(&strip_offsets);
         strip_byte_counts = Field {
-            tag: tag::StripByteCounts,
+            tag: Tag::StripByteCounts,
             thumbnail: thumbnail,
             value: Value::Long(
                 strips.iter().map(|s| s.len() as u32).collect()),
@@ -261,13 +261,13 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     }
     if let Some(tiles) = ws.tiles {
         tile_offsets = Field {
-            tag: tag::TileOffsets,
+            tag: Tag::TileOffsets,
             thumbnail: thumbnail,
             value: Value::Long(vec![0; tiles.len()]),
         };
         ws.tiff_fields.push(&tile_offsets);
         tile_byte_counts = Field {
-            tag: tag::TileByteCounts,
+            tag: Tag::TileByteCounts,
             thumbnail: thumbnail,
             value: Value::Long(
                 tiles.iter().map(|s| s.len() as u32).collect()),
@@ -276,13 +276,13 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     }
     if let Some(jpeg) = ws.jpeg {
         jpeg_offset = Field {
-            tag: tag::JPEGInterchangeFormat,
+            tag: Tag::JPEGInterchangeFormat,
             thumbnail: thumbnail,
             value: Value::Long(vec![0]),
         };
         ws.tiff_fields.push(&jpeg_offset);
         jpeg_length = Field {
-            tag: tag::JPEGInterchangeFormatLength,
+            tag: Tag::JPEGInterchangeFormatLength,
             thumbnail: thumbnail,
             value: Value::Long(vec![jpeg.len() as u32]),
         };
@@ -301,7 +301,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     if exif_fields_len > 0 {
         ws.exif_ifd_offset = try!(reserve_ifd(w, exif_fields_len));
         exif_in_tiff = Field {
-            tag: tag::ExifIFDPointer,
+            tag: Tag::ExifIFDPointer,
             thumbnail: thumbnail,
             value: Value::Long(vec![ws.exif_ifd_offset]),
         };
@@ -310,7 +310,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     if gps_fields_len > 0 {
         ws.gps_ifd_offset = try!(reserve_ifd(w, gps_fields_len));
         gps_in_tiff = Field {
-            tag: tag::GPSInfoIFDPointer,
+            tag: Tag::GPSInfoIFDPointer,
             thumbnail: thumbnail,
             value: Value::Long(vec![ws.gps_ifd_offset]),
         };
@@ -319,7 +319,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     if interop_fields_len > 0 {
         ws.interop_ifd_offset = try!(reserve_ifd(w, interop_fields_len));
         interop_in_exif = Field {
-            tag: tag::InteropIFDPointer,
+            tag: Tag::InteropIFDPointer,
             thumbnail: thumbnail,
             value: Value::Long(vec![ws.interop_ifd_offset]),
         };
@@ -442,19 +442,19 @@ fn write_ifd_and_fields<W, E>(
             try!(E::writeu32(&mut ifd, valofs));
             try!(w.write_all(&valbuf));
         }
-        if f.tag == tag::StripOffsets {
+        if f.tag == Tag::StripOffsets {
             strip_offsets_offset = match valbuf.len() {
                 0...4 => ifd_offset + ifd.len() as u32 - 4,
                 _ => try!(get_offset(w)) - valbuf.len() as u32,
             };
         }
-        if f.tag == tag::TileOffsets {
+        if f.tag == Tag::TileOffsets {
             tile_offsets_offset = match valbuf.len() {
                 0...4 => ifd_offset + ifd.len() as u32 - 4,
                 _ => try!(get_offset(w)) - valbuf.len() as u32,
             };
         }
-        if f.tag == tag::JPEGInterchangeFormat {
+        if f.tag == Tag::JPEGInterchangeFormat {
             jpeg_offset = ifd_offset + ifd.len() as u32 - 4;
         }
     }
@@ -594,7 +594,7 @@ mod tests {
     #[test]
     fn primary() {
         let image_desc = Field {
-            tag: tag::ImageDescription,
+            tag: Tag::ImageDescription,
             thumbnail: false,
             value: Value::Ascii(vec![b"Sample"]),
         };
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn primary_exif_only() {
         let exif_ver = Field {
-            tag: tag::ExifVersion,
+            tag: Tag::ExifVersion,
             thumbnail: false,
             value: Value::Undefined(b"0231", 0),
         };
@@ -686,22 +686,22 @@ mod tests {
     #[test]
     fn primary_and_thumbnail() {
         let image_desc = Field {
-            tag: tag::ImageDescription,
+            tag: Tag::ImageDescription,
             thumbnail: false,
             value: Value::Ascii(vec![b"Sample"]),
         };
         let exif_ver = Field {
-            tag: tag::ExifVersion,
+            tag: Tag::ExifVersion,
             thumbnail: false,
             value: Value::Undefined(b"0231", 0),
         };
         let gps_ver = Field {
-            tag: tag::GPSVersionID,
+            tag: Tag::GPSVersionID,
             thumbnail: false,
             value: Value::Byte(vec![2, 3, 0, 0]),
         };
         let interop_index = Field {
-            tag: tag::InteroperabilityIndex,
+            tag: Tag::InteroperabilityIndex,
             thumbnail: false,
             value: Value::Ascii(vec![b"ABC"]),
         };
@@ -738,7 +738,7 @@ mod tests {
     #[test]
     fn write_twice() {
         let image_desc = Field {
-            tag: tag::ImageDescription,
+            tag: Tag::ImageDescription,
             thumbnail: false,
             value: Value::Ascii(vec![b"Sample"]),
         };

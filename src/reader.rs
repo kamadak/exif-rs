@@ -130,7 +130,6 @@ mod tests {
     use std::fs::File;
     use std::io::BufReader;
     use value::Value;
-    use tag_priv::constants as tag;
     use super::*;
 
     static TIFF_ASCII: &'static [u8] =
@@ -185,7 +184,7 @@ mod tests {
     fn get_field() {
         let file = File::open("tests/exif.jpg").unwrap();
         let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
-        assert_pat!(reader.get_field(tag::ExifVersion, false).unwrap().value,
+        assert_pat!(reader.get_field(Tag::ExifVersion, false).unwrap().value,
                     Value::Undefined(b"0230", _));
     }
 }

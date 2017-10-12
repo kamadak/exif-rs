@@ -81,12 +81,12 @@ impl<'a> Value<'a> {
     /// # Examples
     ///
     /// ```
-    /// use exif::{Value, tag};
+    /// use exif::{Value, Tag};
     /// let val = Value::Undefined(b"0231", 0);
-    /// assert_eq!(format!("{}", val.display_as(tag::ExifVersion)),
+    /// assert_eq!(format!("{}", val.display_as(Tag::ExifVersion)),
     ///            "2.31");
     /// let val = Value::Short(vec![2]);
-    /// assert_eq!(format!("{}", val.display_as(tag::ResolutionUnit)),
+    /// assert_eq!(format!("{}", val.display_as(Tag::ResolutionUnit)),
     ///            "pixels per inch");
     /// ```
     #[inline]

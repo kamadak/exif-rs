@@ -31,6 +31,10 @@ use value::Value;
 use util::{atou16, isupper};
 
 /// A tag of a TIFF field.
+///
+/// Some well-known tags are provided as associated constants of
+/// this type.  The constant names follow the Exif specification
+/// but not the Rust naming conventions.
 //
 // This is not an enum to keep safety and API stability, while
 // supporting unknown tag numbers.  This comment is based on the
@@ -133,6 +137,15 @@ macro_rules! generate_well_known_tag_constants {
             $($(
                 $( #[$attr] )*
                 #[allow(non_upper_case_globals)]
+                #[deprecated(since = "0.3.0", note = "use `Tag::TagName` instead of `tag::TagName`")]
+                pub const $name: Tag = Tag($ctx, $num);
+            )+)+
+        }
+
+        impl Tag {
+            $($(
+                $( #[$attr] )*
+                #[allow(non_upper_case_globals)]
                 pub const $name: Tag = Tag($ctx, $num);
             )+)+
         }
@@ -165,7 +178,7 @@ macro_rules! generate_well_known_tag_constants {
         fn get_tag_info(tag: Tag) -> Option<&'static tag_info::TagInfo> {
             match tag {
                 $($(
-                    constants::$name => Some(&tag_info::$name),
+                    Tag::$name => Some(&tag_info::$name),
                 )+)+
                 _ => None,
             }
@@ -1269,7 +1282,6 @@ fn d_sub_ascii(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
 
 #[cfg(test)]
 mod tests {
-    use tag;
     use value::Rational;
     use super::*;
 
@@ -1283,19 +1295,19 @@ mod tests {
         }
         // Matching against a constant.  Test if this compiles.
         match Tag(Context::Tiff, 0x132) {
-            tag::DateTime => {},
+            Tag::DateTime => {},
             _ => panic!("failed to match Tag"),
         }
     }
 
     #[test]
     fn default_value() {
-        assert_pat!(tag::DateTime.default_value(), None);
-        match tag::BitsPerSample.default_value() {
+        assert_pat!(Tag::DateTime.default_value(), None);
+        match Tag::BitsPerSample.default_value() {
             Some(Value::Short(v)) => assert_eq!(v, &[8, 8, 8]),
             _ => panic!(),
         }
-        match tag::XResolution.default_value() {
+        match Tag::XResolution.default_value() {
             Some(Value::Rational(v)) => {
                 assert_eq!(v.len(), 1);
                 assert_eq!(v[0].num, 72);
@@ -1303,15 +1315,15 @@ mod tests {
             },
             _ => panic!(),
         }
-        match tag::FileSource.default_value() {
+        match Tag::FileSource.default_value() {
             Some(Value::Undefined(v, _)) => assert_eq!(v, &[3]),
             _ => panic!(),
         }
-        match tag::GPSAltitudeRef.default_value() {
+        match Tag::GPSAltitudeRef.default_value() {
             Some(Value::Byte(v)) => assert_eq!(v, &[0]),
             _ => panic!(),
         }
-        match tag::GPSSpeedRef.default_value() {
+        match Tag::GPSSpeedRef.default_value() {
             Some(Value::Ascii(v)) => assert_eq!(v, &[b"K"]),
             _ => panic!(),
         }

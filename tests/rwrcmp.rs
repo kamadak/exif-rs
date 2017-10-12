@@ -37,7 +37,7 @@ use std::path::Path;
 
 #[cfg(not(test))]
 use exif::Error;
-use exif::{Reader, Value, tag};
+use exif::{Reader, Value, Tag};
 use exif::experimental::Writer;
 
 #[test]
@@ -122,8 +122,8 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
         assert_eq!(f1.tag, f2.tag);
         assert_eq!(f1.thumbnail, f2.thumbnail);
         match f1.tag {
-            tag::StripOffsets | tag::TileOffsets |
-            tag::JPEGInterchangeFormat => continue,
+            Tag::StripOffsets | Tag::TileOffsets |
+            Tag::JPEGInterchangeFormat => continue,
             _ => {},
         }
         compare_field_value(&f1.value, &f2.value);
@@ -177,9 +177,9 @@ fn compare_field_value(value1: &Value, value2: &Value) {
 }
 
 fn get_strips(reader: &Reader, thumbnail: bool) -> Option<Vec<&[u8]>> {
-    let offsets = reader.get_field(tag::StripOffsets, thumbnail)
+    let offsets = reader.get_field(Tag::StripOffsets, thumbnail)
         .and_then(|f| f.value.iter_uint());
-    let counts = reader.get_field(tag::StripByteCounts, thumbnail)
+    let counts = reader.get_field(Tag::StripByteCounts, thumbnail)
         .and_then(|f| f.value.iter_uint());
     let (offsets, counts) = match (offsets, counts) {
         (Some(offsets), Some(counts)) => (offsets, counts),
@@ -194,9 +194,9 @@ fn get_strips(reader: &Reader, thumbnail: bool) -> Option<Vec<&[u8]>> {
 }
 
 fn get_tiles(reader: &Reader, thumbnail: bool) -> Option<Vec<&[u8]>> {
-    let offsets = reader.get_field(tag::TileOffsets, thumbnail)
+    let offsets = reader.get_field(Tag::TileOffsets, thumbnail)
         .and_then(|f| f.value.iter_uint());
-    let counts = reader.get_field(tag::TileByteCounts, thumbnail)
+    let counts = reader.get_field(Tag::TileByteCounts, thumbnail)
         .and_then(|f| f.value.iter_uint());
     let (offsets, counts) = match (offsets, counts) {
         (Some(offsets), Some(counts)) => (offsets, counts),
@@ -211,9 +211,9 @@ fn get_tiles(reader: &Reader, thumbnail: bool) -> Option<Vec<&[u8]>> {
 }
 
 fn get_jpeg(reader: &Reader, thumbnail: bool) -> Option<&[u8]> {
-    let offset = reader.get_field(tag::JPEGInterchangeFormat, thumbnail)
+    let offset = reader.get_field(Tag::JPEGInterchangeFormat, thumbnail)
         .and_then(|f| f.value.get_uint(0));
-    let len = reader.get_field(tag::JPEGInterchangeFormatLength, thumbnail)
+    let len = reader.get_field(Tag::JPEGInterchangeFormatLength, thumbnail)
         .and_then(|f| f.value.get_uint(0));
     let (offset, len) = match (offset, len) {
         (Some(offset), Some(len)) => (offset as usize, len as usize),

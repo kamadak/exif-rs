@@ -28,7 +28,6 @@ use std::fmt;
 
 use endian::{Endian, BigEndian, LittleEndian};
 use error::Error;
-use tag;
 use tag_priv::{Context, Tag};
 use value::Value;
 use value::get_type_info;
@@ -120,11 +119,11 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
         // recursively defined.
         let tag = Tag(ctx, tag);
         match tag {
-            tag::ExifIFDPointer => try!(parse_child_ifd::<E>(
+            Tag::ExifIFDPointer => try!(parse_child_ifd::<E>(
                 fields, data, &val, Context::Exif, thumbnail)),
-            tag::GPSInfoIFDPointer => try!(parse_child_ifd::<E>(
+            Tag::GPSInfoIFDPointer => try!(parse_child_ifd::<E>(
                 fields, data, &val, Context::Gps, thumbnail)),
-            tag::InteropIFDPointer => try!(parse_child_ifd::<E>(
+            Tag::InteropIFDPointer => try!(parse_child_ifd::<E>(
                 fields, data, &val, Context::Interop, thumbnail)),
             _ => fields.push(Field { tag: tag, thumbnail: thumbnail,
                                      value: val }),
