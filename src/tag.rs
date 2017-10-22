@@ -67,13 +67,6 @@ impl Tag {
         self.1
     }
 
-    /// Returns the tag number.
-    #[deprecated(since = "0.2.0", note = "renamed to `number()`")]
-    #[inline]
-    pub fn value(self) -> u16 {
-        self.number()
-    }
-
     /// Returns the description of the tag.
     #[inline]
     pub fn description(&self) -> Option<&str> {
