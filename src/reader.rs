@@ -64,7 +64,7 @@ pub struct Reader {
 impl Reader {
     /// Reads a JPEG or TIFF image and parses the Exif attributes in it.
     /// If an error occurred, `exif::Error` is returned.
-    pub fn new<R>(mut reader: &mut R)
+    pub fn new<R>(reader: &mut R)
                   -> Result<Reader, Error> where R: io::BufRead {
         let mut buf = Vec::new();
         try!(reader.by_ref().take(4).read_to_end(&mut buf));
