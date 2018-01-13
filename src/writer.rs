@@ -36,6 +36,28 @@ use tiff::{Field, TIFF_BE_SIG, TIFF_LE_SIG};
 use value::Value;
 
 /// The `Writer` struct is used to encode and write Exif data.
+///
+/// # Examples
+///
+/// ```
+/// use exif::{Field, Value, Tag};
+/// use exif::experimental::Writer;
+/// let image_desc = Field {
+///     tag: Tag::ImageDescription,
+///     thumbnail: false,
+///     value: Value::Ascii(vec![b"Sample"]),
+/// };
+/// let mut writer = Writer::new();
+/// let mut buf = std::io::Cursor::new(Vec::new());
+/// writer.push_field(&image_desc);
+/// writer.write(&mut buf, false).unwrap();
+/// static expected: &[u8] =
+///     b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
+///       \x00\x01\x01\x0e\x00\x02\x00\x00\x00\x07\x00\x00\x00\x1a\
+///       \x00\x00\x00\x00\
+///       Sample\0";
+/// assert_eq!(buf.into_inner(), expected);
+/// ```
 #[derive(Debug)]
 pub struct Writer<'a> {
     tiff_fields: Vec<&'a Field<'a>>,

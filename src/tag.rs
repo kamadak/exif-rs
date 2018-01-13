@@ -56,12 +56,25 @@ pub struct Tag(pub Context, pub u16);
 
 impl Tag {
     /// Returns the context of the tag.
+    ///
+    /// # Examples
+    /// ```
+    /// use exif::{Context, Tag};
+    /// assert_eq!(Tag::DateTime.context(), Context::Tiff);
+    /// assert_eq!(Tag::ExposureTime.context(), Context::Exif);
+    /// ```
     #[inline]
     pub fn context(self) -> Context {
         self.0
     }
 
     /// Returns the tag number.
+    ///
+    /// # Examples
+    /// ```
+    /// use exif::Tag;
+    /// assert_eq!(Tag::DateTime.number(), 0x132);
+    /// ```
     #[inline]
     pub fn number(self) -> u16 {
         self.1
@@ -1040,8 +1053,8 @@ fn d_gpslatlongref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     }
 }
 
-// GPSLatitude (Exif/GPS 0x2), GPSLongitude (Exif 0x4),
-// GPSDestLatitude (Exif/GPS 0x14), GPSDestLongitude (Exif 0x16)
+// GPSLatitude (Exif/GPS 0x2), GPSLongitude (Exif/GPS 0x4),
+// GPSDestLatitude (Exif/GPS 0x14), GPSDestLongitude (Exif/GPS 0x16)
 fn d_gpsdms(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Rational(ref v) if v.len() >= 3 =>

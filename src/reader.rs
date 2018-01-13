@@ -66,6 +66,7 @@ impl Reader {
     /// If an error occurred, `exif::Error` is returned.
     pub fn new<R>(reader: &mut R)
                   -> Result<Reader, Error> where R: io::BufRead {
+        // Parse the data.
         let mut buf = Vec::new();
         try!(reader.by_ref().take(4).read_to_end(&mut buf));
         if jpeg::is_jpeg(&buf) {

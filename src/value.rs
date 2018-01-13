@@ -35,7 +35,7 @@ pub enum Value<'a> {
     /// Vector of 8-bit unsigned integers.
     Byte(Vec<u8>),
     /// Vector of slices of 8-bit bytes containing 7-bit ASCII characters.
-    /// The trailing null character is not included.  Note that
+    /// The trailing null characters are not included.  Note that
     /// the 8th bits may present if a non-conforming data is given.
     Ascii(Vec<&'a [u8]>),
     /// Vector of 16-bit unsigned integers.

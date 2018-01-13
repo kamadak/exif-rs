@@ -19,6 +19,11 @@ Usage
 
       extern crate exif;
 
+   Run "cargo doc" in the source directory to generate the API reference.
+   It is also available online at <https://docs.rs/kamadak-exif>.
+
+   See examples directory for sample codes.
+
 Dependencies
 ------------
 

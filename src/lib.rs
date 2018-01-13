@@ -38,7 +38,8 @@
 //!     let reader = exif::Reader::new(
 //!         &mut std::io::BufReader::new(&file)).unwrap();
 //!     for f in reader.fields() {
-//!         println!("{} {} {:?}", f.tag, f.thumbnail, f.value);
+//!         println!("{} {} {}",
+//!                  f.tag, f.thumbnail, f.value.display_as(f.tag));
 //!     }
 //! }
 //! ```
@@ -63,7 +64,7 @@ pub use tiff::parse_exif;
 pub use value::Value;
 pub use value::{Rational, SRational};
 
-/// The interfaces in this module is experimental and unstable.
+/// The interfaces in this module are experimental and unstable.
 pub mod experimental {
     pub use writer::Writer;
 }

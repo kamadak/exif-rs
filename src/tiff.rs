@@ -90,7 +90,7 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
     }
     let count = E::loadu16(data, offset) as usize;
 
-    // Array of entries.  (count * 12) never overflow.
+    // Array of entries.  (count * 12) never overflows.
     if data.len() - offset - 2 < count * 12 {
         return Err(Error::InvalidFormat("Truncated IFD"));
     }
@@ -186,6 +186,8 @@ pub struct DateTime {
 impl DateTime {
     /// Parse an ASCII data of a DateTime field.  The range of a number
     /// is not validated, so, for example, 13 may be returned as the month.
+    ///
+    /// If the value is blank, `Error::BlankValue` is returned.
     pub fn from_ascii(data: &[u8]) -> Result<DateTime, Error> {
         if data == b"    :  :     :  :  " || data == b"                   " {
             return Err(Error::BlankValue("DateTime is blank"));
