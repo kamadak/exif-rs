@@ -64,7 +64,6 @@ pub fn get_exif_attr<R>(reader: &mut R)
 fn get_exif_attr_sub<R>(reader: &mut R)
                         -> Result<Vec<u8>, Error> where R: io::BufRead {
     let mut soi = [0u8; 2];
-    let mut code;
     try!(reader.read_exact(&mut soi));
     if soi != [marker::P, marker::SOI] {
         return Err(Error::InvalidFormat("Not a JPEG file"));
@@ -74,6 +73,7 @@ fn get_exif_attr_sub<R>(reader: &mut R)
         // we are in the scan data after SOS or we are out of sync.
         try!(reader.read_until(marker::P, &mut Vec::new()));
         // Get a marker code.
+        let mut code;
         loop {
             code = try!(read8(reader));
             if code != marker::P { break; }
