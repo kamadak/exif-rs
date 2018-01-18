@@ -1224,7 +1224,7 @@ fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
         Value::Long(ref v) => d_sub_comma(w, v),
         Value::Rational(ref v) => d_sub_comma(w, v),
         Value::SByte(ref v) => d_sub_comma(w, v),
-        Value::Undefined(ref s, _) => d_sub_hex(w, s),
+        Value::Undefined(s, _) => d_sub_hex(w, s),
         Value::SShort(ref v) => d_sub_comma(w, v),
         Value::SLong(ref v) => d_sub_comma(w, v),
         Value::SRational(ref v) => d_sub_comma(w, v),
