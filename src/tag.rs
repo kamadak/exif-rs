@@ -788,12 +788,12 @@ fn d_flash(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     const FIRED: &[&str] = &["not fired", "fired"];
     const RETURN: &[&str] = &[
         ", no return light detection function",
-        ", reserved return light",
+        ", return light status 1 (reserved)",
         ", return light not detected",
         ", return light detected",
     ];
     const AUTO: &[&str] = &[
-        ", unknown auto mode", ", forced", ", suppressed", ", auto"];
+        ", auto mode 0 (unknown)", ", forced", ", suppressed", ", auto"];
     const FUNCTION: &[&str] = &["", ", no function present"];
     const RED_EYE: &[&str] = &["", ", red-eye reduction"];
 
