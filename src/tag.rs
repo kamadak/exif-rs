@@ -785,17 +785,17 @@ fn d_lightsrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // Flash (Exif 0x9209)
 fn d_flash(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    const FIRED: &'static [&'static str] = &["not fired", "fired"];
-    const RETURN: &'static [&'static str] = &[
+    const FIRED: &[&str] = &["not fired", "fired"];
+    const RETURN: &[&str] = &[
         ", no return light detection function",
         ", reserved return light",
         ", return light not detected",
         ", return light detected",
     ];
-    const AUTO: &'static [&'static str] = &[
+    const AUTO: &[&str] = &[
         ", unknown auto mode", ", forced", ", suppressed", ", auto"];
-    const FUNCTION: &'static [&'static str] = &["", ", no function present"];
-    const RED_EYE: &'static [&'static str] = &["", ", red-eye reduction"];
+    const FUNCTION: &[&str] = &["", ", no function present"];
+    const RED_EYE: &[&str] = &["", ", red-eye reduction"];
 
     if let Some(v) = value.get_uint(0) {
         write!(w, "{}{}{}{}{}{}",
