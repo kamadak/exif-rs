@@ -40,7 +40,7 @@ pub fn read8<R>(reader: &mut R) -> Result<u8, io::Error> where R: io::Read {
 
 pub fn read16<R>(reader: &mut R) -> Result<u16, io::Error> where R: io::Read {
     let mut buf: [u8; 2] = unsafe { ::std::mem::uninitialized() };
-    try!(reader.read_exact(&mut buf));
+    reader.read_exact(&mut buf)?;
     Ok(((buf[0] as u16) << 8) + buf[1] as u16)
 }
 

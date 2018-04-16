@@ -76,7 +76,7 @@ fn parse_exif_sub<E>(data: &[u8])
     }
     let ifd_offset = E::loadu32(data, 4) as usize;
     let mut fields = Vec::new();
-    try!(parse_ifd::<E>(&mut fields, data, ifd_offset, Context::Tiff, false));
+    parse_ifd::<E>(&mut fields, data, ifd_offset, Context::Tiff, false)?;
     Ok(fields)
 }
 
@@ -100,8 +100,8 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
         let cnt = E::loadu32(data, offset + 2 + i * 12 + 4) as usize;
         let valofs_at = offset + 2 + i * 12 + 8;
         let (unitlen, parser) = get_type_info::<E>(typ);
-        let vallen = try!(unitlen.checked_mul(cnt).ok_or(
-            Error::InvalidFormat("Invalid entry count")));
+        let vallen = unitlen.checked_mul(cnt).ok_or(
+            Error::InvalidFormat("Invalid entry count"))?;
         let val;
         if unitlen == 0 {
             val = Value::Unknown(typ, cnt as u32, valofs_at as u32);
@@ -119,12 +119,12 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
         // recursively defined.
         let tag = Tag(ctx, tag);
         match tag {
-            Tag::ExifIFDPointer => try!(parse_child_ifd::<E>(
-                fields, data, &val, Context::Exif, thumbnail)),
-            Tag::GPSInfoIFDPointer => try!(parse_child_ifd::<E>(
-                fields, data, &val, Context::Gps, thumbnail)),
-            Tag::InteropIFDPointer => try!(parse_child_ifd::<E>(
-                fields, data, &val, Context::Interop, thumbnail)),
+            Tag::ExifIFDPointer => parse_child_ifd::<E>(
+                fields, data, &val, Context::Exif, thumbnail)?,
+            Tag::GPSInfoIFDPointer => parse_child_ifd::<E>(
+                fields, data, &val, Context::Gps, thumbnail)?,
+            Tag::InteropIFDPointer => parse_child_ifd::<E>(
+                fields, data, &val, Context::Interop, thumbnail)?,
             _ => fields.push(Field { tag: tag, thumbnail: thumbnail,
                                      value: val }),
         }
@@ -150,8 +150,8 @@ fn parse_child_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
     // A pointer field has type == LONG and count == 1, so the
     // value (IFD offset) must be embedded in the "value offset"
     // element of the field.
-    let ofs = try!(pointer.get_uint(0).ok_or(
-        Error::InvalidFormat("Invalid pointer"))) as usize;
+    let ofs = pointer.get_uint(0).ok_or(
+        Error::InvalidFormat("Invalid pointer"))? as usize;
     parse_ifd::<E>(fields, data, ofs, ctx, thumbnail)
 }
 
@@ -198,12 +198,12 @@ impl DateTime {
             return Err(Error::InvalidFormat("Invalid DateTime delimiter"));
         }
         Ok(DateTime {
-            year: try!(atou16(&data[0..4])),
-            month: try!(atou16(&data[5..7])) as u8,
-            day: try!(atou16(&data[8..10])) as u8,
-            hour: try!(atou16(&data[11..13])) as u8,
-            minute: try!(atou16(&data[14..16])) as u8,
-            second: try!(atou16(&data[17..19])) as u8,
+            year: atou16(&data[0..4])?,
+            month: atou16(&data[5..7])? as u8,
+            day: atou16(&data[8..10])? as u8,
+            hour: atou16(&data[11..13])? as u8,
+            minute: atou16(&data[14..16])? as u8,
+            second: atou16(&data[17..19])? as u8,
             nanosecond: None,
             offset: None,
         })
@@ -217,7 +217,7 @@ impl DateTime {
             if c == b' ' {
                 break;
             }
-            subsec = subsec * 10 + try!(ctou32(c));
+            subsec = subsec * 10 + ctou32(c)?;
             ndigits += 1;
             if ndigits >= 9 {
                 break;
@@ -243,8 +243,8 @@ impl DateTime {
         } else if data[3] != b':' {
             return Err(Error::InvalidFormat("Invalid OffsetTime delimiter"));
         }
-        let hour = try!(atou16(&data[1..3]));
-        let min = try!(atou16(&data[4..6]));
+        let hour = atou16(&data[1..3])?;
+        let min = atou16(&data[4..6])?;
         let offset = (hour * 60 + min) as i16;
         self.offset = Some(match data[0] {
             b'+' => offset,

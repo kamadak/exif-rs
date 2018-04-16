@@ -652,7 +652,7 @@ fn d_exptime(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // FNumber (Exif 0x829d)
 fn d_fnumber(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    try!(w.write_str("f/"));
+    w.write_str("f/")?;
     d_decimal(w, value)
 }
 
@@ -709,7 +709,7 @@ fn d_exifver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 fn d_cpntcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Undefined(u, _) = *value {
         for &x in u {
-            try!(match x {
+            match x {
                 0 => w.write_char('_'),
                 1 => w.write_char('Y'),
                 2 => w.write_str("Cb"),
@@ -718,7 +718,7 @@ fn d_cpntcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
                 5 => w.write_char('G'),
                 6 => w.write_char('B'),
                 _ => w.write_char('?'),
-            });
+            }?;
         }
         return Ok(());
     }
@@ -1202,7 +1202,7 @@ fn d_decimal(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 #[inline(never)]
 fn d_unknown(w: &mut fmt::Write, value: &Value, prefix: &str) -> fmt::Result {
-    try!(w.write_str(prefix));
+    w.write_str(prefix)?;
     d_default(w, value)
 }
 
@@ -1213,10 +1213,10 @@ fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
             let mut first = true;
             for x in v {
                 if !first {
-                    try!(w.write_str(", "));
+                    w.write_str(", ")?;
                 }
                 first = false;
-                try!(d_sub_ascii(w, x));
+                d_sub_ascii(w, x)?;
             }
             Ok(())
         },
@@ -1240,10 +1240,10 @@ fn d_sub_comma<T>(w: &mut fmt::Write, slice: &[T])
                   -> fmt::Result where T: fmt::Display {
     let mut first = true;
     for x in slice {
-        try!(match first {
+        match first {
             true => write!(w, "{}", x),
             false => write!(w, ", {}", x),
-        });
+        }?;
         first = false;
     }
     Ok(())
@@ -1254,33 +1254,33 @@ fn d_sub_comma_f64<T>(w: &mut fmt::Write, slice: &[T])
     let mut first = true;
     for &x in slice {
         let x: f64 = x.into();
-        try!(match first {
+        match first {
             true => write!(w, "{}", x),
             false => write!(w, ", {}", x),
-        });
+        }?;
         first = false;
     }
     Ok(())
 }
 
 fn d_sub_hex(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
-    try!(w.write_str("0x"));
+    w.write_str("0x")?;
     for x in bytes {
-        try!(write!(w, "{:02x}", x));
+        write!(w, "{:02x}", x)?;
     }
     Ok(())
 }
 
 fn d_sub_ascii(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
-    try!(w.write_char('"'));
+    w.write_char('"')?;
     for &c in bytes {
         match c {
             b'\\' | b'"' => {
-                try!(w.write_char('\\'));
-                try!(w.write_char(c as char));
+                w.write_char('\\')?;
+                w.write_char(c as char)?;
             },
-            0x20...0x7e => try!(w.write_char(c as char)),
-            _ => try!(write!(w, "\\x{:02x}", c)),
+            0x20...0x7e => w.write_char(c as char)?,
+            _ => write!(w, "\\x{:02x}", c)?,
         }
     }
     w.write_char('"')

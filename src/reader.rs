@@ -68,13 +68,13 @@ impl Reader {
                   -> Result<Reader, Error> where R: io::BufRead {
         // Parse the data.
         let mut buf = Vec::new();
-        try!(reader.by_ref().take(4).read_to_end(&mut buf));
+        reader.by_ref().take(4).read_to_end(&mut buf)?;
         if jpeg::is_jpeg(&buf) {
-            let exif_buf = try!(jpeg::get_exif_attr(
-                &mut buf.as_mut_slice().chain(reader)));
+            let exif_buf = jpeg::get_exif_attr(
+                &mut buf.as_mut_slice().chain(reader))?;
             buf = exif_buf;
         } else if tiff::is_tiff(&buf) {
-            try!(reader.read_to_end(&mut buf));
+            reader.read_to_end(&mut buf)?;
         } else {
             return Err(Error::InvalidFormat("Unknown image format"));
         }
@@ -82,7 +82,7 @@ impl Reader {
         // Cheat on the type system and erase the lifetime by transmute().
         // The scope releases the inner `v` to unborrow `buf`.
         let (fields, le) = {
-            let (v, le) = try!(tiff::parse_exif(&buf));
+            let (v, le) = tiff::parse_exif(&buf)?;
             (unsafe { mem::transmute::<Vec<Field>, Vec<Field>>(v) }, le) };
 
         // Initialize the HashMap of all fields.
