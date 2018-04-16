@@ -64,18 +64,18 @@ pub fn get_exif_attr<R>(reader: &mut R)
 fn get_exif_attr_sub<R>(reader: &mut R)
                         -> Result<Vec<u8>, Error> where R: io::BufRead {
     let mut soi = [0u8; 2];
-    try!(reader.read_exact(&mut soi));
+    reader.read_exact(&mut soi)?;
     if soi != [marker::P, marker::SOI] {
         return Err(Error::InvalidFormat("Not a JPEG file"));
     }
     loop {
         // Find a marker prefix.  Discard non-ff bytes, which appear if
         // we are in the scan data after SOS or we are out of sync.
-        try!(reader.read_until(marker::P, &mut Vec::new()));
+        reader.read_until(marker::P, &mut Vec::new())?;
         // Get a marker code.
         let mut code;
         loop {
-            code = try!(read8(reader));
+            code = read8(reader)?;
             if code != marker::P { break; }
         }
         // Continue or return early on stand-alone markers.
@@ -86,12 +86,12 @@ fn get_exif_attr_sub<R>(reader: &mut R)
             _ => {},
         }
         // Read marker segments.
-        let seglen = try!(read16(reader));
+        let seglen = read16(reader)?;
         if seglen < 2 {
             return Err(Error::InvalidFormat("Invalid segment length"));
         }
         let mut seg = Vec::new();
-        try!(reader.by_ref().take(seglen as u64 - 2).read_to_end(&mut seg));
+        reader.by_ref().take(seglen as u64 - 2).read_to_end(&mut seg)?;
         if code == marker::APP1 && seg.starts_with(&EXIF_ID) {
             return Ok(seg.split_off(EXIF_ID.len()));
         }
