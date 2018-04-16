@@ -13,7 +13,7 @@ Usage
    minor will be bumped to indicate backwards-incompatible changes.
 
       [dependencies]
-      exif = "0.3"
+      kamadak-exif = "0.3"
 
    Add the following to your crate root.
 
