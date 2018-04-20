@@ -26,7 +26,6 @@
 
 use std::io;
 use std::io::{Seek, SeekFrom, Write};
-use std::mem;
 use std::slice;
 
 use endian::{Endian, BigEndian, LittleEndian};
@@ -559,14 +558,14 @@ fn compose_value<E>(value: &Value)
         Value::Float(ref vec) => {
             let mut buf = Vec::new();
             for &v in vec {
-                E::writeu32(&mut buf, unsafe { mem::transmute(v) })?;
+                E::writeu32(&mut buf, v.to_bits())?;
             }
             Ok((11, vec.len(), buf))
         },
         Value::Double(ref vec) => {
             let mut buf = Vec::new();
             for &v in vec {
-                E::writeu64(&mut buf, unsafe { mem::transmute(v) })?;
+                E::writeu64(&mut buf, v.to_bits())?;
             }
             Ok((12, vec.len(), buf))
         },

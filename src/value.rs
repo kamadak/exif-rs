@@ -25,7 +25,6 @@
 //
 
 use std::fmt;
-use std::mem;
 
 use endian::Endian;
 
@@ -404,7 +403,7 @@ fn parse_float<'a, E>(data: &'a [u8], offset: usize, count: usize)
                       -> Value<'a> where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
-        val.push(unsafe { mem::transmute(E::loadu32(data, offset + i * 4)) });
+        val.push(f32::from_bits(E::loadu32(data, offset + i * 4)));
     }
     Value::Float(val)
 }
@@ -414,7 +413,7 @@ fn parse_double<'a, E>(data: &'a [u8], offset: usize, count: usize)
                        -> Value<'a> where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
-        val.push(unsafe { mem::transmute(E::loadu64(data, offset + i * 8)) });
+        val.push(f64::from_bits(E::loadu64(data, offset + i * 8)));
     }
     Value::Double(val)
 }
