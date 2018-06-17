@@ -135,10 +135,11 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
         return Err(Error::InvalidFormat("Truncated next IFD offset"));
     }
     let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12) as usize;
-    if next_ifd_offset == 0 {
+    // Ignore IFDs after IFD1 (thumbnail) for now.
+    if next_ifd_offset == 0 || thumbnail {
         return Ok(());
     }
-    if ctx != Context::Tiff || thumbnail {
+    if ctx != Context::Tiff {
         return Err(Error::InvalidFormat("Unexpected next IFD"));
     }
     parse_ifd::<E>(fields, data, next_ifd_offset, Context::Tiff, true)
@@ -273,8 +274,10 @@ mod tests {
     fn inf_loop_by_next() {
         let data = b"MM\0\x2a\0\0\0\x08\
                      \0\x01\x01\0\0\x03\0\0\0\x01\0\x14\0\0\0\0\0\x08";
-        assert_err_pat!(parse_exif(data),
-                        Error::InvalidFormat("Unexpected next IFD"));
+        // assert_err_pat!(parse_exif(data),
+        //                 Error::InvalidFormat("Unexpected next IFD"));
+        let (v, _) = parse_exif(data).unwrap();
+        assert_eq!(v.len(), 2);
     }
 
     #[test]
