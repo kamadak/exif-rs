@@ -689,7 +689,7 @@ fn d_sensitivitytype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // ExifVersion (Exif 0x9000), FlashpixVersion (Exif 0xa000)
 fn d_exifver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Undefined(u, _) = *value {
+    if let Value::Undefined(u, _) = value {
         if u.len() == 4 {
             if let Ok(major) = atou16(&u[0..2]) {
                 if let Ok(minor) = atou16(&u[2..4]) {
@@ -707,8 +707,8 @@ fn d_exifver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // ComponentsConfiguration (Exif 0x9101)
 fn d_cpntcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Undefined(u, _) = *value {
-        for &x in u {
+    if let Value::Undefined(u, _) = value {
+        for x in u {
             match x {
                 0 => w.write_char('_'),
                 1 => w.write_char('Y'),
@@ -877,7 +877,7 @@ fn d_sensingmethod(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // FileSource (Exif 0xa300)
 fn d_filesrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
+    let s = match match value {
         Value::Undefined(s, _) => s.first().map(|&x| x),
         _ => None,
     } {
@@ -892,7 +892,7 @@ fn d_filesrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // SceneType (Exif 0xa301)
 fn d_scenetype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
+    let s = match match value {
         Value::Undefined(s, _) => s.first().map(|&x| x),
         _ => None,
     } {
@@ -1090,10 +1090,7 @@ fn d_gpstimestamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSStatus (Exif/GPS 0x9)
 fn d_gpsstatus(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|&x| x),
-        _ => None,
-    } {
+    let s = match value.first_ascii_slice() {
         Some(b"A") => "measurement in progress",
         Some(b"V") => "measurement interrupted",
         _ => return d_unknown(w, value, "unknown GPS status "),
@@ -1103,10 +1100,7 @@ fn d_gpsstatus(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSMeasure (Exif/GPS 0xa)
 fn d_gpsmeasuremode(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|&x| x),
-        _ => None,
-    } {
+    let s = match value.first_ascii_slice() {
         Some(b"2") => "2-dimensional measurement",
         Some(b"3") => "3-dimensional measurement",
         _ => return d_unknown(w, value, "unknown GPS measurement mode "),
@@ -1116,10 +1110,7 @@ fn d_gpsmeasuremode(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSSpeedRef (Exif/GPS 0xc)
 fn d_gpsspeedref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|&x| x),
-        _ => None,
-    } {
+    let s = match value.first_ascii_slice() {
         Some(b"K") => "km/h",
         Some(b"M") => "mph",
         Some(b"N") => "knots",
@@ -1131,10 +1122,7 @@ fn d_gpsspeedref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 // GPSTrackRef (Exif/GPS 0xe), GPSImgDirectionRef (Exif/GPS 0x10),
 // GPSDestBearingRef (Exif/GPS 0x17)
 fn d_gpsdirref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|&x| x),
-        _ => None,
-    } {
+    let s = match value.first_ascii_slice() {
         Some(b"T") => "true direction",
         Some(b"M") => "magnetic direction",
         _ => return d_unknown(w, value, "unknown GPS direction ref "),
@@ -1144,10 +1132,7 @@ fn d_gpsdirref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSDestDistanceRef (Exif/GPS 0x19)
 fn d_gpsdistref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|&x| x),
-        _ => None,
-    } {
+    let s = match value.first_ascii_slice() {
         Some(b"K") => "km",
         Some(b"M") => "miles",
         Some(b"N") => "nautical miles",
@@ -1186,14 +1171,14 @@ fn d_gpsdifferential(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 fn d_ascii_in_undef(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    match *value {
-        Value::Undefined(s, _) => d_sub_ascii(w, s),
+    match value {
+        Value::Undefined(s, _) => d_sub_ascii(w, &s),
         _ => d_default(w, value),
     }
 }
 
 fn d_decimal(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    match *value {
+    match value {
         Value::Rational(ref v) => d_sub_comma_f64(w, v),
         Value::SRational(ref v) => d_sub_comma_f64(w, v),
         _ => d_default(w, value),
@@ -1207,7 +1192,7 @@ fn d_unknown(w: &mut fmt::Write, value: &Value, prefix: &str) -> fmt::Result {
 }
 
 fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
-    match *value {
+    match value {
         Value::Byte(ref v) => d_sub_comma(w, v),
         Value::Ascii(ref v) => {
             let mut first = true;
@@ -1224,7 +1209,7 @@ fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
         Value::Long(ref v) => d_sub_comma(w, v),
         Value::Rational(ref v) => d_sub_comma(w, v),
         Value::SByte(ref v) => d_sub_comma(w, v),
-        Value::Undefined(s, _) => d_sub_hex(w, s),
+        Value::Undefined(s, _) => d_sub_hex(w, &s),
         Value::SShort(ref v) => d_sub_comma(w, v),
         Value::SLong(ref v) => d_sub_comma(w, v),
         Value::SRational(ref v) => d_sub_comma(w, v),

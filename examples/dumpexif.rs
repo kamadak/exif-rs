@@ -50,7 +50,7 @@ fn dump_file(path: &Path) -> Result<(), exif::Error> {
         println!("  {}{}: {}", thumb, f.tag, f.value.display_as(f.tag));
         if let exif::Value::Ascii(ref s) = f.value {
             println!("      Ascii({:?})",
-                     s.iter().map(escape).collect::<Vec<_>>());
+                     s.iter().map(|x| escape(&x)).collect::<Vec<_>>());
         } else {
             println!("      {:?}", f.value);
         }
@@ -58,12 +58,12 @@ fn dump_file(path: &Path) -> Result<(), exif::Error> {
     Ok(())
 }
 
-fn escape(bytes: &&[u8]) -> String {
+fn escape(bytes: &[u8]) -> String {
     let mut buf = String::new();
-    for &c in *bytes {
+    for c in bytes {
         match c {
-            b'\\' | b'"' => write!(buf, "\\{}", c as char).unwrap(),
-            0x20...0x7e => buf.write_char(c as char).unwrap(),
+            b'\\' | b'"' => write!(buf, "\\{}", *c as char).unwrap(),
+            0x20...0x7e => buf.write_char(*c as char).unwrap(),
             _ => write!(buf, "\\x{:02x}", c).unwrap(),
         }
     }

@@ -34,12 +34,12 @@ const ASCII_A: u8 = 0x41;
 const ASCII_Z: u8 = 0x5a;
 
 pub fn read8<R>(reader: &mut R) -> Result<u8, io::Error> where R: io::Read {
-    let mut buf: [u8; 1] = unsafe { ::std::mem::uninitialized() };
+    let mut buf = [0u8; 1];
     reader.read_exact(&mut buf).and(Ok(buf[0]))
 }
 
 pub fn read16<R>(reader: &mut R) -> Result<u16, io::Error> where R: io::Read {
-    let mut buf: [u8; 2] = unsafe { ::std::mem::uninitialized() };
+    let mut buf = [0u8; 2];
     reader.read_exact(&mut buf)?;
     Ok(((buf[0] as u16) << 8) + buf[1] as u16)
 }

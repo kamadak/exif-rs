@@ -46,12 +46,8 @@ pub struct LittleEndian;
 macro_rules! generate_load {
     ($name:ident, $int_type:ident, $from_func:ident) => (
         fn $name(buf: &[u8], offset: usize) -> $int_type {
-            // Check if the specified range of the slice is valid
-            // before transmute().  This will also detect the
-            // wrap-around of (offset + size_of) in the release mode.
-            let buf = &buf[offset .. offset + mem::size_of::<$int_type>()];
-            let ptr = buf.as_ptr() as *const $int_type;
-            let num = unsafe { mem::transmute(*ptr) };
+            let mut num = [0u8; mem::size_of::<$int_type>()];
+            num.copy_from_slice(&buf[offset .. offset + mem::size_of::<$int_type>()]);
             $int_type::$from_func(num)
         }
     )
@@ -61,29 +57,28 @@ macro_rules! generate_write {
     ($name:ident, $int_type:ident, $type_size:expr, $to_func:ident) => (
         fn $name<W>(w: &mut W, num: $int_type)
                     -> io::Result<()> where W: io::Write {
-            let buf: [u8; $type_size] =
-                unsafe { mem::transmute(num.$to_func()) };
+            let buf = num.$to_func();
             w.write_all(&buf)
         }
     )
 }
 
 impl Endian for BigEndian {
-    generate_load!(loadu16, u16, from_be);
-    generate_load!(loadu32, u32, from_be);
-    generate_load!(loadu64, u64, from_be);
-    generate_write!(writeu16, u16, 2, to_be);
-    generate_write!(writeu32, u32, 4, to_be);
-    generate_write!(writeu64, u64, 8, to_be);
+    generate_load!(loadu16, u16, from_be_bytes);
+    generate_load!(loadu32, u32, from_be_bytes);
+    generate_load!(loadu64, u64, from_be_bytes);
+    generate_write!(writeu16, u16, 2, to_be_bytes);
+    generate_write!(writeu32, u32, 4, to_be_bytes);
+    generate_write!(writeu64, u64, 8, to_be_bytes);
 }
 
 impl Endian for LittleEndian {
-    generate_load!(loadu16, u16, from_le);
-    generate_load!(loadu32, u32, from_le);
-    generate_load!(loadu64, u64, from_le);
-    generate_write!(writeu16, u16, 2, to_le);
-    generate_write!(writeu32, u32, 4, to_le);
-    generate_write!(writeu64, u64, 8, to_le);
+    generate_load!(loadu16, u16, from_le_bytes);
+    generate_load!(loadu32, u32, from_le_bytes);
+    generate_load!(loadu64, u64, from_le_bytes);
+    generate_write!(writeu16, u16, 2, to_le_bytes);
+    generate_write!(writeu32, u32, 4, to_le_bytes);
+    generate_write!(writeu64, u64, 8, to_le_bytes);
 }
 
 #[cfg(test)]

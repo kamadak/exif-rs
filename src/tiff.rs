@@ -41,14 +41,14 @@ pub const TIFF_BE_SIG: [u8; 4] = [0x4d, 0x4d, 0x00, 0x2a];
 pub const TIFF_LE_SIG: [u8; 4] = [0x49, 0x49, 0x2a, 0x00];
 
 /// A TIFF field.
-#[derive(Debug)]
-pub struct Field<'a> {
+#[derive(Debug, Clone)]
+pub struct Field {
     /// The tag of this field.
     pub tag: Tag,
     /// False for the primary image and true for the thumbnail.
     pub thumbnail: bool,
     /// The value of this field.
-    pub value: Value<'a>,
+    pub value: Value,
 }
 
 /// Parse the Exif attributes in the TIFF format.
@@ -81,7 +81,7 @@ fn parse_exif_sub<E>(data: &[u8])
 }
 
 // Parse IFD [EXIF23 4.6.2].
-fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
+fn parse_ifd<'a, E>(fields: &mut Vec<Field>, data: &'a [u8],
                     offset: usize, ctx: Context, thumbnail: bool)
                     -> Result<(), Error> where E: Endian {
     // Count (the number of the entries).
@@ -145,7 +145,7 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
     parse_ifd::<E>(fields, data, next_ifd_offset, Context::Tiff, true)
 }
 
-fn parse_child_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
+fn parse_child_ifd<'a, E>(fields: &mut Vec<Field>, data: &'a [u8],
                           pointer: &Value, ctx: Context, thumbnail: bool)
                           -> Result<(), Error> where E: Endian {
     // A pointer field has type == LONG and count == 1, so the

@@ -70,7 +70,7 @@ fn main() {
     if let Some(field) = reader.get_field(Tag::DateTime, false) {
         match field.value {
             Value::Ascii(ref vec) if !vec.is_empty() => {
-                if let Ok(datetime) = DateTime::from_ascii(vec[0]) {
+                if let Ok(datetime) = DateTime::from_ascii(&vec[0]) {
                     println!("Year of DateTime is {}.", datetime.year);
                 }
             },

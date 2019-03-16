@@ -29,14 +29,14 @@ use std::fmt;
 use endian::Endian;
 
 /// Types and values of TIFF fields (for Exif attributes).
-#[derive(Debug)]
-pub enum Value<'a> {
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
     /// Vector of 8-bit unsigned integers.
     Byte(Vec<u8>),
     /// Vector of slices of 8-bit bytes containing 7-bit ASCII characters.
     /// The trailing null characters are not included.  Note that
     /// the 8th bits may present if a non-conforming data is given.
-    Ascii(Vec<&'a [u8]>),
+    Ascii(Vec<Vec<u8>>),
     /// Vector of 16-bit unsigned integers.
     Short(Vec<u16>),
     /// Vector of 32-bit unsigned integers.
@@ -52,7 +52,7 @@ pub enum Value<'a> {
     /// The interpretation of the value does not generally depend on
     /// the location, but if it does, the offset information helps.
     /// When encoding Exif, it is ignored.
-    Undefined(&'a [u8], u32),
+    Undefined(Vec<u8>, u32),
     /// Vector of 16-bit signed integers.  Unused in the Exif specification.
     SShort(Vec<i16>),
     /// Vector of 32-bit signed integers.
@@ -72,7 +72,7 @@ pub enum Value<'a> {
     Unknown(u16, u32, u32),
 }
 
-impl<'a> Value<'a> {
+impl Value {
     /// Returns an object that implements `std::fmt::Display` for
     /// printing a value in a tag-specific format.
     /// The tag of the value is specified as the argument.
@@ -81,7 +81,7 @@ impl<'a> Value<'a> {
     ///
     /// ```
     /// use exif::{Value, Tag};
-    /// let val = Value::Undefined(b"0231", 0);
+    /// let val = Value::Undefined(b"0231".to_vec(), 0);
     /// assert_eq!(format!("{}", val.display_as(Tag::ExifVersion)),
     ///            "2.31");
     /// let val = Value::Short(vec![2]);
@@ -122,6 +122,15 @@ impl<'a> Value<'a> {
             _ => None,
         }
     }
+
+    /// Returns the first ASCII slice if the value is of type Ascii.
+    pub fn first_ascii_slice(&self) -> Option<&[u8]> {
+        if let Value::Ascii(ref v) = self {
+            v.first().map(|x| x.as_slice())
+        } else {
+            None
+        }
+    }
 }
 
 // A struct that wraps std::slice::Iter<'a, u8/u16/u32>.
@@ -148,7 +157,7 @@ impl<'a> ExactSizeIterator for UIntIter<'a> {}
 /// Helper struct for printing a value in a tag-specific format.
 pub struct Display<'a> {
     pub fmt: fn(&mut fmt::Write, &Value) -> fmt::Result,
-    pub value: &'a Value<'a>,
+    pub value: &'a Value,
 }
 
 impl<'a> fmt::Display for Display<'a> {
@@ -172,16 +181,21 @@ pub enum DefaultValue {
     Unspecified,
 }
 
-impl<'a> From<&'a DefaultValue> for Option<Value<'a>> {
+impl<'a> From<&'a DefaultValue> for Option<Value> {
     fn from(defval: &DefaultValue) -> Option<Value> {
         match *defval {
             DefaultValue::None => None,
             DefaultValue::Byte(s) => Some(Value::Byte(s.to_vec())),
-            DefaultValue::Ascii(s) => Some(Value::Ascii(s.to_vec())),
+            DefaultValue::Ascii(s) => {
+                let s = s.into_iter()
+                    .map(|x| x.to_vec())
+                    .collect();
+                Some(Value::Ascii(s))
+            },
             DefaultValue::Short(s) => Some(Value::Short(s.to_vec())),
             DefaultValue::Rational(s) => Some(Value::Rational(
                 s.iter().map(|&t| tuple2rational(t)).collect())),
-            DefaultValue::Undefined(s) => Some(Value::Undefined(s, 0)),
+            DefaultValue::Undefined(s) => Some(Value::Undefined(s.to_vec(), 0)),
             DefaultValue::ContextDependent => None,
             DefaultValue::Unspecified => None,
         }
@@ -189,7 +203,7 @@ impl<'a> From<&'a DefaultValue> for Option<Value<'a>> {
 }
 
 /// An unsigned rational number, which is a pair of 32-bit unsigned integers.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Rational { pub num: u32, pub denom: u32 }
 
 impl Rational {
@@ -229,7 +243,7 @@ impl From<Rational> for f32 {
 }
 
 /// A signed rational number, which is a pair of 32-bit signed integers.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct SRational { pub num: i32, pub denom: i32 }
 
 impl SRational {
@@ -286,7 +300,7 @@ fn fmt_rational_sub<T>(f: &mut fmt::Formatter, num: u32, denom: T)
     }
 }
 
-type Parser<'a> = fn(&'a [u8], usize, usize) -> Value<'a>;
+type Parser<'a> = fn(&'a [u8], usize, usize) -> Value;
 
 // Return the length of a single value and the parser of the type.
 pub fn get_type_info<'a, E>(typecode: u16)
@@ -309,24 +323,24 @@ pub fn get_type_info<'a, E>(typecode: u16)
 }
 
 fn parse_byte<'a>(data: &'a [u8], offset: usize, count: usize)
-                  -> Value<'a> {
+                  -> Value {
     Value::Byte(data[offset .. offset + count].to_vec())
 }
 
 fn parse_ascii<'a>(data: &'a [u8], offset: usize, count: usize)
-                   -> Value<'a> {
+                   -> Value {
     // Any ASCII field can contain multiple strings [TIFF6 Image File
     // Directory].
     let iter = (&data[offset .. offset + count]).split(|&b| b == b'\0');
-    let mut v: Vec<&[u8]> = iter.collect();
-    if v.last().map_or(false, |&s| s.len() == 0) {
+    let mut v: Vec<Vec<u8>> = iter.map(|x| x.to_vec()).collect();
+    if v.last().map_or(false, |s| s.len() == 0) {
         v.pop();
     }
     Value::Ascii(v)
 }
 
 fn parse_short<'a, E>(data: &'a [u8], offset: usize, count: usize)
-                      -> Value<'a> where E: Endian {
+                      -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(E::loadu16(data, offset + i * 2));
@@ -335,7 +349,7 @@ fn parse_short<'a, E>(data: &'a [u8], offset: usize, count: usize)
 }
 
 fn parse_long<'a, E>(data: &'a [u8], offset: usize, count: usize)
-                     -> Value<'a> where E: Endian {
+                     -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(E::loadu32(data, offset + i * 4));
@@ -344,7 +358,7 @@ fn parse_long<'a, E>(data: &'a [u8], offset: usize, count: usize)
 }
 
 fn parse_rational<'a, E>(data: &'a [u8], offset: usize, count: usize)
-                         -> Value<'a> where E: Endian {
+                         -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(Rational {
@@ -356,20 +370,20 @@ fn parse_rational<'a, E>(data: &'a [u8], offset: usize, count: usize)
 }
 
 fn parse_sbyte<'a>(data: &'a [u8], offset: usize, count: usize)
-                   -> Value<'a> {
-    let uslice = &data[offset .. offset + count];
-    let islice = unsafe { ::std::slice::from_raw_parts(
-        uslice.as_ptr() as *const i8, count) };
-    Value::SByte(islice.to_vec())
+                   -> Value {
+    let bytes = data[offset .. offset + count].into_iter()
+        .map(|x| *x as i8)
+        .collect();
+    Value::SByte(bytes)
 }
 
 fn parse_undefined<'a>(data: &'a [u8], offset: usize, count: usize)
-                       -> Value<'a> {
-    Value::Undefined(&data[offset .. offset + count], offset as u32)
+                       -> Value {
+    Value::Undefined(data[offset .. offset + count].to_vec(), offset as u32)
 }
 
 fn parse_sshort<'a, E>(data: &'a [u8], offset: usize, count: usize)
-                       -> Value<'a> where E: Endian {
+                       -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(E::loadu16(data, offset + i * 2) as i16);
@@ -378,7 +392,7 @@ fn parse_sshort<'a, E>(data: &'a [u8], offset: usize, count: usize)
 }
 
 fn parse_slong<'a, E>(data: &'a [u8], offset: usize, count: usize)
-                      -> Value<'a> where E: Endian {
+                      -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(E::loadu32(data, offset + i * 4) as i32);
@@ -387,7 +401,7 @@ fn parse_slong<'a, E>(data: &'a [u8], offset: usize, count: usize)
 }
 
 fn parse_srational<'a, E>(data: &'a [u8], offset: usize, count: usize)
-                          -> Value<'a> where E: Endian {
+                          -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(SRational {
@@ -400,7 +414,7 @@ fn parse_srational<'a, E>(data: &'a [u8], offset: usize, count: usize)
 
 // TIFF and Rust use IEEE 754 format, so no conversion is required.
 fn parse_float<'a, E>(data: &'a [u8], offset: usize, count: usize)
-                      -> Value<'a> where E: Endian {
+                      -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(f32::from_bits(E::loadu32(data, offset + i * 4)));
@@ -410,7 +424,7 @@ fn parse_float<'a, E>(data: &'a [u8], offset: usize, count: usize)
 
 // TIFF and Rust use IEEE 754 format, so no conversion is required.
 fn parse_double<'a, E>(data: &'a [u8], offset: usize, count: usize)
-                       -> Value<'a> where E: Endian {
+                       -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
         val.push(f64::from_bits(E::loadu64(data, offset + i * 8)));
@@ -421,7 +435,7 @@ fn parse_double<'a, E>(data: &'a [u8], offset: usize, count: usize)
 // This is a dummy function and will never be called.
 #[allow(unused_variables)]
 fn parse_unknown<'a>(data: &'a [u8], offset: usize, count: usize)
-                     -> Value<'a> {
+                     -> Value {
     unreachable!()
 }
 
