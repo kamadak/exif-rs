@@ -26,7 +26,6 @@
 
 use std::io;
 use std::io::{Seek, SeekFrom, Write};
-use std::slice;
 
 use endian::{Endian, BigEndian, LittleEndian};
 use error::Error;
@@ -527,9 +526,10 @@ fn compose_value<E>(value: &Value)
             Ok((5, vec.len(), buf))
         },
         Value::SByte(ref vec) => {
-            let uslice = unsafe { slice::from_raw_parts(
-                vec.as_ptr() as *const u8, vec.len()) };
-            Ok((6, vec.len(), uslice.to_vec()))
+            let bytes = vec.into_iter()
+                .map(|x| *x as u8)
+                .collect();
+            Ok((6, vec.len(), bytes))
         },
         Value::Undefined(ref s, _) =>
             Ok((7, s.len(), s.to_vec())),

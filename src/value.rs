@@ -357,10 +357,10 @@ fn parse_rational<'a, E>(data: &'a [u8], offset: usize, count: usize)
 
 fn parse_sbyte<'a>(data: &'a [u8], offset: usize, count: usize)
                    -> Value<'a> {
-    let uslice = &data[offset .. offset + count];
-    let islice = unsafe { ::std::slice::from_raw_parts(
-        uslice.as_ptr() as *const i8, count) };
-    Value::SByte(islice.to_vec())
+    let bytes = data[offset .. offset + count].into_iter()
+        .map(|x| *x as i8)
+        .collect();
+    Value::SByte(bytes)
 }
 
 fn parse_undefined<'a>(data: &'a [u8], offset: usize, count: usize)
