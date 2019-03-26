@@ -47,7 +47,8 @@ macro_rules! generate_load {
     ($name:ident, $int_type:ident, $from_func:ident) => (
         fn $name(buf: &[u8], offset: usize) -> $int_type {
             let mut num = [0u8; mem::size_of::<$int_type>()];
-            num.copy_from_slice(&buf[offset .. offset + mem::size_of::<$int_type>()]);
+            num.copy_from_slice(
+                &buf[offset .. offset + mem::size_of::<$int_type>()]);
             $int_type::$from_func(num)
         }
     )
