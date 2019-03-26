@@ -55,7 +55,7 @@ macro_rules! generate_load {
 }
 
 macro_rules! generate_write {
-    ($name:ident, $int_type:ident, $type_size:expr, $to_func:ident) => (
+    ($name:ident, $int_type:ident, $to_func:ident) => (
         fn $name<W>(w: &mut W, num: $int_type)
                     -> io::Result<()> where W: io::Write {
             let buf = num.$to_func();
@@ -68,18 +68,18 @@ impl Endian for BigEndian {
     generate_load!(loadu16, u16, from_be_bytes);
     generate_load!(loadu32, u32, from_be_bytes);
     generate_load!(loadu64, u64, from_be_bytes);
-    generate_write!(writeu16, u16, 2, to_be_bytes);
-    generate_write!(writeu32, u32, 4, to_be_bytes);
-    generate_write!(writeu64, u64, 8, to_be_bytes);
+    generate_write!(writeu16, u16, to_be_bytes);
+    generate_write!(writeu32, u32, to_be_bytes);
+    generate_write!(writeu64, u64, to_be_bytes);
 }
 
 impl Endian for LittleEndian {
     generate_load!(loadu16, u16, from_le_bytes);
     generate_load!(loadu32, u32, from_le_bytes);
     generate_load!(loadu64, u64, from_le_bytes);
-    generate_write!(writeu16, u16, 2, to_le_bytes);
-    generate_write!(writeu32, u32, 4, to_le_bytes);
-    generate_write!(writeu64, u64, 8, to_le_bytes);
+    generate_write!(writeu16, u16, to_le_bytes);
+    generate_write!(writeu32, u32, to_le_bytes);
+    generate_write!(writeu64, u64, to_le_bytes);
 }
 
 #[cfg(test)]
