@@ -30,8 +30,6 @@ use error::Error;
 
 const ASCII_0: u8 = 0x30;
 const ASCII_9: u8 = 0x39;
-const ASCII_A: u8 = 0x41;
-const ASCII_Z: u8 = 0x5a;
 
 pub fn read8<R>(reader: &mut R) -> Result<u8, io::Error> where R: io::Read {
     let mut buf = [0u8; 1];
@@ -67,10 +65,6 @@ pub fn ctou32(c: u8) -> Result<u32, Error> {
         return Err(Error::InvalidFormat("Not a number"));
     }
     Ok((c - ASCII_0) as u32)
-}
-
-pub fn isupper(c: u8) -> bool {
-    ASCII_A <= c && c <= ASCII_Z
 }
 
 #[cfg(test)]
@@ -117,14 +111,5 @@ mod tests {
         assert_err_pat!(atou16(b"/"), Error::InvalidFormat(_));
         assert_err_pat!(atou16(b":"), Error::InvalidFormat(_));
         assert_err_pat!(atou16(b"-1"), Error::InvalidFormat(_));
-    }
-
-    #[test]
-    fn isupper() {
-        assert!(super::isupper(b'A'));
-        assert!(super::isupper(b'Z'));
-        assert!(!super::isupper(b'A' - 1));
-        assert!(!super::isupper(b'Z' + 1));
-        assert!(!super::isupper(b'a'));
     }
 }

@@ -28,7 +28,7 @@ use std::fmt;
 
 use value;
 use value::Value;
-use util::{atou16, isupper};
+use util::atou16;
 
 /// A tag of a TIFF field.
 ///
@@ -1047,7 +1047,7 @@ fn d_gpsver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 fn d_gpslatlongref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Ascii(ref v) if (v.len() == 1 && v[0].len() == 1 &&
-                                isupper(v[0][0])) =>
+                                v[0][0].is_ascii_uppercase()) =>
             w.write_char(v[0][0] as char),
         _ => d_default(w, value),
     }
