@@ -46,19 +46,15 @@
 //!
 //! # Compatibility
 //!
-//! Major changes between 0.2.3 and 0.3 are listed below.
+//! Major changes between 0.3.1 and 0.4 are listed below.
 //!
-//! * Enum Error has two new variants: TooBig and NotSupported.
-//! * Value::Undefined has the 2nd member to keep the offset of the value.
-//! * Struct DateTime has two new fields: nanosecond and offset.
-//! * The tag constants have been changed to associated constants of
-//!   struct `Tag`.  Use `Tag::TagName` instead of `tag::TagName`.
+//! * The constants in tag module (`tag::TagName`) have been removed.
+//!   Use `Tag::TagName` instead.
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::Reader;
-pub use tag_priv::{Context, Tag};
-pub use tag_priv::constants as tag;
+pub use tag::{Context, Tag};
 pub use tiff::{DateTime, Field};
 pub use tiff::parse_exif;
 pub use value::Value;
@@ -77,8 +73,7 @@ mod endian;
 mod error;
 mod jpeg;
 mod reader;
-#[path = "tag.rs"]
-mod tag_priv;
+mod tag;
 mod tiff;
 mod util;
 mod value;

@@ -28,7 +28,7 @@ use std::fmt;
 
 use endian::{Endian, BigEndian, LittleEndian};
 use error::Error;
-use tag_priv::{Context, Tag};
+use tag::{Context, Tag};
 use value::Value;
 use value::get_type_info;
 use util::{atou16, ctou32};

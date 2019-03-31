@@ -31,7 +31,7 @@ use std::mem;
 
 use error::Error;
 use jpeg;
-use tag_priv::Tag;
+use tag::Tag;
 use tiff;
 use tiff::Field;
 

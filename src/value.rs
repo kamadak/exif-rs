@@ -89,8 +89,8 @@ impl<'a> Value<'a> {
     ///            "pixels per inch");
     /// ```
     #[inline]
-    pub fn display_as(&self, tag: ::tag_priv::Tag) -> Display {
-        ::tag_priv::display_value_as(self, tag)
+    pub fn display_as(&self, tag: ::tag::Tag) -> Display {
+        ::tag::display_value_as(self, tag)
     }
 
     /// Returns the unsigned integer at the given position.

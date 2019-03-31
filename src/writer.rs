@@ -29,7 +29,7 @@ use std::io::{Seek, SeekFrom, Write};
 
 use endian::{Endian, BigEndian, LittleEndian};
 use error::Error;
-use tag_priv::{Context, Tag};
+use tag::{Context, Tag};
 use tiff::{Field, TIFF_BE_SIG, TIFF_LE_SIG};
 use value::Value;
 

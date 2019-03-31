@@ -124,30 +124,16 @@ macro_rules! generate_well_known_tag_constants {
             ($name:ident, $num:expr, $defval:expr, $dispval:ident, $desc:expr)
         ),+, )+
     ) => (
-        /// A module that contains Exif tag constants.
-        ///
-        /// Compatibility warning: Exif tag constants in this module will be
-        /// converted to associated constants of `Tag` when the feature is
-        /// stabilized.
-        ///
-        /// It is not recommended to import the constants directly into
-        /// your namespace; import the module and use with the module name
-        /// like `tag::DateTime`.  The constant names follow the Exif
-        /// specification but not the Rust naming conventions, and a user
-        /// of the constants will get the non_upper_case_globals warning
-        /// if a bare constant is used in a match arm.
-        // This is discussed in
-        // <https://github.com/rust-lang/rust/issues/25207>.
-        pub mod constants {
-            use super::{Context, Tag};
-            $($(
-                $( #[$attr] )*
-                #[allow(non_upper_case_globals)]
-                #[deprecated(since = "0.3.0", note = "use `Tag::TagName` instead of `tag::TagName`")]
-                pub const $name: Tag = Tag($ctx, $num);
-            )+)+
-        }
-
+        // This is not relevant for associated constants, because
+        // they cannot be imported even with "uniform paths".
+        // /// It is not recommended to import the constants directly into
+        // /// your namespace; import the module and use with the module name
+        // /// like `tag::DateTime`.  The constant names follow the Exif
+        // /// specification but not the Rust naming conventions, and a user
+        // /// of the constants will get the non_upper_case_globals warning
+        // /// if a bare constant is used in a match arm.
+        // // This is discussed in
+        // // <https://github.com/rust-lang/rust/issues/25207>.
         impl Tag {
             $($(
                 $( #[$attr] )*
@@ -156,8 +142,6 @@ macro_rules! generate_well_known_tag_constants {
             )+)+
         }
 
-        // Use a separate module to avoid name conflicts between
-        // const Tag and static TagInfo.
         mod tag_info {
             use std::fmt;
             use value::Value;
