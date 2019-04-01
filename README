@@ -15,7 +15,7 @@ Usage
       [dependencies]
       kamadak-exif = "0.3"
 
-   Add the following to your crate root.
+   Add the following to your crate root (before Rust 2018).
 
       extern crate exif;
 

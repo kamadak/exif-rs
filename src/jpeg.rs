@@ -27,9 +27,8 @@
 use std::io;
 use std::io::Read;
 
-use error::Error;
-use util::read8;
-use util::read16;
+use crate::error::Error;
+use crate::util::{read8, read16};
 
 mod marker {
     // The first byte of a marker.

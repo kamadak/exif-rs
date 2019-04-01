@@ -62,7 +62,7 @@ pub use value::{Rational, SRational};
 
 /// The interfaces in this module are experimental and unstable.
 pub mod experimental {
-    pub use writer::Writer;
+    pub use crate::writer::Writer;
 }
 
 #[cfg(test)]

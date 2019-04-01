@@ -26,7 +26,7 @@
 
 use std::fmt;
 
-use endian::Endian;
+use crate::endian::Endian;
 
 /// Types and values of TIFF fields (for Exif attributes).
 #[derive(Debug)]
@@ -89,8 +89,8 @@ impl<'a> Value<'a> {
     ///            "pixels per inch");
     /// ```
     #[inline]
-    pub fn display_as(&self, tag: ::tag::Tag) -> Display {
-        ::tag::display_value_as(self, tag)
+    pub fn display_as(&self, tag: crate::tag::Tag) -> Display {
+        crate::tag::display_value_as(self, tag)
     }
 
     /// Returns the unsigned integer at the given position.
@@ -427,7 +427,7 @@ fn parse_unknown<'a>(data: &'a [u8], offset: usize, count: usize)
 
 #[cfg(test)]
 mod tests {
-    use endian::BigEndian;
+    use crate::endian::BigEndian;
     use super::*;
 
     #[test]
@@ -621,7 +621,7 @@ mod tests {
         let sets: &[(&[u8], Vec<f32>)] = &[
             (b"x", vec![]),
             (b"x\x7f\x7f\xff\xff\x80\x80\x00\x00\x40\x00\x00\x00",
-             vec![::std::f32::MAX, -::std::f32::MIN_POSITIVE, 2.0]),
+             vec![std::f32::MAX, -std::f32::MIN_POSITIVE, 2.0]),
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(11);
         for &(data, ref ans) in sets {
@@ -640,7 +640,7 @@ mod tests {
             (b"x\x7f\xef\xff\xff\xff\xff\xff\xff\
                \x80\x10\x00\x00\x00\x00\x00\x00\
                \x40\x00\x00\x00\x00\x00\x00\x00",
-             vec![::std::f64::MAX, -::std::f64::MIN_POSITIVE, 2.0]),
+             vec![std::f64::MAX, -std::f64::MIN_POSITIVE, 2.0]),
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(12);
         for &(data, ref ans) in sets {

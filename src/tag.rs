@@ -26,9 +26,9 @@
 
 use std::fmt;
 
-use value;
-use value::Value;
-use util::atou16;
+use crate::value;
+use crate::value::Value;
+use crate::util::atou16;
 
 /// A tag of a TIFF field.
 ///
@@ -144,8 +144,8 @@ macro_rules! generate_well_known_tag_constants {
 
         mod tag_info {
             use std::fmt;
-            use value::Value;
-            use value::DefaultValue;
+            use crate::value::Value;
+            use crate::value::DefaultValue;
 
             pub struct TagInfo {
                 pub name: &'static str,
@@ -583,7 +583,7 @@ fn d_resunit(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 fn d_datetime(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Ascii(ref v) = *value {
         if let Some(dt) = v.first() {
-            if let Ok(dt) = ::tiff::DateTime::from_ascii(dt) {
+            if let Ok(dt) = crate::tiff::DateTime::from_ascii(dt) {
                 return write!(w, "{}", dt)
             }
         }

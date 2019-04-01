@@ -26,12 +26,12 @@
 
 use std::fmt;
 
-use endian::{Endian, BigEndian, LittleEndian};
-use error::Error;
-use tag::{Context, Tag};
-use value::Value;
-use value::get_type_info;
-use util::{atou16, ctou32};
+use crate::endian::{Endian, BigEndian, LittleEndian};
+use crate::error::Error;
+use crate::tag::{Context, Tag};
+use crate::value::Value;
+use crate::value::get_type_info;
+use crate::util::{atou16, ctou32};
 
 // TIFF header magic numbers [EXIF23 4.5.2].
 const TIFF_BE: u16 = 0x4d4d;

@@ -29,11 +29,11 @@ use std::io;
 use std::io::Read;
 use std::mem;
 
-use error::Error;
-use jpeg;
-use tag::Tag;
-use tiff;
-use tiff::Field;
+use crate::error::Error;
+use crate::jpeg;
+use crate::tag::Tag;
+use crate::tiff;
+use crate::tiff::Field;
 
 /// The `Reader` struct reads a JPEG or TIFF image,
 /// parses the Exif attributes in it, and holds the results.
@@ -130,7 +130,7 @@ impl Reader {
 mod tests {
     use std::fs::File;
     use std::io::BufReader;
-    use value::Value;
+    use crate::value::Value;
     use super::*;
 
     static TIFF_ASCII: &'static [u8] =

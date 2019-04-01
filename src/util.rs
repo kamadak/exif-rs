@@ -26,7 +26,7 @@
 
 use std::io;
 
-use error::Error;
+use crate::error::Error;
 
 const ASCII_0: u8 = 0x30;
 const ASCII_9: u8 = 0x39;

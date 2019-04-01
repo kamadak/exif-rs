@@ -27,11 +27,11 @@
 use std::io;
 use std::io::{Seek, SeekFrom, Write};
 
-use endian::{Endian, BigEndian, LittleEndian};
-use error::Error;
-use tag::{Context, Tag};
-use tiff::{Field, TIFF_BE_SIG, TIFF_LE_SIG};
-use value::Value;
+use crate::endian::{Endian, BigEndian, LittleEndian};
+use crate::error::Error;
+use crate::tag::{Context, Tag};
+use crate::tiff::{Field, TIFF_BE_SIG, TIFF_LE_SIG};
+use crate::value::Value;
 
 /// The `Writer` struct is used to encode and write Exif data.
 ///
@@ -609,7 +609,7 @@ fn get_offset<W>(w: &mut W)
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
-    use value::{Rational, SRational};
+    use crate::value::{Rational, SRational};
     use super::*;
 
     #[test]
