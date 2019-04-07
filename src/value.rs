@@ -77,6 +77,8 @@ impl<'a> Value<'a> {
     /// printing a value in a tag-specific format.
     /// The tag of the value is specified as the argument.
     ///
+    /// If you want to display with the unit, use `Field::display_value`.
+    ///
     /// # Examples
     ///
     /// ```
@@ -86,7 +88,7 @@ impl<'a> Value<'a> {
     ///            "2.31");
     /// let val = Value::Short(vec![2]);
     /// assert_eq!(format!("{}", val.display_as(Tag::ResolutionUnit)),
-    ///            "pixels per inch");
+    ///            "inch");
     /// ```
     #[inline]
     pub fn display_as(&self, tag: crate::tag::Tag) -> Display {
@@ -146,6 +148,7 @@ impl<'a> Iterator for UIntIter<'a> {
 impl<'a> ExactSizeIterator for UIntIter<'a> {}
 
 /// Helper struct for printing a value in a tag-specific format.
+#[derive(Copy, Clone)]
 pub struct Display<'a> {
     pub fmt: fn(&mut fmt::Write, &Value) -> fmt::Result,
     pub value: &'a Value<'a>,

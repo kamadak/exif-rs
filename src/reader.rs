@@ -33,10 +33,20 @@ use crate::error::Error;
 use crate::jpeg;
 use crate::tag::Tag;
 use crate::tiff;
-use crate::tiff::Field;
+use crate::tiff::{Field, ProvideUnit};
 
 /// The `Reader` struct reads a JPEG or TIFF image,
 /// parses the Exif attributes in it, and holds the results.
+///
+/// # Examples
+/// ```
+/// let file = std::fs::File::open("tests/exif.jpg").unwrap();
+/// let reader = exif::Reader::new(
+///     &mut std::io::BufReader::new(&file)).unwrap();
+/// let xres = reader.get_field(exif::Tag::XResolution, false).unwrap();
+/// assert_eq!(format!("{}", xres.display_value().with_unit(&reader)),
+///            "72 pixels per inch");
+/// ```
 //
 // The struct Reader is self-contained, which means that it does not
 // have any external reference.  The `fields` field actually refers to
@@ -126,6 +136,12 @@ impl Reader {
     }
 }
 
+impl<'a> ProvideUnit<'a> for &'a Reader {
+    fn get_field(self, tag: Tag, thumbnail: bool) -> Option<&'a Field<'a>> {
+        self.get_field(tag, thumbnail)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::File;
@@ -187,5 +203,31 @@ mod tests {
         let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
         assert_pat!(reader.get_field(Tag::ExifVersion, false).unwrap().value,
                     Value::Undefined(b"0230", _));
+    }
+
+    #[test]
+    fn display_value_with_unit() {
+        let file = File::open("tests/unit.tif").unwrap();
+        let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
+        // No unit.
+        let exifver = reader.get_field(Tag::ExifVersion, false).unwrap();
+        assert_eq!(format!("{}", exifver.display_value().with_unit(&reader)),
+                   "2.31");
+        // Fixed string.
+        let width = reader.get_field(Tag::ImageWidth, false).unwrap();
+        assert_eq!(format!("{}", width.display_value().with_unit(&reader)),
+                   "15 pixels");
+        // Unit tag (with a non-default value).
+        let gpsalt = reader.get_field(Tag::GPSAltitude, false).unwrap();
+        assert_eq!(format!("{}", gpsalt.display_value().with_unit(&reader)),
+                   "0.5 meters below sea level");
+        // Unit tag is missing but the default is specified.
+        let xres = reader.get_field(Tag::XResolution, false).unwrap();
+        assert_eq!(format!("{}", xres.display_value().with_unit(&reader)),
+                   "72 pixels per inch");
+        // Unit tag is missing and the default is not specified.
+        let gpslat = reader.get_field(Tag::GPSLatitude, false).unwrap();
+        assert_eq!(format!("{}", gpslat.display_value().with_unit(&reader)),
+                   "10 deg 0 min 0 sec [GPSLatitudeRef missing]");
     }
 }

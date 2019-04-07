@@ -35,8 +35,9 @@ fn main() {
     let file = File::open("tests/exif.jpg").unwrap();
     let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
 
-    // To obtain a string representation, `Value::display_as` can be used
-    // for any tag.
+    // To obtain a string representation, `Value::display_as`
+    // or `Field::display_value` can be used.  To display a value with its
+    // unit, call `with_unit` on the return value of `Field::display_value`.
     let tag_list = [Tag::ExifVersion,
                     Tag::PixelXDimension,
                     Tag::XResolution,
@@ -44,7 +45,8 @@ fn main() {
                     Tag::DateTime];
     for &tag in tag_list.iter() {
         if let Some(field) = reader.get_field(tag, false) {
-            println!("{}: {}", field.tag, field.value.display_as(field.tag));
+            println!("{}: {}",
+                     field.tag, field.display_value().with_unit(&reader));
         }
     }
 

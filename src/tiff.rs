@@ -28,7 +28,8 @@ use std::fmt;
 
 use crate::endian::{Endian, BigEndian, LittleEndian};
 use crate::error::Error;
-use crate::tag::{Context, Tag};
+use crate::tag::{Context, Tag, UnitPiece};
+use crate::value;
 use crate::value::Value;
 use crate::value::get_type_info;
 use crate::util::{atou16, ctou32};
@@ -264,9 +265,143 @@ impl fmt::Display for DateTime {
     }
 }
 
+impl<'a> Field<'a> {
+    /// Returns an object that implements `std::fmt::Display` for
+    /// printing the value of this field in a tag-specific format.
+    ///
+    /// To print the value with the unit, call `with_unit` method on the
+    /// returned object.  It takes a parameter, which is either `()`,
+    /// `&Field`, or `&Reader` and provides the unit information.
+    /// If the unit does not depend on another field, `()` can be used.
+    /// Otherwise, `&Field` or `&Reader` should be used.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use exif::{Field, Rational, Tag, Value};
+    ///
+    /// let xres = Field {
+    ///     tag: Tag::XResolution,
+    ///     thumbnail: false,
+    ///     value: Value::Rational(vec![Rational { num: 72, denom: 1 }]),
+    /// };
+    /// let cm = Field {
+    ///     tag: Tag::ResolutionUnit,
+    ///     thumbnail: false,
+    ///     value: Value::Short(vec![3]),
+    /// };
+    /// assert_eq!(format!("{}", xres.display_value()), "72");
+    /// assert_eq!(format!("{}", cm.display_value()), "cm");
+    /// // The unit of XResolution is indicated by ResolutionUnit.
+    /// assert_eq!(format!("{}", xres.display_value().with_unit(&cm)),
+    ///            "72 pixels per cm");
+    /// // If ResolutionUnit is not given, the default value is used.
+    /// assert_eq!(format!("{}", xres.display_value().with_unit(())),
+    ///            "72 pixels per inch");
+    /// assert_eq!(format!("{}", xres.display_value().with_unit(&xres)),
+    ///            "72 pixels per inch");
+    ///
+    /// let flen = Field {
+    ///     tag: Tag::FocalLengthIn35mmFilm,
+    ///     thumbnail: false,
+    ///     value: Value::Short(vec![24]),
+    /// };
+    /// // The unit of the focal length is always mm, so the argument
+    /// // has nothing to do with the result.
+    /// assert_eq!(format!("{}", flen.display_value().with_unit(())), "24 mm");
+    /// assert_eq!(format!("{}", flen.display_value().with_unit(&cm)), "24 mm");
+    /// ```
+    #[inline]
+    pub fn display_value(&self) -> DisplayValue {
+        DisplayValue {
+            tag: self.tag,
+            thumbnail: self.thumbnail,
+            value_display: self.value.display_as(self.tag),
+        }
+    }
+}
+
+/// Helper struct for printing a value in a tag-specific format.
+pub struct DisplayValue<'a> {
+    tag: Tag,
+    thumbnail: bool,
+    value_display: value::Display<'a>,
+}
+
+impl<'a> DisplayValue<'a> {
+    #[inline]
+    pub fn with_unit<'b, T>(&'b self, unit_provider: T)
+                            -> DisplayValueUnit<T> where T: ProvideUnit<'b> {
+        DisplayValueUnit {
+            thumbnail: self.thumbnail,
+            value_display: self.value_display,
+            unit: self.tag.unit(),
+            unit_provider: unit_provider,
+        }
+    }
+}
+
+impl<'a> fmt::Display for DisplayValue<'a> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.value_display.fmt(f)
+    }
+}
+
+/// Helper struct for printing a value with its unit.
+pub struct DisplayValueUnit<'a, T> where T: ProvideUnit<'a> {
+    thumbnail: bool,
+    value_display: value::Display<'a>,
+    unit: Option<&'static [UnitPiece]>,
+    unit_provider: T,
+}
+
+impl<'a, T> fmt::Display for DisplayValueUnit<'a, T> where T: ProvideUnit<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(unit) = self.unit {
+            assert!(!unit.is_empty());
+            for piece in unit {
+                match *piece {
+                    UnitPiece::Value => self.value_display.fmt(f),
+                    UnitPiece::Str(s) => f.write_str(s),
+                    UnitPiece::Tag(tag) =>
+                        if let Some(x) = self.unit_provider.get_field(
+                                tag, self.thumbnail) {
+                            x.value.display_as(tag).fmt(f)
+                        } else if let Some(x) = tag.default_value() {
+                            x.display_as(tag).fmt(f)
+                        } else {
+                            write!(f, "[{} missing]", tag)
+                        },
+                }?
+            }
+            Ok(())
+        } else {
+            self.value_display.fmt(f)
+        }
+    }
+}
+
+pub trait ProvideUnit<'a>: Copy {
+    fn get_field(self, tag: Tag, thumbnail: bool) -> Option<&'a Field<'a>>;
+}
+
+impl<'a> ProvideUnit<'a> for () {
+    fn get_field(self, _tag: Tag, _thumbnail: bool) -> Option<&'a Field<'a>> {
+        None
+    }
+}
+
+impl<'a> ProvideUnit<'a> for &'a Field<'a> {
+    fn get_field(self, tag: Tag, thumbnail: bool) -> Option<&'a Field<'a>> {
+        Some(self).filter(|x| x.tag == tag && x.thumbnail == thumbnail)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::value::Rational;
 
     // Before the error is returned, the IFD is parsed twice as the
     // 0th and 1st IFDs.
@@ -324,5 +459,74 @@ mod tests {
         assert_eq!(dt.offset.unwrap(), -6039);
         assert_err_pat!(dt.parse_offset(b"   :  "), Error::BlankValue(_));
         assert_err_pat!(dt.parse_offset(b"      "), Error::BlankValue(_));
+    }
+
+    #[test]
+    fn display_value_with_unit() {
+        let cm = Field {
+            tag: Tag::ResolutionUnit,
+            thumbnail: false,
+            value: Value::Short(vec![3]),
+        };
+        let cm_tn = Field {
+            tag: Tag::ResolutionUnit,
+            thumbnail: true,
+            value: Value::Short(vec![3]),
+        };
+        // No unit.
+        let exifver = Field {
+            tag: Tag::ExifVersion,
+            thumbnail: false,
+            value: Value::Undefined(b"0231", 0),
+        };
+        assert_eq!(format!("{}", exifver.display_value()),
+                   "2.31");
+        assert_eq!(format!("{}", exifver.display_value().with_unit(())),
+                   "2.31");
+        assert_eq!(format!("{}", exifver.display_value().with_unit(&cm)),
+                   "2.31");
+        // Fixed string.
+        let width = Field {
+            tag: Tag::ImageWidth,
+            thumbnail: false,
+            value: Value::Short(vec![257]),
+        };
+        assert_eq!(format!("{}", width.display_value()),
+                   "257");
+        assert_eq!(format!("{}", width.display_value().with_unit(())),
+                   "257 pixels");
+        assert_eq!(format!("{}", width.display_value().with_unit(&cm)),
+                   "257 pixels");
+        // Unit tag (with a non-default value).
+        // Unit tag is missing but the default is specified.
+        let xres = Field {
+            tag: Tag::XResolution,
+            thumbnail: false,
+            value: Value::Rational(vec![Rational { num: 300, denom: 1 }]),
+        };
+        assert_eq!(format!("{}", xres.display_value()),
+                   "300");
+        assert_eq!(format!("{}", xres.display_value().with_unit(())),
+                   "300 pixels per inch");
+        assert_eq!(format!("{}", xres.display_value().with_unit(&cm)),
+                   "300 pixels per cm");
+        assert_eq!(format!("{}", xres.display_value().with_unit(&cm_tn)),
+                   "300 pixels per inch");
+        // Unit tag is missing and the default is not specified.
+        let gpslat = Field {
+            tag: Tag::GPSLatitude,
+            thumbnail: false,
+            value: Value::Rational(vec![
+                Rational { num: 10, denom: 1 },
+                Rational { num: 0, denom: 1 },
+                Rational { num: 1, denom: 10 },
+            ]),
+        };
+        assert_eq!(format!("{}", gpslat.display_value()),
+                   "10 deg 0 min 0.1 sec");
+        assert_eq!(format!("{}", gpslat.display_value().with_unit(())),
+                   "10 deg 0 min 0.1 sec [GPSLatitudeRef missing]");
+        assert_eq!(format!("{}", gpslat.display_value().with_unit(&cm)),
+                   "10 deg 0 min 0.1 sec [GPSLatitudeRef missing]");
     }
 }

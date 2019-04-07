@@ -39,7 +39,7 @@
 //!         &mut std::io::BufReader::new(&file)).unwrap();
 //!     for f in reader.fields() {
 //!         println!("{} {} {}",
-//!                  f.tag, f.thumbnail, f.value.display_as(f.tag));
+//!                  f.tag, f.thumbnail, f.display_value().with_unit(&reader));
 //!     }
 //! }
 //! ```
