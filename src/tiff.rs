@@ -168,7 +168,7 @@ pub fn is_tiff(buf: &[u8]) -> bool {
 /// use exif::DateTime;
 /// let dt = DateTime::from_ascii(b"2016:05:04 03:02:01").unwrap();
 /// assert_eq!(dt.year, 2016);
-/// assert_eq!(format!("{}", dt), "2016-05-04 03:02:01");
+/// assert_eq!(dt.to_string(), "2016-05-04 03:02:01");
 /// ```
 #[derive(Debug)]
 pub struct DateTime {
@@ -290,15 +290,15 @@ impl<'a> Field<'a> {
     ///     thumbnail: false,
     ///     value: Value::Short(vec![3]),
     /// };
-    /// assert_eq!(format!("{}", xres.display_value()), "72");
-    /// assert_eq!(format!("{}", cm.display_value()), "cm");
+    /// assert_eq!(xres.display_value().to_string(), "72");
+    /// assert_eq!(cm.display_value().to_string(), "cm");
     /// // The unit of XResolution is indicated by ResolutionUnit.
-    /// assert_eq!(format!("{}", xres.display_value().with_unit(&cm)),
+    /// assert_eq!(xres.display_value().with_unit(&cm).to_string(),
     ///            "72 pixels per cm");
     /// // If ResolutionUnit is not given, the default value is used.
-    /// assert_eq!(format!("{}", xres.display_value().with_unit(())),
+    /// assert_eq!(xres.display_value().with_unit(()).to_string(),
     ///            "72 pixels per inch");
-    /// assert_eq!(format!("{}", xres.display_value().with_unit(&xres)),
+    /// assert_eq!(xres.display_value().with_unit(&xres).to_string(),
     ///            "72 pixels per inch");
     ///
     /// let flen = Field {
@@ -308,8 +308,8 @@ impl<'a> Field<'a> {
     /// };
     /// // The unit of the focal length is always mm, so the argument
     /// // has nothing to do with the result.
-    /// assert_eq!(format!("{}", flen.display_value().with_unit(())), "24 mm");
-    /// assert_eq!(format!("{}", flen.display_value().with_unit(&cm)), "24 mm");
+    /// assert_eq!(flen.display_value().with_unit(()).to_string(), "24 mm");
+    /// assert_eq!(flen.display_value().with_unit(&cm).to_string(), "24 mm");
     /// ```
     #[inline]
     pub fn display_value(&self) -> DisplayValue {
@@ -428,7 +428,7 @@ mod tests {
     fn date_time() {
         let mut dt = DateTime::from_ascii(b"2016:05:04 03:02:01").unwrap();
         assert_eq!(dt.year, 2016);
-        assert_eq!(format!("{}", dt), "2016-05-04 03:02:01");
+        assert_eq!(dt.to_string(), "2016-05-04 03:02:01");
 
         dt.parse_subsec(b"987").unwrap();
         assert_eq!(dt.nanosecond.unwrap(), 987000000);
@@ -479,11 +479,11 @@ mod tests {
             thumbnail: false,
             value: Value::Undefined(b"0231", 0),
         };
-        assert_eq!(format!("{}", exifver.display_value()),
+        assert_eq!(exifver.display_value().to_string(),
                    "2.31");
-        assert_eq!(format!("{}", exifver.display_value().with_unit(())),
+        assert_eq!(exifver.display_value().with_unit(()).to_string(),
                    "2.31");
-        assert_eq!(format!("{}", exifver.display_value().with_unit(&cm)),
+        assert_eq!(exifver.display_value().with_unit(&cm).to_string(),
                    "2.31");
         // Fixed string.
         let width = Field {
@@ -491,11 +491,11 @@ mod tests {
             thumbnail: false,
             value: Value::Short(vec![257]),
         };
-        assert_eq!(format!("{}", width.display_value()),
+        assert_eq!(width.display_value().to_string(),
                    "257");
-        assert_eq!(format!("{}", width.display_value().with_unit(())),
+        assert_eq!(width.display_value().with_unit(()).to_string(),
                    "257 pixels");
-        assert_eq!(format!("{}", width.display_value().with_unit(&cm)),
+        assert_eq!(width.display_value().with_unit(&cm).to_string(),
                    "257 pixels");
         // Unit tag (with a non-default value).
         // Unit tag is missing but the default is specified.
@@ -504,13 +504,13 @@ mod tests {
             thumbnail: false,
             value: Value::Rational(vec![Rational { num: 300, denom: 1 }]),
         };
-        assert_eq!(format!("{}", xres.display_value()),
+        assert_eq!(xres.display_value().to_string(),
                    "300");
-        assert_eq!(format!("{}", xres.display_value().with_unit(())),
+        assert_eq!(xres.display_value().with_unit(()).to_string(),
                    "300 pixels per inch");
-        assert_eq!(format!("{}", xres.display_value().with_unit(&cm)),
+        assert_eq!(xres.display_value().with_unit(&cm).to_string(),
                    "300 pixels per cm");
-        assert_eq!(format!("{}", xres.display_value().with_unit(&cm_tn)),
+        assert_eq!(xres.display_value().with_unit(&cm_tn).to_string(),
                    "300 pixels per inch");
         // Unit tag is missing and the default is not specified.
         let gpslat = Field {
@@ -522,11 +522,11 @@ mod tests {
                 Rational { num: 1, denom: 10 },
             ]),
         };
-        assert_eq!(format!("{}", gpslat.display_value()),
+        assert_eq!(gpslat.display_value().to_string(),
                    "10 deg 0 min 0.1 sec");
-        assert_eq!(format!("{}", gpslat.display_value().with_unit(())),
+        assert_eq!(gpslat.display_value().with_unit(()).to_string(),
                    "10 deg 0 min 0.1 sec [GPSLatitudeRef missing]");
-        assert_eq!(format!("{}", gpslat.display_value().with_unit(&cm)),
+        assert_eq!(gpslat.display_value().with_unit(&cm).to_string(),
                    "10 deg 0 min 0.1 sec [GPSLatitudeRef missing]");
     }
 }

@@ -84,11 +84,9 @@ impl<'a> Value<'a> {
     /// ```
     /// use exif::{Value, Tag};
     /// let val = Value::Undefined(b"0231", 0);
-    /// assert_eq!(format!("{}", val.display_as(Tag::ExifVersion)),
-    ///            "2.31");
+    /// assert_eq!(val.display_as(Tag::ExifVersion).to_string(), "2.31");
     /// let val = Value::Short(vec![2]);
-    /// assert_eq!(format!("{}", val.display_as(Tag::ResolutionUnit)),
-    ///            "inch");
+    /// assert_eq!(val.display_as(Tag::ResolutionUnit).to_string(), "inch");
     /// ```
     #[inline]
     pub fn display_as(&self, tag: crate::tag::Tag) -> Display {

@@ -44,7 +44,7 @@ use crate::tiff::{Field, ProvideUnit};
 /// let reader = exif::Reader::new(
 ///     &mut std::io::BufReader::new(&file)).unwrap();
 /// let xres = reader.get_field(exif::Tag::XResolution, false).unwrap();
-/// assert_eq!(format!("{}", xres.display_value().with_unit(&reader)),
+/// assert_eq!(xres.display_value().with_unit(&reader).to_string(),
 ///            "72 pixels per inch");
 /// ```
 //
@@ -211,23 +211,23 @@ mod tests {
         let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
         // No unit.
         let exifver = reader.get_field(Tag::ExifVersion, false).unwrap();
-        assert_eq!(format!("{}", exifver.display_value().with_unit(&reader)),
+        assert_eq!(exifver.display_value().with_unit(&reader).to_string(),
                    "2.31");
         // Fixed string.
         let width = reader.get_field(Tag::ImageWidth, false).unwrap();
-        assert_eq!(format!("{}", width.display_value().with_unit(&reader)),
+        assert_eq!(width.display_value().with_unit(&reader).to_string(),
                    "15 pixels");
         // Unit tag (with a non-default value).
         let gpsalt = reader.get_field(Tag::GPSAltitude, false).unwrap();
-        assert_eq!(format!("{}", gpsalt.display_value().with_unit(&reader)),
+        assert_eq!(gpsalt.display_value().with_unit(&reader).to_string(),
                    "0.5 meters below sea level");
         // Unit tag is missing but the default is specified.
         let xres = reader.get_field(Tag::XResolution, false).unwrap();
-        assert_eq!(format!("{}", xres.display_value().with_unit(&reader)),
+        assert_eq!(xres.display_value().with_unit(&reader).to_string(),
                    "72 pixels per inch");
         // Unit tag is missing and the default is not specified.
         let gpslat = reader.get_field(Tag::GPSLatitude, false).unwrap();
-        assert_eq!(format!("{}", gpslat.display_value().with_unit(&reader)),
+        assert_eq!(gpslat.display_value().with_unit(&reader).to_string(),
                    "10 deg 0 min 0 sec [GPSLatitudeRef missing]");
     }
 }

@@ -172,7 +172,7 @@ fn compare_field_value(value1: &Value, value2: &Value) {
             assert_eq!(v1, v2),
         (&Value::Double(ref v1), &Value::Double(ref v2)) =>
             assert_eq!(v1, v2),
-        _ => panic!(format!("{:?} != {:?}", value1, value2)),
+        _ => panic!("{:?} != {:?}", value1, value2),
     }
 }
 
