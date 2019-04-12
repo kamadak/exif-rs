@@ -181,7 +181,7 @@ impl<'a> From<&'a DefaultValue> for Option<Value<'a>> {
             DefaultValue::Ascii(s) => Some(Value::Ascii(s.to_vec())),
             DefaultValue::Short(s) => Some(Value::Short(s.to_vec())),
             DefaultValue::Rational(s) => Some(Value::Rational(
-                s.iter().map(|&t| tuple2rational(t)).collect())),
+                s.iter().map(|&x| x.into()).collect())),
             DefaultValue::Undefined(s) => Some(Value::Undefined(s, 0)),
             DefaultValue::ContextDependent => None,
             DefaultValue::Unspecified => None,
@@ -201,8 +201,10 @@ impl Rational {
     }
 }
 
-fn tuple2rational(t: (u32, u32)) -> Rational {
-    Rational { num: t.0, denom: t.1 }
+impl From<(u32, u32)> for Rational {
+    fn from(t: (u32, u32)) -> Rational {
+        Rational { num: t.0, denom: t.1 }
+    }
 }
 
 impl fmt::Debug for Rational {
@@ -238,6 +240,12 @@ impl SRational {
     #[inline]
     pub fn to_f64(&self) -> f64 {
         self.num as f64 / self.denom as f64
+    }
+}
+
+impl From<(i32, i32)> for SRational {
+    fn from(t: (i32, i32)) -> SRational {
+        SRational { num: t.0, denom: t.1 }
     }
 }
 
@@ -507,8 +515,9 @@ mod tests {
             (b"x", vec![]),
             (b"x\xa1\x02\x03\x04\x05\x06\x07\x08\
                \x09\x0a\x0b\x0c\xbd\x0e\x0f\x10",
-             vec![Rational { num: 0xa1020304, denom: 0x05060708 },
-                  Rational { num: 0x090a0b0c, denom: 0xbd0e0f10 }]),
+             vec![(0xa1020304, 0x05060708).into(),
+                  (0x090a0b0c, 0xbd0e0f10).into()]),
+
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(5);
         for &(data, ref ans) in sets {
@@ -599,8 +608,8 @@ mod tests {
             (b"x", vec![]),
             (b"x\xa1\x02\x03\x04\x05\x06\x07\x08\
                \x09\x0a\x0b\x0c\xbd\x0e\x0f\x10",
-             vec![SRational { num: -0x5efdfcfc, denom: 0x05060708 },
-                  SRational { num: 0x090a0b0c, denom: -0x42f1f0f0 }]),
+             vec![(-0x5efdfcfc, 0x05060708).into(),
+                  (0x090a0b0c, -0x42f1f0f0).into()]),
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(10);
         for &(data, ref ans) in sets {
@@ -716,10 +725,10 @@ mod tests {
 
     #[test]
     fn rational_fmt_display() {
-        let r = Rational { num: u32::max_value(), denom: u32::max_value() };
+        let r = Rational::from((u32::max_value(), u32::max_value()));
         assert_eq!(format!("{}", r), "4294967295/4294967295");
 
-        let r = Rational { num: 10, denom: 20 };
+        let r = Rational::from((10, 20));
         assert_eq!(format!("{}", r),         "10/20");
         assert_eq!(format!("{:11}", r),      "      10/20");
         assert_eq!(format!("{:3}", r),       "10/20");
@@ -727,22 +736,22 @@ mod tests {
 
     #[test]
     fn srational_fmt_display() {
-        let r = SRational { num: i32::min_value(), denom: i32::min_value() };
+        let r = SRational::from((i32::min_value(), i32::min_value()));
         assert_eq!(format!("{}", r), "-2147483648/-2147483648");
-        let r = SRational { num: i32::max_value(), denom: i32::max_value() };
+        let r = SRational::from((i32::max_value(), i32::max_value()));
         assert_eq!(format!("{}", r), "2147483647/2147483647");
 
-        let r = SRational { num: -10, denom: 20 };
+        let r = SRational::from((-10, 20));
         assert_eq!(format!("{}", r),         "-10/20");
         assert_eq!(format!("{:11}", r),      "     -10/20");
         assert_eq!(format!("{:3}", r),       "-10/20");
 
-        let r = SRational { num: 10, denom: -20 };
+        let r = SRational::from((10, -20));
         assert_eq!(format!("{}", r),         "10/-20");
         assert_eq!(format!("{:11}", r),      "     10/-20");
         assert_eq!(format!("{:3}", r),       "10/-20");
 
-        let r = SRational { num: -10, denom: -20 };
+        let r = SRational::from((-10, -20));
         assert_eq!(format!("{}", r),         "-10/-20");
         assert_eq!(format!("{:11}", r),      "    -10/-20");
         assert_eq!(format!("{:3}", r),       "-10/-20");
@@ -751,32 +760,30 @@ mod tests {
     #[test]
     fn ratioanl_f64() {
         use std::{f64, u32};
-        assert_eq!(f64::from(Rational { num: 1, denom: 2 }), 0.5);
-        assert_eq!(f64::from(Rational { num: 1, denom: u32::MAX }),
+        assert_eq!(f64::from(Rational::from((1, 2))), 0.5);
+        assert_eq!(f64::from(Rational::from((1, u32::MAX))),
                    2.3283064370807974e-10);
-        assert_eq!(f64::from(Rational { num: u32::MAX, denom: 1 }),
+        assert_eq!(f64::from(Rational::from((u32::MAX, 1))),
                    u32::MAX as f64);
-        assert_eq!(f64::from(Rational { num: u32::MAX - 1, denom: u32::MAX }),
+        assert_eq!(f64::from(Rational::from((u32::MAX - 1, u32::MAX))),
                    0.9999999997671694);
-        assert_eq!(f64::from(Rational { num: u32::MAX, denom: u32::MAX - 1 }),
+        assert_eq!(f64::from(Rational::from((u32::MAX, u32::MAX - 1))),
                    1.0000000002328306);
-        assert_eq!(f64::from(Rational { num: 1, denom: 0 }), f64::INFINITY);
-        assert!(f64::from(Rational { num: 0, denom: 0 }).is_nan());
+        assert_eq!(f64::from(Rational::from((1, 0))), f64::INFINITY);
+        assert!(f64::from(Rational::from((0, 0))).is_nan());
 
-        assert_eq!(f64::from(SRational { num: 1, denom: 2 }), 0.5);
-        assert_eq!(f64::from(SRational { num: -1, denom: 2 }), -0.5);
-        assert_eq!(f64::from(SRational { num: 1, denom: -2 }), -0.5);
-        assert_eq!(f64::from(SRational { num: -1, denom: -2 }), 0.5);
-        assert_eq!(f64::from(SRational { num: 1, denom: 0 }), f64::INFINITY);
-        assert_eq!(f64::from(SRational { num: -1, denom: 0 }),
-                   f64::NEG_INFINITY);
+        assert_eq!(f64::from(SRational::from((1, 2))), 0.5);
+        assert_eq!(f64::from(SRational::from((-1, 2))), -0.5);
+        assert_eq!(f64::from(SRational::from((1, -2))), -0.5);
+        assert_eq!(f64::from(SRational::from((-1, -2))), 0.5);
+        assert_eq!(f64::from(SRational::from((1, 0))), f64::INFINITY);
+        assert_eq!(f64::from(SRational::from((-1, 0))), f64::NEG_INFINITY);
     }
 
     #[test]
     fn rational_f32() {
         // If num and demon are converted to f32 before the division,
         // the precision is lost in this example.
-        assert_eq!(f32::from(Rational { num: 1, denom: 16777217 }),
-                   5.960464e-8);
+        assert_eq!(f32::from(Rational::from((1, 16777217))), 5.960464e-8);
     }
 }

@@ -1516,11 +1516,11 @@ mod tests {
         assert_eq!(buf, "0, 1, 2");
 
         let mut buf = String::new();
-        d_sub_comma(&mut buf, &[Rational { num: 3, denom: 5 }]).unwrap();
+        d_sub_comma(&mut buf, &[Rational::from((3, 5))]).unwrap();
         assert_eq!(buf, "3/5");
 
         let mut buf = String::new();
-        d_sub_comma_f64(&mut buf, &[Rational { num: 1, denom: 2 }]).unwrap();
+        d_sub_comma_f64(&mut buf, &[Rational::from((1, 2))]).unwrap();
         assert_eq!(buf, "0.5");
 
         let mut buf = String::new();

@@ -609,7 +609,6 @@ fn get_offset<W>(w: &mut W)
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
-    use crate::value::{Rational, SRational};
     use super::*;
 
     #[test]
@@ -787,8 +786,7 @@ mod tests {
             (Value::Long(vec![0x01020304, 0x05060708]),
              (4, 2, b"\x01\x02\x03\x04\x05\x06\x07\x08".to_vec()),
              (4, 2, b"\x04\x03\x02\x01\x08\x07\x06\x05".to_vec())),
-            (Value::Rational(vec![Rational { num: 1, denom: 2},
-                                  Rational { num: 3, denom: 4}]),
+            (Value::Rational(vec![(1, 2).into(), (3, 4).into()]),
              (5, 2, b"\0\0\0\x01\0\0\0\x02\0\0\0\x03\0\0\0\x04".to_vec()),
              (5, 2, b"\x01\0\0\0\x02\0\0\0\x03\0\0\0\x04\0\0\0".to_vec())),
             (Value::SByte(vec![-2, -128]),
@@ -803,8 +801,7 @@ mod tests {
             (Value::SLong(vec![-2, -0x80000000]),
              (9, 2, b"\xff\xff\xff\xfe\x80\x00\x00\x00".to_vec()),
              (9, 2, b"\xfe\xff\xff\xff\x00\x00\x00\x80".to_vec())),
-            (Value::SRational(vec![SRational { num: -1, denom: -2},
-                                   SRational { num: -3, denom: -4}]),
+            (Value::SRational(vec![(-1, -2).into(), (-3, -4).into()]),
              (10, 2, b"\xff\xff\xff\xff\xff\xff\xff\xfe\
                        \xff\xff\xff\xfd\xff\xff\xff\xfc".to_vec()),
              (10, 2, b"\xff\xff\xff\xff\xfe\xff\xff\xff\

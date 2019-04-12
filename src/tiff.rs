@@ -278,12 +278,12 @@ impl<'a> Field<'a> {
     /// # Examples
     ///
     /// ```
-    /// use exif::{Field, Rational, Tag, Value};
+    /// use exif::{Field, Tag, Value};
     ///
     /// let xres = Field {
     ///     tag: Tag::XResolution,
     ///     thumbnail: false,
-    ///     value: Value::Rational(vec![Rational { num: 72, denom: 1 }]),
+    ///     value: Value::Rational(vec![(72, 1).into()]),
     /// };
     /// let cm = Field {
     ///     tag: Tag::ResolutionUnit,
@@ -401,7 +401,6 @@ impl<'a> ProvideUnit<'a> for &'a Field<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::value::Rational;
 
     // Before the error is returned, the IFD is parsed twice as the
     // 0th and 1st IFDs.
@@ -502,7 +501,7 @@ mod tests {
         let xres = Field {
             tag: Tag::XResolution,
             thumbnail: false,
-            value: Value::Rational(vec![Rational { num: 300, denom: 1 }]),
+            value: Value::Rational(vec![(300, 1).into()]),
         };
         assert_eq!(xres.display_value().to_string(),
                    "300");
@@ -517,10 +516,7 @@ mod tests {
             tag: Tag::GPSLatitude,
             thumbnail: false,
             value: Value::Rational(vec![
-                Rational { num: 10, denom: 1 },
-                Rational { num: 0, denom: 1 },
-                Rational { num: 1, denom: 10 },
-            ]),
+                (10, 1).into(), (0, 1).into(), (1, 10).into()]),
         };
         assert_eq!(gpslat.display_value().to_string(),
                    "10 deg 0 min 0.1 sec");
