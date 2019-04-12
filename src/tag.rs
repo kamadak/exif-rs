@@ -93,7 +93,6 @@ impl Tag {
         get_tag_info(*self).and_then(|ti| (&ti.default).into())
     }
 
-    #[inline]
     pub(crate) fn unit(self) -> Option<&'static [UnitPiece]> {
         get_tag_info(self).and_then(|ti| ti.unit)
     }
