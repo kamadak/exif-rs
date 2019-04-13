@@ -517,7 +517,6 @@ mod tests {
                \x09\x0a\x0b\x0c\xbd\x0e\x0f\x10",
              vec![(0xa1020304, 0x05060708).into(),
                   (0x090a0b0c, 0xbd0e0f10).into()]),
-
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(5);
         for &(data, ref ans) in sets {
