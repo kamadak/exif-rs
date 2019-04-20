@@ -46,10 +46,46 @@ pub const TIFF_LE_SIG: [u8; 4] = [0x49, 0x49, 0x2a, 0x00];
 pub struct Field<'a> {
     /// The tag of this field.
     pub tag: Tag,
-    /// False for the primary image and true for the thumbnail.
-    pub thumbnail: bool,
+    /// The index of the IFD to which this field belongs.
+    pub ifd_num: In,
     /// The value of this field.
     pub value: Value<'a>,
+}
+
+/// The IFD number.
+///
+/// The IFDs are indexed from 0.  The 0th IFD is for the primary image
+/// and the 1st one is for the thumbnail.  Two associated constants,
+/// `In::PRIMARY` and `In::THUMBNAIL`, are defined for them respectively.
+///
+/// # Examples
+/// ```
+/// use exif::In;
+/// assert_eq!(In::PRIMARY.index(), 0);
+/// assert_eq!(In::THUMBNAIL.index(), 1);
+/// ```
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct In(pub u16);
+
+impl In {
+    pub const PRIMARY: In = In(0);
+    pub const THUMBNAIL: In = In(1);
+
+    /// Returns the IFD number.
+    #[inline]
+    pub fn index(self) -> u16 {
+        self.0
+    }
+}
+
+impl fmt::Display for In {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.0 {
+            0 => f.pad("primary"),
+            1 => f.pad("thumbnail"),
+            n => f.pad(&format!("IFD{}", n)),
+        }
+    }
 }
 
 /// Parse the Exif attributes in the TIFF format.
@@ -77,13 +113,13 @@ fn parse_exif_sub<E>(data: &[u8])
     }
     let ifd_offset = E::loadu32(data, 4) as usize;
     let mut fields = Vec::new();
-    parse_ifd::<E>(&mut fields, data, ifd_offset, Context::Tiff, false)?;
+    parse_ifd::<E>(&mut fields, data, ifd_offset, Context::Tiff, 0)?;
     Ok(fields)
 }
 
 // Parse IFD [EXIF23 4.6.2].
 fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
-                    offset: usize, ctx: Context, thumbnail: bool)
+                    offset: usize, ctx: Context, ifd_num: u16)
                     -> Result<(), Error> where E: Endian {
     // Count (the number of the entries).
     if data.len() < offset || data.len() - offset < 2 {
@@ -121,13 +157,13 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
         let tag = Tag(ctx, tag);
         match tag {
             Tag::ExifIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::Exif, thumbnail)?,
+                fields, data, &val, Context::Exif, ifd_num)?,
             Tag::GPSInfoIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::Gps, thumbnail)?,
+                fields, data, &val, Context::Gps, ifd_num)?,
             Tag::InteropIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::Interop, thumbnail)?,
-            _ => fields.push(Field { tag: tag, thumbnail: thumbnail,
-                                     value: val }),
+                fields, data, &val, Context::Interop, ifd_num)?,
+            _ => fields.push(Field {
+                tag: tag, ifd_num: In(ifd_num), value: val }),
         }
     }
 
@@ -137,24 +173,24 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
     }
     let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12) as usize;
     // Ignore IFDs after IFD1 (thumbnail) for now.
-    if next_ifd_offset == 0 || thumbnail {
+    if next_ifd_offset == 0 || ifd_num > 0 {
         return Ok(());
     }
     if ctx != Context::Tiff {
         return Err(Error::InvalidFormat("Unexpected next IFD"));
     }
-    parse_ifd::<E>(fields, data, next_ifd_offset, Context::Tiff, true)
+    parse_ifd::<E>(fields, data, next_ifd_offset, Context::Tiff, 1)
 }
 
 fn parse_child_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
-                          pointer: &Value, ctx: Context, thumbnail: bool)
+                          pointer: &Value, ctx: Context, ifd_num: u16)
                           -> Result<(), Error> where E: Endian {
     // A pointer field has type == LONG and count == 1, so the
     // value (IFD offset) must be embedded in the "value offset"
     // element of the field.
     let ofs = pointer.get_uint(0).ok_or(
         Error::InvalidFormat("Invalid pointer"))? as usize;
-    parse_ifd::<E>(fields, data, ofs, ctx, thumbnail)
+    parse_ifd::<E>(fields, data, ofs, ctx, ifd_num)
 }
 
 pub fn is_tiff(buf: &[u8]) -> bool {
@@ -278,16 +314,16 @@ impl<'a> Field<'a> {
     /// # Examples
     ///
     /// ```
-    /// use exif::{Field, Tag, Value};
+    /// use exif::{Field, In, Tag, Value};
     ///
     /// let xres = Field {
     ///     tag: Tag::XResolution,
-    ///     thumbnail: false,
+    ///     ifd_num: In::PRIMARY,
     ///     value: Value::Rational(vec![(72, 1).into()]),
     /// };
     /// let cm = Field {
     ///     tag: Tag::ResolutionUnit,
-    ///     thumbnail: false,
+    ///     ifd_num: In::PRIMARY,
     ///     value: Value::Short(vec![3]),
     /// };
     /// assert_eq!(xres.display_value().to_string(), "72");
@@ -303,7 +339,7 @@ impl<'a> Field<'a> {
     ///
     /// let flen = Field {
     ///     tag: Tag::FocalLengthIn35mmFilm,
-    ///     thumbnail: false,
+    ///     ifd_num: In::PRIMARY,
     ///     value: Value::Short(vec![24]),
     /// };
     /// // The unit of the focal length is always mm, so the argument
@@ -315,7 +351,7 @@ impl<'a> Field<'a> {
     pub fn display_value(&self) -> DisplayValue {
         DisplayValue {
             tag: self.tag,
-            thumbnail: self.thumbnail,
+            ifd_num: self.ifd_num,
             value_display: self.value.display_as(self.tag),
         }
     }
@@ -324,7 +360,7 @@ impl<'a> Field<'a> {
 /// Helper struct for printing a value in a tag-specific format.
 pub struct DisplayValue<'a> {
     tag: Tag,
-    thumbnail: bool,
+    ifd_num: In,
     value_display: value::Display<'a>,
 }
 
@@ -333,7 +369,7 @@ impl<'a> DisplayValue<'a> {
     pub fn with_unit<'b, T>(&'b self, unit_provider: T)
                             -> DisplayValueUnit<T> where T: ProvideUnit<'b> {
         DisplayValueUnit {
-            thumbnail: self.thumbnail,
+            ifd_num: self.ifd_num,
             value_display: self.value_display,
             unit: self.tag.unit(),
             unit_provider: unit_provider,
@@ -350,7 +386,7 @@ impl<'a> fmt::Display for DisplayValue<'a> {
 
 /// Helper struct for printing a value with its unit.
 pub struct DisplayValueUnit<'a, T> where T: ProvideUnit<'a> {
-    thumbnail: bool,
+    ifd_num: In,
     value_display: value::Display<'a>,
     unit: Option<&'static [UnitPiece]>,
     unit_provider: T,
@@ -366,7 +402,7 @@ impl<'a, T> fmt::Display for DisplayValueUnit<'a, T> where T: ProvideUnit<'a> {
                     UnitPiece::Str(s) => f.write_str(s),
                     UnitPiece::Tag(tag) =>
                         if let Some(x) = self.unit_provider.get_field(
-                                tag, self.thumbnail) {
+                                tag, self.ifd_num) {
                             x.value.display_as(tag).fmt(f)
                         } else if let Some(x) = tag.default_value() {
                             x.display_as(tag).fmt(f)
@@ -383,24 +419,41 @@ impl<'a, T> fmt::Display for DisplayValueUnit<'a, T> where T: ProvideUnit<'a> {
 }
 
 pub trait ProvideUnit<'a>: Copy {
-    fn get_field(self, tag: Tag, thumbnail: bool) -> Option<&'a Field<'a>>;
+    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field<'a>>;
 }
 
 impl<'a> ProvideUnit<'a> for () {
-    fn get_field(self, _tag: Tag, _thumbnail: bool) -> Option<&'a Field<'a>> {
+    fn get_field(self, _tag: Tag, _ifd_num: In) -> Option<&'a Field<'a>> {
         None
     }
 }
 
 impl<'a> ProvideUnit<'a> for &'a Field<'a> {
-    fn get_field(self, tag: Tag, thumbnail: bool) -> Option<&'a Field<'a>> {
-        Some(self).filter(|x| x.tag == tag && x.thumbnail == thumbnail)
+    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field<'a>> {
+        Some(self).filter(|x| x.tag == tag && x.ifd_num == ifd_num)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn in_convert() {
+        assert_eq!(In::PRIMARY.index(), 0);
+        assert_eq!(In::THUMBNAIL.index(), 1);
+        assert_eq!(In(2).index(), 2);
+        assert_eq!(In(65535).index(), 65535);
+        assert_eq!(In::PRIMARY, In(0));
+    }
+
+    #[test]
+    fn in_display() {
+        assert_eq!(format!("{:10}", In::PRIMARY), "primary   ");
+        assert_eq!(format!("{:>10}", In::THUMBNAIL), " thumbnail");
+        assert_eq!(format!("{:10}", In(2)), "IFD2      ");
+        assert_eq!(format!("{:^10}", In(65535)), " IFD65535 ");
+    }
 
     // Before the error is returned, the IFD is parsed twice as the
     // 0th and 1st IFDs.
@@ -464,18 +517,18 @@ mod tests {
     fn display_value_with_unit() {
         let cm = Field {
             tag: Tag::ResolutionUnit,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Short(vec![3]),
         };
         let cm_tn = Field {
             tag: Tag::ResolutionUnit,
-            thumbnail: true,
+            ifd_num: In::THUMBNAIL,
             value: Value::Short(vec![3]),
         };
         // No unit.
         let exifver = Field {
             tag: Tag::ExifVersion,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Undefined(b"0231", 0),
         };
         assert_eq!(exifver.display_value().to_string(),
@@ -487,7 +540,7 @@ mod tests {
         // Fixed string.
         let width = Field {
             tag: Tag::ImageWidth,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Short(vec![257]),
         };
         assert_eq!(width.display_value().to_string(),
@@ -500,7 +553,7 @@ mod tests {
         // Unit tag is missing but the default is specified.
         let xres = Field {
             tag: Tag::XResolution,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Rational(vec![(300, 1).into()]),
         };
         assert_eq!(xres.display_value().to_string(),
@@ -514,7 +567,7 @@ mod tests {
         // Unit tag is missing and the default is not specified.
         let gpslat = Field {
             tag: Tag::GPSLatitude,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Rational(vec![
                 (10, 1).into(), (0, 1).into(), (1, 10).into()]),
         };

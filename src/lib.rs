@@ -39,7 +39,7 @@
 //!         &mut std::io::BufReader::new(&file)).unwrap();
 //!     for f in reader.fields() {
 //!         println!("{} {} {}",
-//!                  f.tag, f.thumbnail, f.display_value().with_unit(&reader));
+//!                  f.tag, f.ifd_num, f.display_value().with_unit(&reader));
 //!     }
 //! }
 //! ```
@@ -50,12 +50,16 @@
 //!
 //! * The constants in tag module (`tag::TagName`) have been removed.
 //!   Use `Tag::TagName` instead.
+//! * Sturct `In` (IFD number) has been added to indicate primary/thumbnail
+//!   images, which were distinguished by `bool` previously.  Function
+//!   parameters and struct members now take `In`s instead of `bool`s.
+//!   `Field::thumbnail` was renamed to `Field::ifd_num` accordingly.
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::Reader;
 pub use tag::{Context, Tag};
-pub use tiff::{DateTime, Field};
+pub use tiff::{DateTime, Field, In};
 pub use tiff::parse_exif;
 pub use value::Value;
 pub use value::{Rational, SRational};

@@ -33,17 +33,17 @@ use crate::error::Error;
 use crate::jpeg;
 use crate::tag::Tag;
 use crate::tiff;
-use crate::tiff::{Field, ProvideUnit};
+use crate::tiff::{Field, In, ProvideUnit};
 
 /// The `Reader` struct reads a JPEG or TIFF image,
 /// parses the Exif attributes in it, and holds the results.
 ///
 /// # Examples
 /// ```
+/// use exif::{In, Reader, Tag};
 /// let file = std::fs::File::open("tests/exif.jpg").unwrap();
-/// let reader = exif::Reader::new(
-///     &mut std::io::BufReader::new(&file)).unwrap();
-/// let xres = reader.get_field(exif::Tag::XResolution, false).unwrap();
+/// let reader = Reader::new(&mut std::io::BufReader::new(&file)).unwrap();
+/// let xres = reader.get_field(Tag::XResolution, In::PRIMARY).unwrap();
 /// assert_eq!(xres.display_value().with_unit(&reader).to_string(),
 ///            "72 pixels per inch");
 /// ```
@@ -68,7 +68,7 @@ pub struct Reader {
     // True if the TIFF data is little endian.
     little_endian: bool,
     // HashMap to find a field quickly.
-    field_map: HashMap<(Tag, bool), &'static Field<'static>>,
+    field_map: HashMap<(Tag, In), &'static Field<'static>>,
 }
 
 impl Reader {
@@ -98,7 +98,7 @@ impl Reader {
         // Initialize the HashMap of all fields.
         let mut field_map = HashMap::new();
         for f in &fields {
-            field_map.insert((f.tag, f.thumbnail),
+            field_map.insert((f.tag, f.ifd_num),
                              unsafe { mem::transmute::<&Field, &Field>(f) });
         }
 
@@ -129,16 +129,16 @@ impl Reader {
     }
 
     /// Returns a reference to the Exif field specified by the tag
-    /// and the thumbnail flag.
+    /// and the IFD number.
     #[inline]
-    pub fn get_field(&self, tag: Tag, thumbnail: bool) -> Option<&Field> {
-        self.field_map.get(&(tag, thumbnail)).map(|&f| f)
+    pub fn get_field(&self, tag: Tag, ifd_num: In) -> Option<&Field> {
+        self.field_map.get(&(tag, ifd_num)).map(|&f| f)
     }
 }
 
 impl<'a> ProvideUnit<'a> for &'a Reader {
-    fn get_field(self, tag: Tag, thumbnail: bool) -> Option<&'a Field<'a>> {
-        self.get_field(tag, thumbnail)
+    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field<'a>> {
+        self.get_field(tag, ifd_num)
     }
 }
 
@@ -199,10 +199,16 @@ mod tests {
 
     #[test]
     fn get_field() {
-        let file = File::open("tests/exif.jpg").unwrap();
+        let file = File::open("tests/exif.tif").unwrap();
         let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
-        assert_pat!(reader.get_field(Tag::ExifVersion, false).unwrap().value,
-                    Value::Undefined(b"0230", _));
+        match reader.get_field(Tag::ImageDescription, In(0)).unwrap().value {
+            Value::Ascii(ref vec) => assert_eq!(vec, &[b"Test image"]),
+            ref v => panic!("wrong variant {:?}", v)
+        }
+        match reader.get_field(Tag::ImageDescription, In(1)).unwrap().value {
+            Value::Ascii(ref vec) => assert_eq!(vec, &[b"Test thumbnail"]),
+            ref v => panic!("wrong variant {:?}", v)
+        }
     }
 
     #[test]
@@ -210,23 +216,23 @@ mod tests {
         let file = File::open("tests/unit.tif").unwrap();
         let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
         // No unit.
-        let exifver = reader.get_field(Tag::ExifVersion, false).unwrap();
+        let exifver = reader.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
         assert_eq!(exifver.display_value().with_unit(&reader).to_string(),
                    "2.31");
         // Fixed string.
-        let width = reader.get_field(Tag::ImageWidth, false).unwrap();
+        let width = reader.get_field(Tag::ImageWidth, In::PRIMARY).unwrap();
         assert_eq!(width.display_value().with_unit(&reader).to_string(),
                    "15 pixels");
         // Unit tag (with a non-default value).
-        let gpsalt = reader.get_field(Tag::GPSAltitude, false).unwrap();
+        let gpsalt = reader.get_field(Tag::GPSAltitude, In::PRIMARY).unwrap();
         assert_eq!(gpsalt.display_value().with_unit(&reader).to_string(),
                    "0.5 meters below sea level");
         // Unit tag is missing but the default is specified.
-        let xres = reader.get_field(Tag::XResolution, false).unwrap();
+        let xres = reader.get_field(Tag::XResolution, In::PRIMARY).unwrap();
         assert_eq!(xres.display_value().with_unit(&reader).to_string(),
                    "72 pixels per inch");
         // Unit tag is missing and the default is not specified.
-        let gpslat = reader.get_field(Tag::GPSLatitude, false).unwrap();
+        let gpslat = reader.get_field(Tag::GPSLatitude, In::PRIMARY).unwrap();
         assert_eq!(gpslat.display_value().with_unit(&reader).to_string(),
                    "10 deg 0 min 0 sec [GPSLatitudeRef missing]");
     }

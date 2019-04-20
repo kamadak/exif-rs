@@ -29,7 +29,7 @@ extern crate exif;
 use std::fs::File;
 use std::io::BufReader;
 
-use exif::{DateTime, Reader, Value, Tag};
+use exif::{DateTime, In, Reader, Value, Tag};
 
 fn main() {
     let file = File::open("tests/exif.jpg").unwrap();
@@ -44,7 +44,7 @@ fn main() {
                     Tag::ImageDescription,
                     Tag::DateTime];
     for &tag in tag_list.iter() {
-        if let Some(field) = reader.get_field(tag, false) {
+        if let Some(field) = reader.get_field(tag, In::PRIMARY) {
             println!("{}: {}",
                      field.tag, field.display_value().with_unit(&reader));
         }
@@ -52,7 +52,7 @@ fn main() {
 
     // To get unsigned integer value(s) from either of BYTE, SHORT,
     // or LONG, `Value::get_uint` or `Value::iter_uint` can be used.
-    if let Some(field) = reader.get_field(Tag::PixelXDimension, false) {
+    if let Some(field) = reader.get_field(Tag::PixelXDimension, In::PRIMARY) {
         if let Some(width) = field.value.get_uint(0) {
             println!("Valid width of the image is {}.", width);
         }
@@ -60,7 +60,7 @@ fn main() {
 
     // To convert a Rational or SRational to an f64, `Rational::to_f64`
     // or `SRational::to_f64` can be used.
-    if let Some(field) = reader.get_field(Tag::XResolution, false) {
+    if let Some(field) = reader.get_field(Tag::XResolution, In::PRIMARY) {
         match field.value {
             Value::Rational(ref vec) if !vec.is_empty() =>
                 println!("X resolution is {}.", vec[0].to_f64()),
@@ -69,7 +69,7 @@ fn main() {
     }
 
     // To parse a DateTime-like field, `DateTime::from_ascii` can be used.
-    if let Some(field) = reader.get_field(Tag::DateTime, false) {
+    if let Some(field) = reader.get_field(Tag::DateTime, In::PRIMARY) {
         match field.value {
             Value::Ascii(ref vec) if !vec.is_empty() => {
                 if let Ok(datetime) = DateTime::from_ascii(vec[0]) {

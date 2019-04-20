@@ -46,9 +46,9 @@ fn dump_file(path: &Path) -> Result<(), exif::Error> {
 
     println!("{}", path.display());
     for f in reader.fields() {
-        let thumb = if f.thumbnail { "1/" } else { "0/" };
-        println!("  {}{}: {}",
-                 thumb, f.tag, f.display_value().with_unit(&reader));
+        println!("  {}/{}: {}",
+                 f.ifd_num.index(), f.tag,
+                 f.display_value().with_unit(&reader));
         if let exif::Value::Ascii(ref s) = f.value {
             println!("      Ascii({:?})",
                      s.iter().map(escape).collect::<Vec<_>>());

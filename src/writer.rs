@@ -30,7 +30,7 @@ use std::io::{Seek, SeekFrom, Write};
 use crate::endian::{Endian, BigEndian, LittleEndian};
 use crate::error::Error;
 use crate::tag::{Context, Tag};
-use crate::tiff::{Field, TIFF_BE_SIG, TIFF_LE_SIG};
+use crate::tiff::{Field, In, TIFF_BE_SIG, TIFF_LE_SIG};
 use crate::value::Value;
 
 /// The `Writer` struct is used to encode and write Exif data.
@@ -38,11 +38,11 @@ use crate::value::Value;
 /// # Examples
 ///
 /// ```
-/// use exif::{Field, Value, Tag};
+/// use exif::{Field, In, Tag, Value};
 /// use exif::experimental::Writer;
 /// let image_desc = Field {
 ///     tag: Tag::ImageDescription,
-///     thumbnail: false,
+///     ifd_num: In::PRIMARY,
 ///     value: Value::Ascii(vec![b"Sample"]),
 /// };
 /// let mut writer = Writer::new();
@@ -129,22 +129,23 @@ impl<'a> Writer<'a> {
             Field { tag: Tag::JPEGInterchangeFormat, .. } |
             Field { tag: Tag::JPEGInterchangeFormatLength, .. } => {},
             // Other normal tags.
-            Field { tag: Tag(Context::Tiff, _), thumbnail: false, .. } =>
+            Field { tag: Tag(Context::Tiff, _), ifd_num: In::PRIMARY, .. } =>
                 self.tiff_fields.push(field),
-            Field { tag: Tag(Context::Exif, _), thumbnail: false, .. } =>
+            Field { tag: Tag(Context::Exif, _), ifd_num: In::PRIMARY, .. } =>
                 self.exif_fields.push(field),
-            Field { tag: Tag(Context::Gps, _), thumbnail: false, .. } =>
+            Field { tag: Tag(Context::Gps, _), ifd_num: In::PRIMARY, .. } =>
                 self.gps_fields.push(field),
-            Field { tag: Tag(Context::Interop, _), thumbnail: false, .. } =>
+            Field { tag: Tag(Context::Interop, _), ifd_num: In::PRIMARY, .. } =>
                 self.interop_fields.push(field),
-            Field { tag: Tag(Context::Tiff, _), thumbnail: true, .. } =>
+            Field { tag: Tag(Context::Tiff, _), ifd_num: In::THUMBNAIL, .. } =>
                 self.tn_tiff_fields.push(field),
-            Field { tag: Tag(Context::Exif, _), thumbnail: true, .. } =>
+            Field { tag: Tag(Context::Exif, _), ifd_num: In::THUMBNAIL, .. } =>
                 self.tn_exif_fields.push(field),
-            Field { tag: Tag(Context::Gps, _), thumbnail: true, .. } =>
+            Field { tag: Tag(Context::Gps, _), ifd_num: In::THUMBNAIL, .. } =>
                 self.tn_gps_fields.push(field),
-            Field { tag: Tag(Context::Interop, _), thumbnail: true, .. } =>
+            Field { tag: Tag(Context::Interop, _), ifd_num: In::THUMBNAIL, .. } =>
                 self.tn_interop_fields.push(field),
+            _ => unimplemented!(),
         }
     }
 
@@ -202,7 +203,7 @@ impl<'a> Writer<'a> {
             jpeg: None,
         };
         let next_ifd_offset_offset =
-            synthesize_fields(w, ws, false, little_endian)?;
+            synthesize_fields(w, ws, In::PRIMARY, little_endian)?;
 
         // Do not output the thumbnail IFD if there are no data in it.
         let thumbnail_absent =
@@ -240,7 +241,7 @@ impl<'a> Writer<'a> {
             tiles: None,
             jpeg: self.tn_jpeg,
         };
-        synthesize_fields(w, ws, true, little_endian)?;
+        synthesize_fields(w, ws, In::THUMBNAIL, little_endian)?;
 
         w.flush()?;
         Ok(())
@@ -249,7 +250,7 @@ impl<'a> Writer<'a> {
 
 // Synthesizes special fields, writes an image, and returns the offset
 // of the next IFD offset.
-fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
+fn synthesize_fields<W>(w: &mut W, ws: WriterState, ifd_num: In,
                         little_endian: bool)
                         -> Result<u32, Error> where W: Write + Seek {
     let exif_in_tiff;
@@ -267,13 +268,13 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     if let Some(strips) = ws.strips {
         strip_offsets = Field {
             tag: Tag::StripOffsets,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(vec![0; strips.len()]),
         };
         ws.tiff_fields.push(&strip_offsets);
         strip_byte_counts = Field {
             tag: Tag::StripByteCounts,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(
                 strips.iter().map(|s| s.len() as u32).collect()),
         };
@@ -282,13 +283,13 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     if let Some(tiles) = ws.tiles {
         tile_offsets = Field {
             tag: Tag::TileOffsets,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(vec![0; tiles.len()]),
         };
         ws.tiff_fields.push(&tile_offsets);
         tile_byte_counts = Field {
             tag: Tag::TileByteCounts,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(
                 tiles.iter().map(|s| s.len() as u32).collect()),
         };
@@ -297,13 +298,13 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
     if let Some(jpeg) = ws.jpeg {
         jpeg_offset = Field {
             tag: Tag::JPEGInterchangeFormat,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(vec![0]),
         };
         ws.tiff_fields.push(&jpeg_offset);
         jpeg_length = Field {
             tag: Tag::JPEGInterchangeFormatLength,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(vec![jpeg.len() as u32]),
         };
         ws.tiff_fields.push(&jpeg_length);
@@ -322,7 +323,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
         ws.exif_ifd_offset = reserve_ifd(w, exif_fields_len)?;
         exif_in_tiff = Field {
             tag: Tag::ExifIFDPointer,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(vec![ws.exif_ifd_offset]),
         };
         ws.tiff_fields.push(&exif_in_tiff);
@@ -331,7 +332,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
         ws.gps_ifd_offset = reserve_ifd(w, gps_fields_len)?;
         gps_in_tiff = Field {
             tag: Tag::GPSInfoIFDPointer,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(vec![ws.gps_ifd_offset]),
         };
         ws.tiff_fields.push(&gps_in_tiff);
@@ -340,7 +341,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, thumbnail: bool,
         ws.interop_ifd_offset = reserve_ifd(w, interop_fields_len)?;
         interop_in_exif = Field {
             tag: Tag::InteropIFDPointer,
-            thumbnail: thumbnail,
+            ifd_num: ifd_num,
             value: Value::Long(vec![ws.interop_ifd_offset]),
         };
         ws.exif_fields.push(&interop_in_exif);
@@ -615,7 +616,7 @@ mod tests {
     fn primary() {
         let image_desc = Field {
             tag: Tag::ImageDescription,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Ascii(vec![b"Sample"]),
         };
         let mut writer = Writer::new();
@@ -634,7 +635,7 @@ mod tests {
     fn primary_exif_only() {
         let exif_ver = Field {
             tag: Tag::ExifVersion,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Undefined(b"0231", 0),
         };
         let mut writer = Writer::new();
@@ -707,22 +708,22 @@ mod tests {
     fn primary_and_thumbnail() {
         let image_desc = Field {
             tag: Tag::ImageDescription,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Ascii(vec![b"Sample"]),
         };
         let exif_ver = Field {
             tag: Tag::ExifVersion,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Undefined(b"0231", 0),
         };
         let gps_ver = Field {
             tag: Tag::GPSVersionID,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Byte(vec![2, 3, 0, 0]),
         };
         let interop_index = Field {
             tag: Tag::InteroperabilityIndex,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Ascii(vec![b"ABC"]),
         };
         let jpeg = b"JPEG";
@@ -759,7 +760,7 @@ mod tests {
     fn write_twice() {
         let image_desc = Field {
             tag: Tag::ImageDescription,
-            thumbnail: false,
+            ifd_num: In::PRIMARY,
             value: Value::Ascii(vec![b"Sample"]),
         };
         let mut writer = Writer::new();

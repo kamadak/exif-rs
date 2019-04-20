@@ -37,7 +37,7 @@ use std::path::Path;
 
 #[cfg(not(test))]
 use exif::Error;
-use exif::{Reader, Value, Tag};
+use exif::{In, Reader, Value, Tag};
 use exif::experimental::Writer;
 
 #[test]
@@ -71,10 +71,10 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
             return;
         },
     };
-    let strips = get_strips(&reader1, false);
-    let tn_strips = get_strips(&reader1, true);
-    let tiles = get_tiles(&reader1, false);
-    let tn_jpeg = get_jpeg(&reader1, true);
+    let strips = get_strips(&reader1, In::PRIMARY);
+    let tn_strips = get_strips(&reader1, In::THUMBNAIL);
+    let tiles = get_tiles(&reader1, In::PRIMARY);
+    let tn_jpeg = get_jpeg(&reader1, In::THUMBNAIL);
 
     // Write.
     let mut writer = Writer::new();
@@ -120,7 +120,7 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
     assert_eq!(reader1.fields().len(), reader2.fields().len());
     for (f1, f2) in fields1.iter().zip(fields2.iter()) {
         assert_eq!(f1.tag, f2.tag);
-        assert_eq!(f1.thumbnail, f2.thumbnail);
+        assert_eq!(f1.ifd_num, f2.ifd_num);
         match f1.tag {
             Tag::StripOffsets | Tag::TileOffsets |
             Tag::JPEGInterchangeFormat => continue,
@@ -128,10 +128,10 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
         }
         compare_field_value(&f1.value, &f2.value);
     }
-    assert_eq!(get_strips(&reader2, false), strips);
-    assert_eq!(get_strips(&reader2, true), tn_strips);
-    assert_eq!(get_tiles(&reader2, false), tiles);
-    assert_eq!(get_jpeg(&reader2, true), tn_jpeg);
+    assert_eq!(get_strips(&reader2, In::PRIMARY), strips);
+    assert_eq!(get_strips(&reader2, In::THUMBNAIL), tn_strips);
+    assert_eq!(get_tiles(&reader2, In::PRIMARY), tiles);
+    assert_eq!(get_jpeg(&reader2, In::THUMBNAIL), tn_jpeg);
 }
 
 // Compare field values.
@@ -176,10 +176,10 @@ fn compare_field_value(value1: &Value, value2: &Value) {
     }
 }
 
-fn get_strips(reader: &Reader, thumbnail: bool) -> Option<Vec<&[u8]>> {
-    let offsets = reader.get_field(Tag::StripOffsets, thumbnail)
+fn get_strips(reader: &Reader, ifd_num: In) -> Option<Vec<&[u8]>> {
+    let offsets = reader.get_field(Tag::StripOffsets, ifd_num)
         .and_then(|f| f.value.iter_uint());
-    let counts = reader.get_field(Tag::StripByteCounts, thumbnail)
+    let counts = reader.get_field(Tag::StripByteCounts, ifd_num)
         .and_then(|f| f.value.iter_uint());
     let (offsets, counts) = match (offsets, counts) {
         (Some(offsets), Some(counts)) => (offsets, counts),
@@ -193,10 +193,10 @@ fn get_strips(reader: &Reader, thumbnail: bool) -> Option<Vec<&[u8]>> {
     Some(strips)
 }
 
-fn get_tiles(reader: &Reader, thumbnail: bool) -> Option<Vec<&[u8]>> {
-    let offsets = reader.get_field(Tag::TileOffsets, thumbnail)
+fn get_tiles(reader: &Reader, ifd_num: In) -> Option<Vec<&[u8]>> {
+    let offsets = reader.get_field(Tag::TileOffsets, ifd_num)
         .and_then(|f| f.value.iter_uint());
-    let counts = reader.get_field(Tag::TileByteCounts, thumbnail)
+    let counts = reader.get_field(Tag::TileByteCounts, ifd_num)
         .and_then(|f| f.value.iter_uint());
     let (offsets, counts) = match (offsets, counts) {
         (Some(offsets), Some(counts)) => (offsets, counts),
@@ -210,10 +210,10 @@ fn get_tiles(reader: &Reader, thumbnail: bool) -> Option<Vec<&[u8]>> {
     Some(strips)
 }
 
-fn get_jpeg(reader: &Reader, thumbnail: bool) -> Option<&[u8]> {
-    let offset = reader.get_field(Tag::JPEGInterchangeFormat, thumbnail)
+fn get_jpeg(reader: &Reader, ifd_num: In) -> Option<&[u8]> {
+    let offset = reader.get_field(Tag::JPEGInterchangeFormat, ifd_num)
         .and_then(|f| f.value.get_uint(0));
-    let len = reader.get_field(Tag::JPEGInterchangeFormatLength, thumbnail)
+    let len = reader.get_field(Tag::JPEGInterchangeFormatLength, ifd_num)
         .and_then(|f| f.value.get_uint(0));
     let (offset, len) = match (offset, len) {
         (Some(offset), Some(len)) => (offset as usize, len as usize),
