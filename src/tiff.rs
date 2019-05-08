@@ -111,16 +111,27 @@ fn parse_exif_sub<E>(data: &[u8])
     if E::loadu16(data, 2) != TIFF_FORTY_TWO {
         return Err(Error::InvalidFormat("Invalid forty two"));
     }
-    let ifd_offset = E::loadu32(data, 4) as usize;
+    let mut ifd_offset = E::loadu32(data, 4) as usize;
+    let mut ifd_num_ck = Some(0);
     let mut fields = Vec::new();
-    parse_ifd::<E>(&mut fields, data, ifd_offset, Context::Tiff, 0)?;
+    while ifd_offset != 0 {
+        let ifd_num = ifd_num_ck.ok_or(Error::InvalidFormat("Too many IFDs"))?;
+        // Limit the number of IFDs to defend against resource exhaustion
+        // attacks.
+        if ifd_num >= 8 {
+            return Err(Error::InvalidFormat("Limit the IFD count to 8"));
+        }
+        ifd_offset = parse_ifd::<E>(
+            &mut fields, data, ifd_offset, Context::Tiff, ifd_num)?;
+        ifd_num_ck = ifd_num.checked_add(1);
+    }
     Ok(fields)
 }
 
 // Parse IFD [EXIF23 4.6.2].
 fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
                     offset: usize, ctx: Context, ifd_num: u16)
-                    -> Result<(), Error> where E: Endian {
+                    -> Result<usize, Error> where E: Endian {
     // Count (the number of the entries).
     if data.len() < offset || data.len() - offset < 2 {
         return Err(Error::InvalidFormat("Truncated IFD count"));
@@ -172,14 +183,7 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
         return Err(Error::InvalidFormat("Truncated next IFD offset"));
     }
     let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12) as usize;
-    // Ignore IFDs after IFD1 (thumbnail) for now.
-    if next_ifd_offset == 0 || ifd_num > 0 {
-        return Ok(());
-    }
-    if ctx != Context::Tiff {
-        return Err(Error::InvalidFormat("Unexpected next IFD"));
-    }
-    parse_ifd::<E>(fields, data, next_ifd_offset, Context::Tiff, 1)
+    Ok(next_ifd_offset)
 }
 
 fn parse_child_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
@@ -190,7 +194,10 @@ fn parse_child_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
     // element of the field.
     let ofs = pointer.get_uint(0).ok_or(
         Error::InvalidFormat("Invalid pointer"))? as usize;
-    parse_ifd::<E>(fields, data, ofs, ctx, ifd_num)
+    match parse_ifd::<E>(fields, data, ofs, ctx, ifd_num)? {
+        0 => Ok(()),
+        _ => Err(Error::InvalidFormat("Unexpected next IFD")),
+    }
 }
 
 pub fn is_tiff(buf: &[u8]) -> bool {
@@ -455,16 +462,25 @@ mod tests {
         assert_eq!(format!("{:^10}", In(65535)), " IFD65535 ");
     }
 
-    // Before the error is returned, the IFD is parsed twice as the
-    // 0th and 1st IFDs.
+    // Before the error is returned, the IFD is parsed multiple times
+    // as the 0th, 1st, ..., and n-th IFDs.
     #[test]
     fn inf_loop_by_next() {
         let data = b"MM\0\x2a\0\0\0\x08\
                      \0\x01\x01\0\0\x03\0\0\0\x01\0\x14\0\0\0\0\0\x08";
-        // assert_err_pat!(parse_exif(data),
-        //                 Error::InvalidFormat("Unexpected next IFD"));
-        let (v, _) = parse_exif(data).unwrap();
-        assert_eq!(v.len(), 2);
+        assert_err_pat!(parse_exif(data),
+                        Error::InvalidFormat("Limit the IFD count to 8"));
+    }
+
+    #[test]
+    fn inf_loop_by_exif_next() {
+        let data = b"MM\x00\x2a\x00\x00\x00\x08\
+                     \x00\x01\x87\x69\x00\x04\x00\x00\x00\x01\x00\x00\x00\x1a\
+                     \x00\x00\x00\x00\
+                     \x00\x01\x90\x00\x00\x07\x00\x00\x00\x040231\
+                     \x00\x00\x00\x08";
+        assert_err_pat!(parse_exif(data),
+                        Error::InvalidFormat("Unexpected next IFD"));
     }
 
     #[test]

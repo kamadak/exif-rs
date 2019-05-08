@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn get_field() {
-        let file = File::open("tests/exif.tif").unwrap();
+        let file = File::open("tests/yaminabe.tif").unwrap();
         let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
         match reader.get_field(Tag::ImageDescription, In(0)).unwrap().value {
             Value::Ascii(ref vec) => assert_eq!(vec, &[b"Test image"]),
@@ -209,11 +209,15 @@ mod tests {
             Value::Ascii(ref vec) => assert_eq!(vec, &[b"Test thumbnail"]),
             ref v => panic!("wrong variant {:?}", v)
         }
+        match reader.get_field(Tag::ImageDescription, In(2)).unwrap().value {
+            Value::Ascii(ref vec) => assert_eq!(vec, &[b"Test 2nd IFD"]),
+            ref v => panic!("wrong variant {:?}", v)
+        }
     }
 
     #[test]
     fn display_value_with_unit() {
-        let file = File::open("tests/unit.tif").unwrap();
+        let file = File::open("tests/yaminabe.tif").unwrap();
         let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
         // No unit.
         let exifver = reader.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
@@ -222,7 +226,7 @@ mod tests {
         // Fixed string.
         let width = reader.get_field(Tag::ImageWidth, In::PRIMARY).unwrap();
         assert_eq!(width.display_value().with_unit(&reader).to_string(),
-                   "15 pixels");
+                   "17 pixels");
         // Unit tag (with a non-default value).
         let gpsalt = reader.get_field(Tag::GPSAltitude, In::PRIMARY).unwrap();
         assert_eq!(gpsalt.display_value().with_unit(&reader).to_string(),
