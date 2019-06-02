@@ -82,16 +82,16 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
         writer.push_field(f);
     }
     if let Some(ref strips) = strips {
-        writer.set_strips(strips);
+        writer.set_strips(strips, In::PRIMARY);
     }
     if let Some(ref tn_strips) = tn_strips {
-        writer.set_thumbnail_strips(tn_strips);
+        writer.set_strips(tn_strips, In::THUMBNAIL);
     }
     if let Some(ref tiles) = tiles {
-        writer.set_tiles(tiles);
+        writer.set_tiles(tiles, In::PRIMARY);
     }
     if let Some(ref tn_jpeg) = tn_jpeg {
-        writer.set_thumbnail_jpeg(tn_jpeg);
+        writer.set_jpeg(tn_jpeg, In::THUMBNAIL);
     }
     let mut out = Cursor::new(Vec::new());
     #[cfg(test)]

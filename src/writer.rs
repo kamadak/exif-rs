@@ -58,18 +58,30 @@ use crate::value::Value;
 /// ```
 #[derive(Debug)]
 pub struct Writer<'a> {
+    ifd_list: Vec<Ifd<'a>>,
+}
+
+#[derive(Debug, Default)]
+struct Ifd<'a> {
     tiff_fields: Vec<&'a Field<'a>>,
     exif_fields: Vec<&'a Field<'a>>,
     gps_fields: Vec<&'a Field<'a>>,
     interop_fields: Vec<&'a Field<'a>>,
-    tn_tiff_fields: Vec<&'a Field<'a>>,
-    tn_exif_fields: Vec<&'a Field<'a>>,
-    tn_gps_fields: Vec<&'a Field<'a>>,
-    tn_interop_fields: Vec<&'a Field<'a>>,
     strips: Option<&'a [&'a [u8]]>,
-    tn_strips: Option<&'a [&'a [u8]]>,
     tiles: Option<&'a [&'a [u8]]>,
-    tn_jpeg: Option<&'a [u8]>,
+    jpeg: Option<&'a [u8]>,
+}
+
+impl<'a> Ifd<'a> {
+    fn is_empty(&self) -> bool {
+        self.tiff_fields.is_empty() &&
+            self.exif_fields.is_empty() &&
+            self.gps_fields.is_empty() &&
+            self.interop_fields.is_empty() &&
+            self.strips.is_none() &&
+            self.tiles.is_none() &&
+            self.jpeg.is_none()
+    }
 }
 
 struct WriterState<'a> {
@@ -81,27 +93,13 @@ struct WriterState<'a> {
     exif_ifd_offset: u32,
     gps_ifd_offset: u32,
     interop_ifd_offset: u32,
-    strips: Option<&'a [&'a [u8]]>,
-    tiles: Option<&'a [&'a [u8]]>,
-    jpeg: Option<&'a [u8]>,
 }
 
 impl<'a> Writer<'a> {
     /// Constructs an empty `Writer`.
     pub fn new() -> Writer<'a> {
         Writer {
-            tiff_fields: Vec::new(),
-            exif_fields: Vec::new(),
-            gps_fields: Vec::new(),
-            interop_fields: Vec::new(),
-            tn_tiff_fields: Vec::new(),
-            tn_exif_fields: Vec::new(),
-            tn_gps_fields: Vec::new(),
-            tn_interop_fields: Vec::new(),
-            strips: None,
-            tn_strips: None,
-            tiles: None,
-            tn_jpeg: None,
+            ifd_list: Vec::new(),
         }
     }
 
@@ -129,48 +127,34 @@ impl<'a> Writer<'a> {
             Field { tag: Tag::JPEGInterchangeFormat, .. } |
             Field { tag: Tag::JPEGInterchangeFormatLength, .. } => {},
             // Other normal tags.
-            Field { tag: Tag(Context::Tiff, _), ifd_num: In::PRIMARY, .. } =>
-                self.tiff_fields.push(field),
-            Field { tag: Tag(Context::Exif, _), ifd_num: In::PRIMARY, .. } =>
-                self.exif_fields.push(field),
-            Field { tag: Tag(Context::Gps, _), ifd_num: In::PRIMARY, .. } =>
-                self.gps_fields.push(field),
-            Field { tag: Tag(Context::Interop, _), ifd_num: In::PRIMARY, .. } =>
-                self.interop_fields.push(field),
-            Field { tag: Tag(Context::Tiff, _), ifd_num: In::THUMBNAIL, .. } =>
-                self.tn_tiff_fields.push(field),
-            Field { tag: Tag(Context::Exif, _), ifd_num: In::THUMBNAIL, .. } =>
-                self.tn_exif_fields.push(field),
-            Field { tag: Tag(Context::Gps, _), ifd_num: In::THUMBNAIL, .. } =>
-                self.tn_gps_fields.push(field),
-            Field { tag: Tag(Context::Interop, _), ifd_num: In::THUMBNAIL, .. } =>
-                self.tn_interop_fields.push(field),
-            _ => unimplemented!(),
+            Field { tag: Tag(ctx, _), ifd_num, .. } => {
+                let ifd = self.pick_ifd(ifd_num);
+                match ctx {
+                    Context::Tiff => ifd.tiff_fields.push(field),
+                    Context::Exif => ifd.exif_fields.push(field),
+                    Context::Gps => ifd.gps_fields.push(field),
+                    Context::Interop => ifd.interop_fields.push(field),
+                }
+            },
         }
     }
 
-    /// Sets TIFF strips for the primary image.
+    /// Sets TIFF strips for the specified IFD.
     /// If this method is called multiple times, the last one is used.
-    pub fn set_strips(&mut self, strips: &'a [&'a [u8]]) {
-        self.strips = Some(strips);
+    pub fn set_strips(&mut self, strips: &'a [&'a [u8]], ifd_num: In) {
+        self.pick_ifd(ifd_num).strips = Some(strips);
     }
 
-    /// Sets TIFF strips for the thumbnail image.
+    /// Sets TIFF tiles for the specified IFD.
     /// If this method is called multiple times, the last one is used.
-    pub fn set_thumbnail_strips(&mut self, strips: &'a [&'a [u8]]) {
-        self.tn_strips = Some(strips);
+    pub fn set_tiles(&mut self, tiles: &'a [&'a [u8]], ifd_num: In) {
+        self.pick_ifd(ifd_num).tiles = Some(tiles);
     }
 
-    /// Sets TIFF tiles for the primary image.
+    /// Sets JPEG data for the specified IFD.
     /// If this method is called multiple times, the last one is used.
-    pub fn set_tiles(&mut self, tiles: &'a [&'a [u8]]) {
-        self.tiles = Some(tiles);
-    }
-
-    /// Sets JPEG data for the thumbnail image.
-    /// If this method is called multiple times, the last one is used.
-    pub fn set_thumbnail_jpeg(&mut self, jpeg: &'a [u8]) {
-        self.tn_jpeg = Some(jpeg);
+    pub fn set_jpeg(&mut self, jpeg: &'a [u8], ifd_num: In) {
+        self.pick_ifd(ifd_num).jpeg = Some(jpeg);
     }
 
     /// Encodes Exif data and writes it into `w`.
@@ -188,69 +172,51 @@ impl<'a> Writer<'a> {
             BigEndian::writeu32(w, 8)?;
         }
 
-        // Write the primary image.
-        let ws = WriterState {
-            tiff_fields: self.tiff_fields.clone(),
-            exif_fields: self.exif_fields.clone(),
-            gps_fields: self.gps_fields.clone(),
-            interop_fields: self.interop_fields.clone(),
-            tiff_ifd_offset: 0,
-            exif_ifd_offset: 0,
-            gps_ifd_offset: 0,
-            interop_ifd_offset: 0,
-            strips: self.strips,
-            tiles: self.tiles,
-            jpeg: None,
-        };
-        let next_ifd_offset_offset =
-            synthesize_fields(w, ws, In::PRIMARY, little_endian)?;
-
-        // Do not output the thumbnail IFD if there are no data in it.
-        let thumbnail_absent =
-            self.tn_tiff_fields.len() == 0 &&
-            self.tn_exif_fields.len() == 0 &&
-            self.tn_gps_fields.len() == 0 &&
-            self.tn_interop_fields.len() == 0 &&
-            self.tn_strips == None &&
-            self.tn_jpeg == None;
-        if thumbnail_absent {
-            w.flush()?;
-            return Ok(());
+        // There must be at least 1 IFD in a TIFF file [TIFF6, Section 2,
+        // Image File Directory].
+        if self.ifd_list.is_empty() {
+            return Err(Error::InvalidFormat("At least one IFD must exist"));
         }
-
-        let next_ifd_offset = pad_and_get_offset(w)?;
-        let origpos = w.seek(SeekFrom::Current(0))?;
-        w.seek(SeekFrom::Start(next_ifd_offset_offset as u64))?;
-        match little_endian {
-            false => BigEndian::writeu32(w, next_ifd_offset)?,
-            true => LittleEndian::writeu32(w, next_ifd_offset)?,
+        let mut ifd_num_ck = Some(0);
+        let mut next_ifd_offset_offset = 4;
+        for ifd in &self.ifd_list {
+            // Each IFD must have at least one entry [TIFF6, Section 2,
+            // Image File Directory].
+            if ifd.is_empty() {
+                return Err(Error::InvalidFormat("IFD must not be empty"));
+            }
+            let ifd_num =
+                ifd_num_ck.ok_or(Error::InvalidFormat("Too many IFDs"))?;
+            if ifd_num > 0 {
+                let next_ifd_offset = pad_and_get_offset(w)?;
+                let origpos = w.seek(SeekFrom::Current(0))?;
+                w.seek(SeekFrom::Start(next_ifd_offset_offset as u64))?;
+                match little_endian {
+                    false => BigEndian::writeu32(w, next_ifd_offset)?,
+                    true => LittleEndian::writeu32(w, next_ifd_offset)?,
+                }
+                w.seek(SeekFrom::Start(origpos))?;
+            }
+            next_ifd_offset_offset =
+                synthesize_fields(w, ifd, In(ifd_num), little_endian)?;
+            ifd_num_ck = ifd_num.checked_add(1);
         }
-        w.seek(SeekFrom::Start(origpos))?;
-
-        // Write the thumbnail image.
-        let ws = WriterState {
-            tiff_fields: self.tn_tiff_fields.clone(),
-            exif_fields: self.tn_exif_fields.clone(),
-            gps_fields: self.tn_gps_fields.clone(),
-            interop_fields: self.tn_interop_fields.clone(),
-            tiff_ifd_offset: 0,
-            exif_ifd_offset: 0,
-            gps_ifd_offset: 0,
-            interop_ifd_offset: 0,
-            strips: self.tn_strips,
-            tiles: None,
-            jpeg: self.tn_jpeg,
-        };
-        synthesize_fields(w, ws, In::THUMBNAIL, little_endian)?;
-
         w.flush()?;
         Ok(())
+    }
+
+    fn pick_ifd(&mut self, ifd_num: In) -> &mut Ifd<'a> {
+        let ifd_num = ifd_num.index() as usize;
+        if self.ifd_list.len() <= ifd_num {
+            self.ifd_list.resize_with(ifd_num + 1, Default::default);
+        }
+        &mut self.ifd_list[ifd_num]
     }
 }
 
 // Synthesizes special fields, writes an image, and returns the offset
 // of the next IFD offset.
-fn synthesize_fields<W>(w: &mut W, ws: WriterState, ifd_num: In,
+fn synthesize_fields<W>(w: &mut W, ifd: &Ifd, ifd_num: In,
                         little_endian: bool)
                         -> Result<u32, Error> where W: Write + Seek {
     let exif_in_tiff;
@@ -262,10 +228,18 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, ifd_num: In,
     let tile_byte_counts;
     let jpeg_offset;
     let jpeg_length;
-    // Shrink the scope so that referenced fields live longer than ws.
-    let mut ws = ws;
+    let mut ws = WriterState {
+        tiff_fields: ifd.tiff_fields.clone(),
+        exif_fields: ifd.exif_fields.clone(),
+        gps_fields: ifd.gps_fields.clone(),
+        interop_fields: ifd.interop_fields.clone(),
+        tiff_ifd_offset: 0,
+        exif_ifd_offset: 0,
+        gps_ifd_offset: 0,
+        interop_ifd_offset: 0,
+    };
 
-    if let Some(strips) = ws.strips {
+    if let Some(strips) = ifd.strips {
         strip_offsets = Field {
             tag: Tag::StripOffsets,
             ifd_num: ifd_num,
@@ -280,7 +254,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, ifd_num: In,
         };
         ws.tiff_fields.push(&strip_byte_counts);
     }
-    if let Some(tiles) = ws.tiles {
+    if let Some(tiles) = ifd.tiles {
         tile_offsets = Field {
             tag: Tag::TileOffsets,
             ifd_num: ifd_num,
@@ -295,7 +269,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, ifd_num: In,
         };
         ws.tiff_fields.push(&tile_byte_counts);
     }
-    if let Some(jpeg) = ws.jpeg {
+    if let Some(jpeg) = ifd.jpeg {
         jpeg_offset = Field {
             tag: Tag::JPEGInterchangeFormat,
             ifd_num: ifd_num,
@@ -317,6 +291,7 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, ifd_num: In,
     let tiff_fields_len = ws.tiff_fields.len() +
         match gps_fields_len { 0 => 0, _ => 1 } +
         match exif_fields_len { 0 => 0, _ => 1 };
+    assert_ne!(tiff_fields_len, 0);
 
     ws.tiff_ifd_offset = reserve_ifd(w, tiff_fields_len)?;
     if exif_fields_len > 0 {
@@ -353,13 +328,13 @@ fn synthesize_fields<W>(w: &mut W, ws: WriterState, ifd_num: In,
     ws.interop_fields.sort_by_key(|f| f.tag.number());
 
     match little_endian {
-        false => write_image::<_, BigEndian>(w, ws),
-        true => write_image::<_, LittleEndian>(w, ws),
+        false => write_image::<_, BigEndian>(w, &ws, ifd),
+        true => write_image::<_, LittleEndian>(w, &ws, ifd),
     }
 }
 
 // Writes an image and returns the offset of the next IFD offset.
-fn write_image<W, E>(w: &mut W, ws: WriterState)
+fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
                      -> Result<u32, Error> where W: Write + Seek, E: Endian {
     let (next_ifd_offset_offset,
          strip_offsets_offset, tile_offsets_offset, jpeg_offset) =
@@ -378,7 +353,7 @@ fn write_image<W, E>(w: &mut W, ws: WriterState)
             w, &ws.interop_fields, ws.interop_ifd_offset)?;
     }
 
-    if let Some(strips) = ws.strips {
+    if let Some(strips) = ifd.strips {
         let mut strip_offsets = Vec::new();
         for strip in strips {
             strip_offsets.push(get_offset(w)?);
@@ -391,7 +366,7 @@ fn write_image<W, E>(w: &mut W, ws: WriterState)
         }
         w.seek(SeekFrom::Start(origpos))?;
     }
-    if let Some(tiles) = ws.tiles {
+    if let Some(tiles) = ifd.tiles {
         let mut tile_offsets = Vec::new();
         for tile in tiles {
             tile_offsets.push(get_offset(w)?);
@@ -404,7 +379,7 @@ fn write_image<W, E>(w: &mut W, ws: WriterState)
         }
         w.seek(SeekFrom::Start(origpos))?;
     }
-    if let Some(jpeg) = ws.jpeg {
+    if let Some(jpeg) = ifd.jpeg {
         let offset = get_offset(w)?;
         w.write_all(jpeg)?;
         let origpos = w.seek(SeekFrom::Current(0))?;
@@ -657,7 +632,7 @@ mod tests {
         let tiles: &[&[u8]] = &[b"TILE"];
         let mut writer = Writer::new();
         let mut buf = Cursor::new(Vec::new());
-        writer.set_tiles(tiles);
+        writer.set_tiles(tiles, In::PRIMARY);
         writer.write(&mut buf, false).unwrap();
         let expected: &[u8] =
             b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
@@ -672,14 +647,21 @@ mod tests {
     fn thumbnail_jpeg() {
         // This is not a valid JPEG data (only for testing).
         let jpeg = b"JPEG";
+        let desc = Field {
+            tag: Tag::ImageDescription,
+            ifd_num: In::PRIMARY,
+            value: Value::Ascii(vec![b"jpg"]),
+        };
         let mut writer = Writer::new();
         let mut buf = Cursor::new(Vec::new());
-        writer.set_thumbnail_jpeg(jpeg);
+        writer.push_field(&desc);
+        writer.set_jpeg(jpeg, In::THUMBNAIL);
         writer.write(&mut buf, false).unwrap();
         let expected: &[u8] =
             b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
-              \x00\x00\x00\x00\x00\x0e\
-              \x00\x02\x02\x01\x00\x04\x00\x00\x00\x01\x00\x00\x00\x2c\
+              \x00\x01\x01\x0e\x00\x02\x00\x00\x00\x04jpg\x00\
+              \x00\x00\x00\x1a\
+              \x00\x02\x02\x01\x00\x04\x00\x00\x00\x01\x00\x00\x00\x38\
                       \x02\x02\x00\x04\x00\x00\x00\x01\x00\x00\x00\x04\
               \x00\x00\x00\x00\
               JPEG";
@@ -689,15 +671,22 @@ mod tests {
     #[test]
     fn thumbnail_tiff() {
         // This is not a valid TIFF strip (only for testing).
+        let desc = Field {
+            tag: Tag::ImageDescription,
+            ifd_num: In::PRIMARY,
+            value: Value::Ascii(vec![b"tif"]),
+        };
         let strips: &[&[u8]] = &[b"STRIP"];
         let mut writer = Writer::new();
         let mut buf = Cursor::new(Vec::new());
-        writer.set_thumbnail_strips(strips);
+        writer.push_field(&desc);
+        writer.set_strips(strips, In::THUMBNAIL);
         writer.write(&mut buf, false).unwrap();
         let expected: &[u8] =
             b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
-              \x00\x00\x00\x00\x00\x0e\
-              \x00\x02\x01\x11\x00\x04\x00\x00\x00\x01\x00\x00\x00\x2c\
+              \x00\x01\x01\x0e\x00\x02\x00\x00\x00\x04tif\x00\
+              \x00\x00\x00\x1a\
+              \x00\x02\x01\x11\x00\x04\x00\x00\x00\x01\x00\x00\x00\x38\
                       \x01\x17\x00\x04\x00\x00\x00\x01\x00\x00\x00\x05\
               \x00\x00\x00\x00\
               STRIP";
@@ -733,7 +722,7 @@ mod tests {
         writer.push_field(&exif_ver);
         writer.push_field(&gps_ver);
         writer.push_field(&interop_index);
-        writer.set_thumbnail_jpeg(jpeg);
+        writer.set_jpeg(jpeg, In::THUMBNAIL);
         writer.write(&mut buf, false).unwrap();
         let expected: &[u8] =
             b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
@@ -754,6 +743,58 @@ mod tests {
               \x00\x00\x00\x00\
               JPEG";
         assert_eq!(buf.into_inner(), expected);
+    }
+
+    #[test]
+    fn primary_thumbnail_and_2nd() {
+        let desc0 = Field {
+            tag: Tag::ImageDescription,
+            ifd_num: In::PRIMARY,
+            value: Value::Ascii(vec![b"p"]),
+        };
+        let desc1 = Field {
+            tag: Tag::ImageDescription,
+            ifd_num: In::THUMBNAIL,
+            value: Value::Ascii(vec![b"t"]),
+        };
+        let desc2 = Field {
+            tag: Tag::ImageDescription,
+            ifd_num: In(2),
+            value: Value::Ascii(vec![b"2"]),
+        };
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        writer.push_field(&desc0);
+        writer.push_field(&desc1);
+        writer.push_field(&desc2);
+        writer.write(&mut buf, false).unwrap();
+        let expected: &[u8] =
+            b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
+              \x00\x01\x01\x0e\x00\x02\x00\x00\x00\x02p\x00\x00\x00\
+              \x00\x00\x00\x1a\
+              \x00\x01\x01\x0e\x00\x02\x00\x00\x00\x02t\x00\x00\x00\
+              \x00\x00\x00\x2c\
+              \x00\x01\x01\x0e\x00\x02\x00\x00\x00\x022\x00\x00\x00\
+              \x00\x00\x00\x00";
+        assert_eq!(buf.into_inner(), expected);
+    }
+
+    #[test]
+    fn empty_file() {
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        assert_pat!(writer.write(&mut buf, false),
+                    Err(Error::InvalidFormat("At least one IFD must exist")));
+    }
+
+    #[test]
+    fn missing_primary() {
+        let jpeg = b"JPEG";
+        let mut writer = Writer::new();
+        let mut buf = Cursor::new(Vec::new());
+        writer.set_jpeg(jpeg, In::THUMBNAIL);
+        assert_pat!(writer.write(&mut buf, false),
+                    Err(Error::InvalidFormat("IFD must not be empty")));
     }
 
     #[test]
