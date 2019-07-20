@@ -373,8 +373,8 @@ pub struct DisplayValue<'a> {
 
 impl<'a> DisplayValue<'a> {
     #[inline]
-    pub fn with_unit<'b, T>(&'b self, unit_provider: T)
-                            -> DisplayValueUnit<T> where T: ProvideUnit<'b> {
+    pub fn with_unit<T>(&self, unit_provider: T)
+                        -> DisplayValueUnit<'a, T> where T: ProvideUnit<'a> {
         DisplayValueUnit {
             ifd_num: self.ifd_num,
             value_display: self.value_display,
@@ -593,5 +593,23 @@ mod tests {
                    "10 deg 0 min 0.1 sec [GPSLatitudeRef missing]");
         assert_eq!(gpslat.display_value().with_unit(&cm).to_string(),
                    "10 deg 0 min 0.1 sec [GPSLatitudeRef missing]");
+    }
+
+    #[test]
+    fn no_borrow_no_move() {
+        let resunit = Field {
+            tag: Tag::ResolutionUnit,
+            ifd_num: In::PRIMARY,
+            value: Value::Short(vec![3]),
+        };
+        // This fails to compile with "temporary value dropped while
+        // borrowed" error if with_unit() borrows self.
+        let d = resunit.display_value().with_unit(());
+        assert_eq!(d.to_string(), "cm");
+        // This fails to compile if with_unit() moves self.
+        let d1 = resunit.display_value();
+        let d2 = d1.with_unit(());
+        assert_eq!(d1.to_string(), "cm");
+        assert_eq!(d2.to_string(), "cm");
     }
 }
