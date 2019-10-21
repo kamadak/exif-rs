@@ -237,7 +237,7 @@ macro_rules! generate_well_known_tag_constants {
                 pub name: &'static str,
                 pub desc: &'static str,
                 pub default: DefaultValue,
-                pub dispval: fn(&mut fmt::Write, &Value) -> fmt::Result,
+                pub dispval: fn(&mut dyn fmt::Write, &Value) -> fmt::Result,
                 pub unit: Option<&'static [UnitPiece]>,
             }
 
@@ -752,7 +752,7 @@ pub fn display_value_as<'a>(value: &'a Value, tag: Tag) -> value::Display<'a> {
 }
 
 // Compression (TIFF 0x103)
-fn d_compression(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_compression(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "uncompressed",
         Some(2) => "Modified Huffman",
@@ -764,7 +764,7 @@ fn d_compression(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // PhotometricInterpretation (TIFF 0x106)
-fn d_photointp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_photointp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "white is zero",
         Some(1) => "black is zero",
@@ -778,7 +778,7 @@ fn d_photointp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // Orientation (TIFF 0x112)
-fn d_orientation(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_orientation(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "row 0 at top and column 0 at left",
         Some(2) => "row 0 at top and column 0 at right",
@@ -794,7 +794,7 @@ fn d_orientation(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // PlanarConfiguration (TIFF 0x11c)
-fn d_planarcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_planarcfg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "chunky",
         Some(2) => "planar",
@@ -804,7 +804,7 @@ fn d_planarcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // ResolutionUnit (TIFF 0x128)
-fn d_resunit(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_resunit(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "no absolute unit",
         Some(2) => "inch",
@@ -816,7 +816,7 @@ fn d_resunit(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // DateTime (TIFF 0x132), DateTimeOriginal (Exif 0x9003), and
 // DateTimeDigitized (Exif 0x9004)
-fn d_datetime(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_datetime(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Ascii(ref v) = *value {
         if let Some(dt) = v.first() {
             if let Ok(dt) = crate::tiff::DateTime::from_ascii(dt) {
@@ -828,7 +828,7 @@ fn d_datetime(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // YCbCrSubSampling (TIFF 0x212)
-fn d_ycbcrsubsamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_ycbcrsubsamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let horiz = value.get_uint(0).unwrap_or(0);
     let vert = value.get_uint(1).unwrap_or(0);
     let s = match (horiz, vert) {
@@ -847,7 +847,7 @@ fn d_ycbcrsubsamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // YCbCrPositioning (TIFF 0x213)
-fn d_ycbcrpos(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_ycbcrpos(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "centered",
         Some(2) => "co-sited",
@@ -857,7 +857,7 @@ fn d_ycbcrpos(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // ExposureTime (Exif 0x829a)
-fn d_exptime(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_exptime(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Rational(ref v) = *value {
         if let Some(et) = v.first() {
             if et.num >= et.denom {
@@ -871,7 +871,7 @@ fn d_exptime(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // ExposureProgram (Exif 0x8822)
-fn d_expprog(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_expprog(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "manual",
         Some(2) => "normal program",
@@ -887,7 +887,7 @@ fn d_expprog(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // SensitivityType (Exif 0x8830)
-fn d_sensitivitytype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_sensitivitytype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "SOS",
         Some(2) => "REI",
@@ -902,7 +902,7 @@ fn d_sensitivitytype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // ExifVersion (Exif 0x9000), FlashpixVersion (Exif 0xa000)
-fn d_exifver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_exifver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Undefined(u, _) = *value {
         if u.len() == 4 {
             if let Ok(major) = atou16(&u[0..2]) {
@@ -920,7 +920,7 @@ fn d_exifver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // ComponentsConfiguration (Exif 0x9101)
-fn d_cpntcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_cpntcfg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Undefined(u, _) = *value {
         for &x in u {
             match x {
@@ -940,7 +940,7 @@ fn d_cpntcfg(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // SubjectDistance (Exif 0x9206)
-fn d_subjdist(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_subjdist(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Rational(ref v) = *value {
         if let Some(dist) = v.first() {
             if dist.num == 0 {
@@ -954,7 +954,7 @@ fn d_subjdist(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // MeteringMode (Exif 0x9207)
-fn d_metering(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_metering(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "average",
         Some(2) => "center-weighted average",
@@ -969,7 +969,7 @@ fn d_metering(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // LightSource (Exif 0x9208)
-fn d_lightsrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_lightsrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "daylight",
         Some(2) => "fluorescent",
@@ -998,7 +998,7 @@ fn d_lightsrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // Flash (Exif 0x9209)
-fn d_flash(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_flash(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     const FIRED: &[&str] = &["not fired", "fired"];
     const RETURN: &[&str] = &[
         ", no return light detection function",
@@ -1026,7 +1026,7 @@ fn d_flash(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // SubjectArea (Exif 0x9214), SubjectLocation (Exif 0xa214)
 // Only (x, y) case is valid for SubjectLocation.
-fn d_subjarea(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_subjarea(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Some(x) = value.get_uint(0) {
         if let Some(y) = value.get_uint(1) {
             if let Some(d) = value.get_uint(2) {
@@ -1046,7 +1046,7 @@ fn d_subjarea(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 // Temperature (Exif 0x9400), Humidity (Exif 0x9401),
 // Pressure (Exif 0x9402), WaterDepth (Exif 0x9403),
 // Acceleration (Exif 0x9404), CameraElevationAngle (Exif 0x9405)
-fn d_optdecimal(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_optdecimal(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Rational(ref v) if v.len() > 0 =>
             if v[0].denom != 0xffffffff {
@@ -1065,7 +1065,7 @@ fn d_optdecimal(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // ColorSpace (Exif 0xa001)
-fn d_cspace(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_cspace(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "sRGB",
         Some(0xffff) => "uncalibrated",
@@ -1075,7 +1075,7 @@ fn d_cspace(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // SensingMethod (Exif 0xa217)
-fn d_sensingmethod(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_sensingmethod(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "not defined",
         Some(2) => "one-chip color area sensor",
@@ -1090,7 +1090,7 @@ fn d_sensingmethod(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // FileSource (Exif 0xa300)
-fn d_filesrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_filesrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
         Value::Undefined(s, _) => s.first().map(|&x| x),
         _ => None,
@@ -1105,7 +1105,7 @@ fn d_filesrc(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // SceneType (Exif 0xa301)
-fn d_scenetype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_scenetype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
         Value::Undefined(s, _) => s.first().map(|&x| x),
         _ => None,
@@ -1117,7 +1117,7 @@ fn d_scenetype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // CustomRendered (Exif 0xa401)
-fn d_customrendered(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_customrendered(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "normal process",
         Some(1) => "custom process",
@@ -1127,7 +1127,7 @@ fn d_customrendered(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // ExposureMode (Exif 0xa402)
-fn d_expmode(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_expmode(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "auto exposure",
         Some(1) => "manual exposure",
@@ -1138,7 +1138,7 @@ fn d_expmode(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // WhiteBalance (Exif 0xa403)
-fn d_whitebalance(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_whitebalance(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "auto white balance",
         Some(1) => "manual white balance",
@@ -1148,7 +1148,7 @@ fn d_whitebalance(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // DigitalZoomRatio (Exif 0xa404)
-fn d_dzoomratio(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_dzoomratio(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Rational(ref v) = *value {
         if v.len() > 0 && v[0].num == 0 {
             return w.write_str("unused");
@@ -1158,7 +1158,7 @@ fn d_dzoomratio(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // FocalLengthIn35mmFilm (Exif 0xa405)
-fn d_focallen35(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_focallen35(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match value.get_uint(0) {
         Some(0) => w.write_str("unknown"),
         _ => d_default(w, value),
@@ -1166,7 +1166,7 @@ fn d_focallen35(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // SceneCaptureType (Exif 0xa406)
-fn d_scenecaptype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_scenecaptype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "standard",
         Some(1) => "landscape",
@@ -1178,7 +1178,7 @@ fn d_scenecaptype(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GainControl (Exif 0xa407)
-fn d_gainctrl(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gainctrl(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "none",
         Some(1) => "low gain up",
@@ -1191,7 +1191,7 @@ fn d_gainctrl(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // Contrast (Exif 0xa408)
-fn d_contrast(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_contrast(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "normal",
         Some(1) => "soft",
@@ -1202,7 +1202,7 @@ fn d_contrast(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // Saturation (Exif 0xa409)
-fn d_saturation(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_saturation(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "normal",
         Some(1) => "low saturation",
@@ -1213,7 +1213,7 @@ fn d_saturation(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // Sharpness (Exif 0xa40a)
-fn d_sharpness(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_sharpness(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "normal",
         Some(1) => "soft",
@@ -1224,7 +1224,7 @@ fn d_sharpness(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // SubjectDistanceRange (Exif 0xa40c)
-fn d_subjdistrange(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_subjdistrange(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "macro",
         Some(2) => "close view",
@@ -1235,7 +1235,7 @@ fn d_subjdistrange(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // LensSpecification (Exif 0xa432)
-fn d_lensspec(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_lensspec(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Rational(ref v) if v.len() >= 4 =>
             // There are several notations: "F1.4" in Japan, "f/1.4"
@@ -1248,7 +1248,7 @@ fn d_lensspec(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSVersionID (Exif/GPS 0x0)
-fn d_gpsver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Byte(ref v) if v.len() >= 4 =>
             write!(w, "{}.{}.{}.{}", v[0], v[1], v[2], v[3]),
@@ -1258,7 +1258,7 @@ fn d_gpsver(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSLatitudeRef (Exif/GPS 0x1), GPSLongitudeRef (Exif/GPS 0x3)
 // GPSDestLatitudeRef (Exif/GPS 0x13), GPSDestLongitudeRef (Exif/GPS 0x15)
-fn d_gpslatlongref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpslatlongref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Ascii(ref v) if (v.len() == 1 && v[0].len() == 1 &&
                                 v[0][0].is_ascii_uppercase()) =>
@@ -1269,7 +1269,7 @@ fn d_gpslatlongref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSLatitude (Exif/GPS 0x2), GPSLongitude (Exif/GPS 0x4),
 // GPSDestLatitude (Exif/GPS 0x14), GPSDestLongitude (Exif/GPS 0x16)
-fn d_gpsdms(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsdms(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Rational(ref v) if v.len() >= 3 =>
             write!(w, "{} deg {} min {} sec",
@@ -1279,7 +1279,7 @@ fn d_gpsdms(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSAltitudeRef (Exif/GPS 0x5)
-fn d_gpsaltref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsaltref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "above sea level",
         Some(1) => "below sea level",
@@ -1289,7 +1289,7 @@ fn d_gpsaltref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSTimeStamp (Exif/GPS 0x7)
-fn d_gpstimestamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpstimestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Rational(ref v) if v.len() >= 3 => {
             let (h, m, s) = (v[0].to_f64(), v[1].to_f64(), v[2].to_f64());
@@ -1303,7 +1303,7 @@ fn d_gpstimestamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSStatus (Exif/GPS 0x9)
-fn d_gpsstatus(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsstatus(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
         Value::Ascii(ref v) => v.first().map(|&x| x),
         _ => None,
@@ -1316,7 +1316,7 @@ fn d_gpsstatus(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSMeasure (Exif/GPS 0xa)
-fn d_gpsmeasuremode(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsmeasuremode(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
         Value::Ascii(ref v) => v.first().map(|&x| x),
         _ => None,
@@ -1329,7 +1329,7 @@ fn d_gpsmeasuremode(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSSpeedRef (Exif/GPS 0xc)
-fn d_gpsspeedref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsspeedref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
         Value::Ascii(ref v) => v.first().map(|&x| x),
         _ => None,
@@ -1344,7 +1344,7 @@ fn d_gpsspeedref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSTrackRef (Exif/GPS 0xe), GPSImgDirectionRef (Exif/GPS 0x10),
 // GPSDestBearingRef (Exif/GPS 0x17)
-fn d_gpsdirref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsdirref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
         Value::Ascii(ref v) => v.first().map(|&x| x),
         _ => None,
@@ -1357,7 +1357,7 @@ fn d_gpsdirref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSDestDistanceRef (Exif/GPS 0x19)
-fn d_gpsdistref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsdistref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match match *value {
         Value::Ascii(ref v) => v.first().map(|&x| x),
         _ => None,
@@ -1371,7 +1371,7 @@ fn d_gpsdistref(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSDateStamp (Exif/GPS 0x1d)
-fn d_gpsdatestamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsdatestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Value::Ascii(ref v) = *value {
         if let Some(data) = v.first() {
             if data.len() >= 10 && data[4] == b':' && data[7] == b':' {
@@ -1390,7 +1390,7 @@ fn d_gpsdatestamp(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // GPSDifferential (Exif/GPS 0x1e)
-fn d_gpsdifferential(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_gpsdifferential(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "no differential correction",
         Some(1) => "differential correction applied",
@@ -1399,14 +1399,14 @@ fn d_gpsdifferential(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     w.write_str(s)
 }
 
-fn d_ascii_in_undef(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_ascii_in_undef(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Undefined(s, _) => d_sub_ascii(w, s),
         _ => d_default(w, value),
     }
 }
 
-fn d_decimal(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_decimal(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Rational(ref v) => d_sub_comma_f64(w, v),
         Value::SRational(ref v) => d_sub_comma_f64(w, v),
@@ -1415,12 +1415,13 @@ fn d_decimal(w: &mut fmt::Write, value: &Value) -> fmt::Result {
 }
 
 #[inline(never)]
-fn d_unknown(w: &mut fmt::Write, value: &Value, prefix: &str) -> fmt::Result {
+fn d_unknown(w: &mut dyn fmt::Write, value: &Value, prefix: &str)
+             -> fmt::Result {
     w.write_str(prefix)?;
     d_default(w, value)
 }
 
-fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
+fn d_default(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Byte(ref v) => d_sub_comma(w, v),
         Value::Ascii(ref v) => {
@@ -1450,7 +1451,7 @@ fn d_default(w: &mut fmt::Write, value: &Value) -> fmt::Result {
     }
 }
 
-fn d_sub_comma<T>(w: &mut fmt::Write, slice: &[T])
+fn d_sub_comma<T>(w: &mut dyn fmt::Write, slice: &[T])
                   -> fmt::Result where T: fmt::Display {
     let mut first = true;
     for x in slice {
@@ -1463,7 +1464,7 @@ fn d_sub_comma<T>(w: &mut fmt::Write, slice: &[T])
     Ok(())
 }
 
-fn d_sub_comma_f64<T>(w: &mut fmt::Write, slice: &[T])
+fn d_sub_comma_f64<T>(w: &mut dyn fmt::Write, slice: &[T])
                       -> fmt::Result where T: Copy + Into<f64> {
     let mut first = true;
     for &x in slice {
@@ -1477,7 +1478,7 @@ fn d_sub_comma_f64<T>(w: &mut fmt::Write, slice: &[T])
     Ok(())
 }
 
-fn d_sub_hex(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
+fn d_sub_hex(w: &mut dyn fmt::Write, bytes: &[u8]) -> fmt::Result {
     w.write_str("0x")?;
     for x in bytes {
         write!(w, "{:02x}", x)?;
@@ -1485,7 +1486,7 @@ fn d_sub_hex(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
     Ok(())
 }
 
-fn d_sub_ascii(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
+fn d_sub_ascii(w: &mut dyn fmt::Write, bytes: &[u8]) -> fmt::Result {
     w.write_char('"')?;
     for &c in bytes {
         match c {

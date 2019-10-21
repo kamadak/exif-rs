@@ -126,7 +126,7 @@ impl<'a> Value<'a> {
 
 // A struct that wraps std::slice::Iter<'a, u8/u16/u32>.
 pub struct UIntIter<'a> {
-    iter: Box<ExactSizeIterator<Item=u32> + 'a>
+    iter: Box<dyn ExactSizeIterator<Item=u32> + 'a>
 }
 
 impl<'a> Iterator for UIntIter<'a> {
@@ -148,7 +148,7 @@ impl<'a> ExactSizeIterator for UIntIter<'a> {}
 /// Helper struct for printing a value in a tag-specific format.
 #[derive(Copy, Clone)]
 pub struct Display<'a> {
-    pub fmt: fn(&mut fmt::Write, &Value) -> fmt::Result,
+    pub fmt: fn(&mut dyn fmt::Write, &Value) -> fmt::Result,
     pub value: &'a Value<'a>,
 }
 
