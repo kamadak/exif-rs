@@ -1493,7 +1493,7 @@ fn d_sub_ascii(w: &mut fmt::Write, bytes: &[u8]) -> fmt::Result {
                 w.write_char('\\')?;
                 w.write_char(c as char)?;
             },
-            0x20...0x7e => w.write_char(c as char)?,
+            0x20..=0x7e => w.write_char(c as char)?,
             _ => write!(w, "\\x{:02x}", c)?,
         }
     }

@@ -64,7 +64,7 @@ fn escape(bytes: &&[u8]) -> String {
     for &c in *bytes {
         match c {
             b'\\' | b'"' => write!(buf, "\\{}", c as char).unwrap(),
-            0x20...0x7e => buf.write_char(c as char).unwrap(),
+            0x20..=0x7e => buf.write_char(c as char).unwrap(),
             _ => write!(buf, "\\x{:02x}", c).unwrap(),
         }
     }

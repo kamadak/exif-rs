@@ -79,7 +79,7 @@ fn get_exif_attr_sub<R>(reader: &mut R)
         }
         // Continue or return early on stand-alone markers.
         match code {
-            marker::Z | marker::TEM | marker::RST0...marker::RST7 => continue,
+            marker::Z | marker::TEM | marker::RST0..=marker::RST7 => continue,
             marker::SOI => return Err(Error::InvalidFormat("Unexpected SOI")),
             marker::EOI => return Err(Error::NotFound("No Exif data found")),
             _ => {},

@@ -441,13 +441,13 @@ fn write_ifd_and_fields<W, E>(
         }
         if f.tag == Tag::StripOffsets {
             strip_offsets_offset = match valbuf.len() {
-                0...4 => ifd_offset + ifd.len() as u32 - 4,
+                0..=4 => ifd_offset + ifd.len() as u32 - 4,
                 _ => get_offset(w)? - valbuf.len() as u32,
             };
         }
         if f.tag == Tag::TileOffsets {
             tile_offsets_offset = match valbuf.len() {
-                0...4 => ifd_offset + ifd.len() as u32 - 4,
+                0..=4 => ifd_offset + ifd.len() as u32 - 4,
                 _ => get_offset(w)? - valbuf.len() as u32,
             };
         }
