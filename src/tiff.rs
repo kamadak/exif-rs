@@ -122,7 +122,7 @@ fn parse_exif_sub<E>(data: &[u8])
             return Err(Error::InvalidFormat("Limit the IFD count to 8"));
         }
         ifd_offset = parse_ifd::<E>(
-            &mut fields, data, ifd_offset, Context::Tiff, ifd_num)?;
+            &mut fields, data, ifd_offset, Context::TIFF, ifd_num)?;
         ifd_num_ck = ifd_num.checked_add(1);
     }
     Ok(fields)
@@ -168,11 +168,11 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
         let tag = Tag(ctx, tag);
         match tag {
             Tag::ExifIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::Exif, ifd_num)?,
+                fields, data, &val, Context::EXIF, ifd_num)?,
             Tag::GPSInfoIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::Gps, ifd_num)?,
+                fields, data, &val, Context::GPS, ifd_num)?,
             Tag::InteropIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::Interop, ifd_num)?,
+                fields, data, &val, Context::INTEROP, ifd_num)?,
             _ => fields.push(Field {
                 tag: tag, ifd_num: In(ifd_num), value: val }),
         }

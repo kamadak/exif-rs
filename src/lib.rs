@@ -54,6 +54,9 @@
 //!   images, which were distinguished by `bool` previously.  Function
 //!   parameters and struct members now take `In`s instead of `bool`s.
 //!   `Field::thumbnail` was renamed to `Field::ifd_num` accordingly.
+//! * The type of `Context` was changed from enum to struct.  The variants
+//!   (e.g., `Context::Tiff`) were changed to associated constants and
+//!   they are now spelled in all uppercase (e.g., `Context::TIFF`).
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;

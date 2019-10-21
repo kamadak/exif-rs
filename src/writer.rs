@@ -130,10 +130,11 @@ impl<'a> Writer<'a> {
             Field { tag: Tag(ctx, _), ifd_num, .. } => {
                 let ifd = self.pick_ifd(ifd_num);
                 match ctx {
-                    Context::Tiff => ifd.tiff_fields.push(field),
-                    Context::Exif => ifd.exif_fields.push(field),
-                    Context::Gps => ifd.gps_fields.push(field),
-                    Context::Interop => ifd.interop_fields.push(field),
+                    Context::TIFF => ifd.tiff_fields.push(field),
+                    Context::EXIF => ifd.exif_fields.push(field),
+                    Context::GPS => ifd.gps_fields.push(field),
+                    Context::INTEROP => ifd.interop_fields.push(field),
+                    _ => unimplemented!(),
                 }
             },
         }
