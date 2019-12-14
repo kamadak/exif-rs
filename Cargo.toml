@@ -12,3 +12,6 @@ readme = "README"
 keywords = ["Exif", "JPEG", "parser", "reader", "TIFF"]
 categories = ["multimedia::encoding", "parser-implementations"]
 license = "BSD-2-Clause"
+
+[dependencies]
+mutate_once = "0.1.1"

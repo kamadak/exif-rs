@@ -64,11 +64,11 @@ pub struct Reader {
     // TIFF data.
     buf: Vec<u8>,
     // Exif fields.
-    fields: Vec<Field<'static>>,
+    fields: Vec<Field>,
     // True if the TIFF data is little endian.
     little_endian: bool,
     // HashMap to find a field quickly.
-    field_map: HashMap<(Tag, In), &'static Field<'static>>,
+    field_map: HashMap<(Tag, In), &'static Field>,
 }
 
 impl Reader {
@@ -89,11 +89,7 @@ impl Reader {
             return Err(Error::InvalidFormat("Unknown image format"));
         }
 
-        // Cheat on the type system and erase the lifetime by transmute().
-        // The scope releases the inner `v` to unborrow `buf`.
-        let (fields, le) = {
-            let (v, le) = tiff::parse_exif(&buf)?;
-            (unsafe { mem::transmute::<Vec<Field>, Vec<Field>>(v) }, le) };
+        let (fields, le) = tiff::parse_exif_compat03(&buf)?;
 
         // Initialize the HashMap of all fields.
         let mut field_map = HashMap::new();
@@ -118,7 +114,7 @@ impl Reader {
 
     /// Returns a slice of Exif fields.
     #[inline]
-    pub fn fields<'a>(&'a self) -> &[Field<'a>] {
+    pub fn fields<'a>(&'a self) -> &[Field] {
         &self.fields
     }
 
@@ -137,7 +133,7 @@ impl Reader {
 }
 
 impl<'a> ProvideUnit<'a> for &'a Reader {
-    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field<'a>> {
+    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field> {
         self.get_field(tag, ifd_num)
     }
 }
