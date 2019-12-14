@@ -59,6 +59,7 @@
 //!   they are now spelled in all uppercase (e.g., `Context::TIFF`).
 //! * `Value` became a self-contained type.  The structures of `Value::Ascii`
 //!   and `Value::Undefined` have been changed to use Vec<u8> instead of &[u8].
+//! * `Reader::fields` now returns an iterator instead of a slice.
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;

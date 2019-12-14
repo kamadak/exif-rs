@@ -51,7 +51,7 @@ use crate::util::atou16;
 // PartialEq and Eq need to be _automatically derived_ for Tag to
 // emulate structural equivalency.
 // <https://github.com/rust-lang/rfcs/pull/1445>
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Tag(pub Context, pub u16);
 
 impl Tag {
@@ -110,7 +110,7 @@ impl fmt::Display for Tag {
 /// A type that indicates how a tag number is interpreted.
 // This type is not an enum to keep API compatibilities when
 // new contexts are introduced.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Context(std::num::NonZeroU16);
 
 macro_rules! generate_context {

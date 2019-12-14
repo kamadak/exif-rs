@@ -53,6 +53,21 @@ pub struct IfdEntry {
 }
 
 impl IfdEntry {
+    pub fn ifd_num_tag(&self) -> (In, Tag) {
+        if self.field.is_fixed() {
+            let field = self.field.get_ref();
+            (field.ifd_num, field.tag)
+        } else {
+            let field = self.field.get_mut();
+            (field.ifd_num, field.tag)
+        }
+    }
+
+    pub fn ref_field<'a>(&'a self, data: &[u8], le: bool) -> &'a Field {
+        self.parse(data, le);
+        self.field.get_ref()
+    }
+
     fn into_field(self, data: &[u8], le: bool) -> Field {
         self.parse(data, le);
         self.field.into_inner()
@@ -106,7 +121,7 @@ pub struct Field {
 /// assert_eq!(In::PRIMARY.index(), 0);
 /// assert_eq!(In::THUMBNAIL.index(), 1);
 /// ```
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct In(pub u16);
 
 impl In {
@@ -537,9 +552,10 @@ mod tests {
     fn unknown_field() {
         let data = b"MM\0\x2a\0\0\0\x08\
                      \0\x01\x01\0\xff\xff\0\0\0\x01\0\x14\0\0\0\0\0\0";
-        let (v, _) = parse_exif_compat03(data).unwrap();
+        let (v, le) = parse_exif(data).unwrap();
         assert_eq!(v.len(), 1);
-        assert_pat!(v[0].value, Value::Unknown(0xffff, 1, 0x12));
+        assert_pat!(v[0].ref_field(data, le).value,
+                    Value::Unknown(0xffff, 1, 0x12));
     }
 
     #[test]

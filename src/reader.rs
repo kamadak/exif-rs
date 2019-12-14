@@ -24,16 +24,15 @@
 // SUCH DAMAGE.
 //
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::io;
 use std::io::Read;
-use std::mem;
 
 use crate::error::Error;
 use crate::jpeg;
 use crate::tag::Tag;
 use crate::tiff;
-use crate::tiff::{Field, In, ProvideUnit};
+use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
 
 /// The `Reader` struct reads a JPEG or TIFF image,
 /// parses the Exif attributes in it, and holds the results.
@@ -63,12 +62,11 @@ use crate::tiff::{Field, In, ProvideUnit};
 pub struct Reader {
     // TIFF data.
     buf: Vec<u8>,
-    // Exif fields.
-    fields: Vec<Field>,
+    // Exif fields.  `BTreeMap` is used so that `Reader::field` returns
+    // the fields in a stable order.
+    entries: BTreeMap<(In, Tag), IfdEntry>,
     // True if the TIFF data is little endian.
     little_endian: bool,
-    // HashMap to find a field quickly.
-    field_map: HashMap<(Tag, In), &'static Field>,
 }
 
 impl Reader {
@@ -89,20 +87,14 @@ impl Reader {
             return Err(Error::InvalidFormat("Unknown image format"));
         }
 
-        let (fields, le) = tiff::parse_exif_compat03(&buf)?;
-
-        // Initialize the HashMap of all fields.
-        let mut field_map = HashMap::new();
-        for f in &fields {
-            field_map.insert((f.tag, f.ifd_num),
-                             unsafe { mem::transmute::<&Field, &Field>(f) });
-        }
+        let (entries, le) = tiff::parse_exif(&buf)?;
+        let entries = entries.into_iter()
+            .map(|e| (e.ifd_num_tag(), e)).collect();
 
         Ok(Reader {
             buf: buf,
-            fields: fields,
+            entries: entries,
             little_endian: le,
-            field_map: field_map
         })
     }
 
@@ -114,8 +106,9 @@ impl Reader {
 
     /// Returns a slice of Exif fields.
     #[inline]
-    pub fn fields<'a>(&'a self) -> &[Field] {
-        &self.fields
+    pub fn fields<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a Field> {
+        self.entries.values()
+            .map(move |e| e.ref_field(&self.buf, self.little_endian))
     }
 
     /// Returns true if the TIFF data is in the little-endian byte order.
@@ -128,7 +121,8 @@ impl Reader {
     /// and the IFD number.
     #[inline]
     pub fn get_field(&self, tag: Tag, ifd_num: In) -> Option<&Field> {
-        self.field_map.get(&(tag, ifd_num)).map(|&f| f)
+        self.entries.get(&(ifd_num, tag))
+            .map(|e| e.ref_field(&self.buf, self.little_endian))
     }
 }
 
@@ -144,54 +138,6 @@ mod tests {
     use std::io::BufReader;
     use crate::value::Value;
     use super::*;
-
-    static TIFF_ASCII: &'static [u8] =
-        b"MM\0\x2a\0\0\0\x08\0\x01\x01\x0e\0\x02\0\0\0\x04ABC\0\0\0\0\0";
-
-    // Test if moving a `Reader` does not invalidate the references in it.
-    // The referer is in the heap and does not move, so this test is not
-    // so meaningful.
-    #[test]
-    fn move_reader() {
-        let r1 = Reader::new(&mut BufReader::new(TIFF_ASCII)).unwrap();
-        let ptr = &r1 as *const _;
-        move_in_and_drop(r1, ptr);
-
-        let (r2, ptr) = move_out_and_drop();
-        assert!(ptr != &r2 as *const _, "not moved");
-        check_abc(r2.fields());
-
-        box_and_drop();
-    }
-
-    #[inline(never)]
-    fn move_in_and_drop(r1: Reader, ptr: *const Reader) {
-        assert!(ptr != &r1 as *const _, "not moved");
-        check_abc(r1.fields());
-    }
-
-    #[inline(never)]
-    fn move_out_and_drop() -> (Reader, *const Reader) {
-        let r2 = Reader::new(&mut BufReader::new(TIFF_ASCII)).unwrap();
-        let ptr = &r2 as *const _;
-        (r2, ptr)
-    }
-
-    fn box_and_drop() {
-        let r = Reader::new(&mut BufReader::new(TIFF_ASCII)).unwrap();
-        let ptr = &r as *const _;
-        let b = Box::new(r);
-        assert!(ptr != &*b as *const _, "not moved");
-        check_abc(b.fields());
-    }
-
-    fn check_abc(fields: &[Field]) {
-        if let Value::Ascii(ref v) = fields[0].value {
-            assert_eq!(*v, vec![b"ABC"]);
-        } else {
-            panic!("TIFF ASCII field is expected");
-        }
-    }
 
     #[test]
     fn get_field() {

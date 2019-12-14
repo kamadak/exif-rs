@@ -111,13 +111,13 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
     let reader2 = Reader::new(&mut &out[..]).unwrap();
 
     // Sort the fields (some files have wrong tag order).
-    let mut fields1 = reader1.fields().iter().map(|f| f).collect::<Vec<_>>();
-    fields1.sort_by_key(|f| f.tag.number());
-    let mut fields2 = reader2.fields().iter().map(|f| f).collect::<Vec<_>>();
-    fields2.sort_by_key(|f| f.tag.number());
+    let mut fields1 = reader1.fields().collect::<Vec<_>>();
+    fields1.sort_by_key(|f| (f.ifd_num, f.tag));
+    let mut fields2 = reader2.fields().collect::<Vec<_>>();
+    fields2.sort_by_key(|f| (f.ifd_num, f.tag));
 
     // Compare.
-    assert_eq!(reader1.fields().len(), reader2.fields().len());
+    assert_eq!(fields1.len(), fields2.len());
     for (f1, f2) in fields1.iter().zip(fields2.iter()) {
         assert_eq!(f1.tag, f2.tag);
         assert_eq!(f1.ifd_num, f2.ifd_num);
