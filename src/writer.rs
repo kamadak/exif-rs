@@ -43,7 +43,7 @@ use crate::value::Value;
 /// let image_desc = Field {
 ///     tag: Tag::ImageDescription,
 ///     ifd_num: In::PRIMARY,
-///     value: Value::Ascii(vec![b"Sample"]),
+///     value: Value::Ascii(vec![b"Sample".to_vec()]),
 /// };
 /// let mut writer = Writer::new();
 /// let mut buf = std::io::Cursor::new(Vec::new());
@@ -63,10 +63,10 @@ pub struct Writer<'a> {
 
 #[derive(Debug, Default)]
 struct Ifd<'a> {
-    tiff_fields: Vec<&'a Field<'a>>,
-    exif_fields: Vec<&'a Field<'a>>,
-    gps_fields: Vec<&'a Field<'a>>,
-    interop_fields: Vec<&'a Field<'a>>,
+    tiff_fields: Vec<&'a Field>,
+    exif_fields: Vec<&'a Field>,
+    gps_fields: Vec<&'a Field>,
+    interop_fields: Vec<&'a Field>,
     strips: Option<&'a [&'a [u8]]>,
     tiles: Option<&'a [&'a [u8]]>,
     jpeg: Option<&'a [u8]>,
@@ -85,10 +85,10 @@ impl<'a> Ifd<'a> {
 }
 
 struct WriterState<'a> {
-    tiff_fields: Vec<&'a Field<'a>>,
-    exif_fields: Vec<&'a Field<'a>>,
-    gps_fields: Vec<&'a Field<'a>>,
-    interop_fields: Vec<&'a Field<'a>>,
+    tiff_fields: Vec<&'a Field>,
+    exif_fields: Vec<&'a Field>,
+    gps_fields: Vec<&'a Field>,
+    interop_fields: Vec<&'a Field>,
     tiff_ifd_offset: u32,
     exif_ifd_offset: u32,
     gps_ifd_offset: u32,
@@ -474,8 +474,8 @@ fn compose_value<E>(value: &Value)
             Ok((1, vec.len(), vec.clone())),
         Value::Ascii(ref vec) => {
             let mut buf = Vec::new();
-            for &s in vec {
-                buf.extend_from_slice(s);
+            for x in vec {
+                buf.extend_from_slice(x);
                 buf.push(0);
             }
             Ok((2, buf.len(), buf))
@@ -593,7 +593,7 @@ mod tests {
         let image_desc = Field {
             tag: Tag::ImageDescription,
             ifd_num: In::PRIMARY,
-            value: Value::Ascii(vec![b"Sample"]),
+            value: Value::Ascii(vec![b"Sample".to_vec()]),
         };
         let mut writer = Writer::new();
         let mut buf = Cursor::new(Vec::new());
@@ -612,7 +612,7 @@ mod tests {
         let exif_ver = Field {
             tag: Tag::ExifVersion,
             ifd_num: In::PRIMARY,
-            value: Value::Undefined(b"0231", 0),
+            value: Value::Undefined(b"0231".to_vec(), 0),
         };
         let mut writer = Writer::new();
         let mut buf = Cursor::new(Vec::new());
@@ -651,7 +651,7 @@ mod tests {
         let desc = Field {
             tag: Tag::ImageDescription,
             ifd_num: In::PRIMARY,
-            value: Value::Ascii(vec![b"jpg"]),
+            value: Value::Ascii(vec![b"jpg".to_vec()]),
         };
         let mut writer = Writer::new();
         let mut buf = Cursor::new(Vec::new());
@@ -675,7 +675,7 @@ mod tests {
         let desc = Field {
             tag: Tag::ImageDescription,
             ifd_num: In::PRIMARY,
-            value: Value::Ascii(vec![b"tif"]),
+            value: Value::Ascii(vec![b"tif".to_vec()]),
         };
         let strips: &[&[u8]] = &[b"STRIP"];
         let mut writer = Writer::new();
@@ -699,12 +699,12 @@ mod tests {
         let image_desc = Field {
             tag: Tag::ImageDescription,
             ifd_num: In::PRIMARY,
-            value: Value::Ascii(vec![b"Sample"]),
+            value: Value::Ascii(vec![b"Sample".to_vec()]),
         };
         let exif_ver = Field {
             tag: Tag::ExifVersion,
             ifd_num: In::PRIMARY,
-            value: Value::Undefined(b"0231", 0),
+            value: Value::Undefined(b"0231".to_vec(), 0),
         };
         let gps_ver = Field {
             tag: Tag::GPSVersionID,
@@ -714,7 +714,7 @@ mod tests {
         let interop_index = Field {
             tag: Tag::InteroperabilityIndex,
             ifd_num: In::PRIMARY,
-            value: Value::Ascii(vec![b"ABC"]),
+            value: Value::Ascii(vec![b"ABC".to_vec()]),
         };
         let jpeg = b"JPEG";
         let mut writer = Writer::new();
@@ -751,17 +751,17 @@ mod tests {
         let desc0 = Field {
             tag: Tag::ImageDescription,
             ifd_num: In::PRIMARY,
-            value: Value::Ascii(vec![b"p"]),
+            value: Value::Ascii(vec![b"p".to_vec()]),
         };
         let desc1 = Field {
             tag: Tag::ImageDescription,
             ifd_num: In::THUMBNAIL,
-            value: Value::Ascii(vec![b"t"]),
+            value: Value::Ascii(vec![b"t".to_vec()]),
         };
         let desc2 = Field {
             tag: Tag::ImageDescription,
             ifd_num: In(2),
-            value: Value::Ascii(vec![b"2"]),
+            value: Value::Ascii(vec![b"2".to_vec()]),
         };
         let mut writer = Writer::new();
         let mut buf = Cursor::new(Vec::new());
@@ -803,7 +803,7 @@ mod tests {
         let image_desc = Field {
             tag: Tag::ImageDescription,
             ifd_num: In::PRIMARY,
-            value: Value::Ascii(vec![b"Sample"]),
+            value: Value::Ascii(vec![b"Sample".to_vec()]),
         };
         let mut writer = Writer::new();
         writer.push_field(&image_desc);
@@ -820,7 +820,7 @@ mod tests {
             (Value::Byte(vec![1, 2]),
              (1, 2, vec![1, 2]),
              (1, 2, vec![1, 2])),
-            (Value::Ascii(vec![b"a", b"b"]),
+            (Value::Ascii(vec![b"a".to_vec(), b"b".to_vec()]),
              (2, 4, b"a\0b\0".to_vec()),
              (2, 4, b"a\0b\0".to_vec())),
             (Value::Short(vec![0x0102, 0x0304]),
@@ -835,7 +835,7 @@ mod tests {
             (Value::SByte(vec![-2, -128]),
              (6, 2, b"\xfe\x80".to_vec()),
              (6, 2, b"\xfe\x80".to_vec())),
-            (Value::Undefined(b"abc", 0),
+            (Value::Undefined(b"abc".to_vec(), 0),
              (7, 3, b"abc".to_vec()),
              (7, 3, b"abc".to_vec())),
             (Value::SShort(vec![-2, -0x8000]),

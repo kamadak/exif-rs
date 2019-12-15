@@ -57,13 +57,16 @@
 //! * The type of `Context` was changed from enum to struct.  The variants
 //!   (e.g., `Context::Tiff`) were changed to associated constants and
 //!   they are now spelled in all uppercase (e.g., `Context::TIFF`).
+//! * `Value` became a self-contained type.  The structures of `Value::Ascii`
+//!   and `Value::Undefined` have been changed to use Vec<u8> instead of &[u8].
+//! * `Reader::fields` now returns an iterator instead of a slice.
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::Reader;
 pub use tag::{Context, Tag};
 pub use tiff::{DateTime, Field, In};
-pub use tiff::parse_exif;
+pub use tiff::parse_exif_compat03 as parse_exif;
 pub use value::Value;
 pub use value::{Rational, SRational};
 

@@ -25,6 +25,7 @@
 //
 
 use std::fmt;
+use mutate_once::MutOnce;
 
 use crate::endian::{Endian, BigEndian, LittleEndian};
 use crate::error::Error;
@@ -41,15 +42,71 @@ const TIFF_FORTY_TWO: u16 = 0x002a;
 pub const TIFF_BE_SIG: [u8; 4] = [0x4d, 0x4d, 0x00, 0x2a];
 pub const TIFF_LE_SIG: [u8; 4] = [0x49, 0x49, 0x2a, 0x00];
 
+// Partially parsed TIFF field (IFD entry).
+// Value::Unknown is abused to represent a partially parsed value.
+// Such a value must never be exposed to the users of this library.
+#[derive(Debug)]
+pub struct IfdEntry {
+    // When partially parsed, the value is stored as Value::Unknown.
+    // Do not leak this field to the outside.
+    field: MutOnce<Field>,
+}
+
+impl IfdEntry {
+    pub fn ifd_num_tag(&self) -> (In, Tag) {
+        if self.field.is_fixed() {
+            let field = self.field.get_ref();
+            (field.ifd_num, field.tag)
+        } else {
+            let field = self.field.get_mut();
+            (field.ifd_num, field.tag)
+        }
+    }
+
+    pub fn ref_field<'a>(&'a self, data: &[u8], le: bool) -> &'a Field {
+        self.parse(data, le);
+        self.field.get_ref()
+    }
+
+    fn into_field(self, data: &[u8], le: bool) -> Field {
+        self.parse(data, le);
+        self.field.into_inner()
+    }
+
+    fn parse(&self, data: &[u8], le: bool) {
+        if !self.field.is_fixed() {
+            let mut field = self.field.get_mut();
+            if le {
+                Self::parse_value::<LittleEndian>(&mut field.value, data);
+            } else {
+                Self::parse_value::<BigEndian>(&mut field.value, data);
+            }
+        }
+    }
+
+    // Converts a partially parsed value into a real one.
+    fn parse_value<E>(value: &mut Value, data: &[u8]) where E: Endian {
+        match *value {
+            Value::Unknown(typ, cnt, ofs) => {
+                let (unitlen, parser) = get_type_info::<E>(typ);
+                if unitlen != 0 {
+                    *value = parser(data, ofs as usize, cnt as usize);
+                }
+            },
+            _ => panic!("value is already parsed"),
+        }
+    }
+}
+
 /// A TIFF field.
 #[derive(Debug)]
-pub struct Field<'a> {
+pub struct Field {
     /// The tag of this field.
     pub tag: Tag,
     /// The index of the IFD to which this field belongs.
     pub ifd_num: In,
     /// The value of this field.
-    pub value: Value<'a>,
+    pub value: Value,
 }
 
 /// The IFD number.
@@ -64,7 +121,7 @@ pub struct Field<'a> {
 /// assert_eq!(In::PRIMARY.index(), 0);
 /// assert_eq!(In::THUMBNAIL.index(), 1);
 /// ```
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct In(pub u16);
 
 impl In {
@@ -93,7 +150,15 @@ impl fmt::Display for In {
 /// Returns a Vec of Exif fields and a bool.
 /// The boolean value is true if the data is little endian.
 /// If an error occurred, `exif::Error` is returned.
-pub fn parse_exif(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
+pub fn parse_exif_compat03(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
+    parse_exif(data).map(|(entries, le)| {
+        let fields = entries.into_iter()
+            .map(|e| e.into_field(data, le)).collect();
+        (fields, le)
+    })
+}
+
+pub fn parse_exif(data: &[u8]) -> Result<(Vec<IfdEntry>, bool), Error> {
     // Check the byte order and call the real parser.
     if data.len() < 8 {
         return Err(Error::InvalidFormat("Truncated TIFF header"));
@@ -106,14 +171,14 @@ pub fn parse_exif(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
 }
 
 fn parse_exif_sub<E>(data: &[u8])
-                     -> Result<Vec<Field>, Error> where E: Endian {
+                     -> Result<Vec<IfdEntry>, Error> where E: Endian {
     // Parse the rest of the header (42 and the IFD offset).
     if E::loadu16(data, 2) != TIFF_FORTY_TWO {
         return Err(Error::InvalidFormat("Invalid forty two"));
     }
     let mut ifd_offset = E::loadu32(data, 4) as usize;
     let mut ifd_num_ck = Some(0);
-    let mut fields = Vec::new();
+    let mut entries = Vec::new();
     while ifd_offset != 0 {
         let ifd_num = ifd_num_ck.ok_or(Error::InvalidFormat("Too many IFDs"))?;
         // Limit the number of IFDs to defend against resource exhaustion
@@ -122,16 +187,16 @@ fn parse_exif_sub<E>(data: &[u8])
             return Err(Error::InvalidFormat("Limit the IFD count to 8"));
         }
         ifd_offset = parse_ifd::<E>(
-            &mut fields, data, ifd_offset, Context::TIFF, ifd_num)?;
+            &mut entries, data, ifd_offset, Context::TIFF, ifd_num)?;
         ifd_num_ck = ifd_num.checked_add(1);
     }
-    Ok(fields)
+    Ok(entries)
 }
 
 // Parse IFD [EXIF23 4.6.2].
-fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
-                    offset: usize, ctx: Context, ifd_num: u16)
-                    -> Result<usize, Error> where E: Endian {
+fn parse_ifd<E>(entries: &mut Vec<IfdEntry>, data: &[u8],
+                offset: usize, ctx: Context, ifd_num: u16)
+                -> Result<usize, Error> where E: Endian {
     // Count (the number of the entries).
     if data.len() < offset || data.len() - offset < 2 {
         return Err(Error::InvalidFormat("Truncated IFD count"));
@@ -145,36 +210,33 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
     for i in 0..count as usize {
         let tag = E::loadu16(data, offset + 2 + i * 12);
         let typ = E::loadu16(data, offset + 2 + i * 12 + 2);
-        let cnt = E::loadu32(data, offset + 2 + i * 12 + 4) as usize;
+        let cnt = E::loadu32(data, offset + 2 + i * 12 + 4);
         let valofs_at = offset + 2 + i * 12 + 8;
-        let (unitlen, parser) = get_type_info::<E>(typ);
-        let vallen = unitlen.checked_mul(cnt).ok_or(
+        let (unitlen, _parser) = get_type_info::<E>(typ);
+        let vallen = unitlen.checked_mul(cnt as usize).ok_or(
             Error::InvalidFormat("Invalid entry count"))?;
-        let val;
-        if unitlen == 0 {
-            val = Value::Unknown(typ, cnt as u32, valofs_at as u32);
-        } else if vallen <= 4 {
-            val = parser(data, valofs_at, cnt);
+        let mut val = if vallen <= 4 {
+            Value::Unknown(typ, cnt, valofs_at as u32)
         } else {
             let ofs = E::loadu32(data, valofs_at) as usize;
             if data.len() < ofs || data.len() - ofs < vallen {
                 return Err(Error::InvalidFormat("Truncated field value"));
             }
-            val = parser(data, ofs, cnt);
-        }
+            Value::Unknown(typ, cnt, ofs as u32)
+        };
 
         // No infinite recursion will occur because the context is not
         // recursively defined.
         let tag = Tag(ctx, tag);
         match tag {
             Tag::ExifIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::EXIF, ifd_num)?,
+                entries, data, &mut val, Context::EXIF, ifd_num)?,
             Tag::GPSInfoIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::GPS, ifd_num)?,
+                entries, data, &mut val, Context::GPS, ifd_num)?,
             Tag::InteropIFDPointer => parse_child_ifd::<E>(
-                fields, data, &val, Context::INTEROP, ifd_num)?,
-            _ => fields.push(Field {
-                tag: tag, ifd_num: In(ifd_num), value: val }),
+                entries, data, &mut val, Context::INTEROP, ifd_num)?,
+            _ => entries.push(IfdEntry { field: Field {
+                tag: tag, ifd_num: In(ifd_num), value: val }.into()}),
         }
     }
 
@@ -186,15 +248,18 @@ fn parse_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
     Ok(next_ifd_offset)
 }
 
-fn parse_child_ifd<'a, E>(fields: &mut Vec<Field<'a>>, data: &'a [u8],
-                          pointer: &Value, ctx: Context, ifd_num: u16)
-                          -> Result<(), Error> where E: Endian {
+fn parse_child_ifd<E>(entries: &mut Vec<IfdEntry>, data: &[u8],
+                      pointer: &mut Value, ctx: Context, ifd_num: u16)
+                      -> Result<(), Error> where E: Endian {
+    // The pointer is not yet parsed, so do it here.
+    IfdEntry::parse_value::<E>(pointer, data);
+
     // A pointer field has type == LONG and count == 1, so the
     // value (IFD offset) must be embedded in the "value offset"
     // element of the field.
     let ofs = pointer.get_uint(0).ok_or(
         Error::InvalidFormat("Invalid pointer"))? as usize;
-    match parse_ifd::<E>(fields, data, ofs, ctx, ifd_num)? {
+    match parse_ifd::<E>(entries, data, ofs, ctx, ifd_num)? {
         0 => Ok(()),
         _ => Err(Error::InvalidFormat("Unexpected next IFD")),
     }
@@ -308,7 +373,7 @@ impl fmt::Display for DateTime {
     }
 }
 
-impl<'a> Field<'a> {
+impl Field {
     /// Returns an object that implements `std::fmt::Display` for
     /// printing the value of this field in a tag-specific format.
     ///
@@ -426,17 +491,17 @@ impl<'a, T> fmt::Display for DisplayValueUnit<'a, T> where T: ProvideUnit<'a> {
 }
 
 pub trait ProvideUnit<'a>: Copy {
-    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field<'a>>;
+    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field>;
 }
 
 impl<'a> ProvideUnit<'a> for () {
-    fn get_field(self, _tag: Tag, _ifd_num: In) -> Option<&'a Field<'a>> {
+    fn get_field(self, _tag: Tag, _ifd_num: In) -> Option<&'a Field> {
         None
     }
 }
 
-impl<'a> ProvideUnit<'a> for &'a Field<'a> {
-    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field<'a>> {
+impl<'a> ProvideUnit<'a> for &'a Field {
+    fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field> {
         Some(self).filter(|x| x.tag == tag && x.ifd_num == ifd_num)
     }
 }
@@ -487,9 +552,10 @@ mod tests {
     fn unknown_field() {
         let data = b"MM\0\x2a\0\0\0\x08\
                      \0\x01\x01\0\xff\xff\0\0\0\x01\0\x14\0\0\0\0\0\0";
-        let (v, _) = parse_exif(data).unwrap();
+        let (v, le) = parse_exif(data).unwrap();
         assert_eq!(v.len(), 1);
-        assert_pat!(v[0].value, Value::Unknown(0xffff, 1, 0x12));
+        assert_pat!(v[0].ref_field(data, le).value,
+                    Value::Unknown(0xffff, 1, 0x12));
     }
 
     #[test]
@@ -545,7 +611,7 @@ mod tests {
         let exifver = Field {
             tag: Tag::ExifVersion,
             ifd_num: In::PRIMARY,
-            value: Value::Undefined(b"0231", 0),
+            value: Value::Undefined(b"0231".to_vec(), 0),
         };
         assert_eq!(exifver.display_value().to_string(),
                    "2.31");
