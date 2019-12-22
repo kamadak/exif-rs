@@ -109,7 +109,7 @@ impl Reader {
 
     /// Returns a slice of Exif fields.
     #[inline]
-    pub fn fields<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a Field> {
+    pub fn fields(&self) -> impl ExactSizeIterator<Item = &Field> {
         self.entries.iter()
             .map(move |e| e.ref_field(&self.buf, self.little_endian))
     }
