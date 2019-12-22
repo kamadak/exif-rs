@@ -54,9 +54,6 @@
 //!   images, which were distinguished by `bool` previously.  Function
 //!   parameters and struct members now take `In`s instead of `bool`s.
 //!   `Field::thumbnail` was renamed to `Field::ifd_num` accordingly.
-//! * The type of `Context` was changed from enum to struct.  The variants
-//!   (e.g., `Context::Tiff`) were changed to associated constants and
-//!   they are now spelled in all uppercase (e.g., `Context::TIFF`).
 //! * `Value` became a self-contained type.  The structures of `Value::Ascii`
 //!   and `Value::Undefined` have been changed to use Vec<u8> instead of &[u8].
 //! * `Reader::fields` now returns an iterator instead of a slice.

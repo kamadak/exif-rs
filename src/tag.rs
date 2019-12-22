@@ -60,8 +60,8 @@ impl Tag {
     /// # Examples
     /// ```
     /// use exif::{Context, Tag};
-    /// assert_eq!(Tag::DateTime.context(), Context::TIFF);
-    /// assert_eq!(Tag::ExposureTime.context(), Context::EXIF);
+    /// assert_eq!(Tag::DateTime.context(), Context::Tiff);
+    /// assert_eq!(Tag::ExposureTime.context(), Context::Exif);
     /// ```
     #[inline]
     pub fn context(self) -> Context {
@@ -102,75 +102,22 @@ impl fmt::Display for Tag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match get_tag_info(*self) {
             Some(ti) => f.pad(ti.name),
-            None => f.pad(&format!("Tag({}, {})", self.0, self.1)),
+            None => f.pad(&format!("{:?}", self)),
         }
     }
 }
 
-/// A type that indicates how a tag number is interpreted.
-// This type is not an enum to keep API compatibilities when
-// new contexts are introduced.
+/// An enum that indicates how a tag number is interpreted.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Context(std::num::NonZeroU16);
-
-macro_rules! generate_context {
-    (
-        $(
-            // Copy the doc attribute to the actual definition.
-            $( #[$attr:meta] )*
-            $name: ident = $num: expr, $disp: expr;
-        )+
-    ) => (
-        impl Context {
-            $(
-                $( #[$attr] )*
-                pub const $name: Self = Self(
-                    unsafe { std::num::NonZeroU16::new_unchecked($num) });
-            )+
-        }
-
-        fn display_context(ctx: &Context, f: &mut fmt::Formatter)
-                           -> fmt::Result {
-            let name = match ctx.0.get() {
-                $( $num => $disp, )+
-                _ => return fmt::Debug::fmt(ctx, f),
-            };
-            f.write_str(name)
-        }
-    )
-}
-
-generate_context! {
+pub enum Context {
     /// TIFF attributes defined in the TIFF Rev. 6.0 specification.
-    TIFF = 1, "TIFF";		// 0th/1st IFD (toplevel)
+    Tiff,	// 0th/1st IFD (toplevel)
     /// Exif attributes.
-    EXIF = 2, "Exif";		// -- Exif IFD
+    Exif,	// -- Exif IFD
     /// GPS attributes.
-    GPS = 3, "GPS";		// -- GPS IFD
+    Gps,	// -- GPS IFD
     /// Interoperability attributes.
-    INTEROP = 4, "Interop";	// -- Exif IFD -- Interoperability IFD
-}
-
-impl Context {
-    // Compatibility with 0.3.x.
-    #[allow(non_upper_case_globals)]
-    #[deprecated(since = "0.4.0", note = "use Context::TIFF instead")]
-    pub const Tiff: Self = Self::TIFF;
-    #[allow(non_upper_case_globals)]
-    #[deprecated(since = "0.4.0", note = "use Context::EXIF instead")]
-    pub const Exif: Self = Self::EXIF;
-    #[allow(non_upper_case_globals)]
-    #[deprecated(since = "0.4.0", note = "use Context::GPS instead")]
-    pub const Gps: Self = Self::GPS;
-    #[allow(non_upper_case_globals)]
-    #[deprecated(since = "0.4.0", note = "use Context::INTEROP instead")]
-    pub const Interop: Self = Self::INTEROP;
-}
-
-impl fmt::Display for Context {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        display_context(self, f)
-    }
+    Interop,	// -- Exif IFD -- Interoperability IFD
 }
 
 #[derive(Debug)]
@@ -268,7 +215,7 @@ macro_rules! generate_well_known_tag_constants {
 // the Exif field names: camel cases and all-capital acronyms.
 generate_well_known_tag_constants!(
     // Exif-specific IFDs [EXIF23 4.6.3].
-    |Context::TIFF|
+    |Context::Tiff|
 
     /// A pointer to the Exif IFD.  This is used for the internal structure
     /// of Exif data and will not be returned to the user.
@@ -281,7 +228,7 @@ generate_well_known_tag_constants!(
      unit![],
      "GPS Info IFD pointer"),
 
-    |Context::EXIF|
+    |Context::Exif|
 
     /// A pointer to the interoperability IFD.  This is used for the internal
     /// structure of Exif data and will not be returned to the user.
@@ -291,7 +238,7 @@ generate_well_known_tag_constants!(
 
     // TIFF primary and thumbnail attributes [EXIF23 4.6.4 Table 4,
     // 4.6.8 Table 17, and 4.6.8 Table 21].
-    |Context::TIFF|
+    |Context::Tiff|
 
     (ImageWidth, 0x100, DefaultValue::None, d_default,
      unit!["pixels"],
@@ -393,7 +340,7 @@ generate_well_known_tag_constants!(
      "Copyright holder"),
 
     // Exif IFD attributes [EXIF23 4.6.5 Table 7 and 4.6.8 Table 18].
-    |Context::EXIF|
+    |Context::Exif|
 
     (ExposureTime, 0x829a, DefaultValue::None, d_exptime,
      unit!["s"],
@@ -635,7 +582,7 @@ generate_well_known_tag_constants!(
      "Gamma"),
 
     // GPS attributes [EXIF23 4.6.6 Table 15 and 4.6.8 Table 19].
-    |Context::GPS|
+    |Context::Gps|
 
     // Depends on the Exif version.
     (GPSVersionID, 0x0, DefaultValue::ContextDependent, d_gpsver,
@@ -736,7 +683,7 @@ generate_well_known_tag_constants!(
      "Horizontal positioning error"),
 
     // Interoperability attributes [EXIF23 4.6.7 Table 16 and 4.6.8 Table 20].
-    |Context::INTEROP|
+    |Context::Interop|
 
     (InteroperabilityIndex, 0x1, DefaultValue::None, d_default,
      unit![],
@@ -1510,12 +1457,12 @@ mod tests {
     #[test]
     fn tag_constant_in_pattern() {
         // Destructuring, which will always work.
-        match Tag(Context::TIFF, 0x132) {
-            Tag(Context::TIFF, 0x132) => {},
+        match Tag(Context::Tiff, 0x132) {
+            Tag(Context::Tiff, 0x132) => {},
             _ => panic!("failed to match Tag"),
         }
         // Matching against a constant.  Test if this compiles.
-        match Tag(Context::TIFF, 0x132) {
+        match Tag(Context::Tiff, 0x132) {
             Tag::DateTime => {},
             _ => panic!("failed to match Tag"),
         }
@@ -1552,11 +1499,11 @@ mod tests {
 
     #[test]
     fn tag_fmt_display() {
-        let tag1 = Tag(Context::TIFF, 0x132);
+        let tag1 = Tag(Context::Tiff, 0x132);
         assert_eq!(format!("{:15}", tag1), "DateTime       ");
         assert_eq!(format!("{:>15}", tag1), "       DateTime");
         assert_eq!(format!("{:5.6}", tag1), "DateTi");
-        let tag2 = Tag(Context::EXIF, 0);
+        let tag2 = Tag(Context::Exif, 0);
         assert_eq!(format!("{:15}", tag2), "Tag(Exif, 0)   ");
         assert_eq!(format!("{:>15}", tag2), "   Tag(Exif, 0)");
         assert_eq!(format!("{:5.6}", tag2), "Tag(Ex");
