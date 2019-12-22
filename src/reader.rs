@@ -24,7 +24,7 @@
 // SUCH DAMAGE.
 //
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::io;
 use std::io::Read;
 
@@ -62,9 +62,11 @@ use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
 pub struct Reader {
     // TIFF data.
     buf: Vec<u8>,
-    // Exif fields.  `BTreeMap` is used so that `Reader::field` returns
-    // the fields in a stable order.
-    entries: BTreeMap<(In, Tag), IfdEntry>,
+    // Exif fields.  Vec is used to keep the ability to enumerate all fields
+    // even if there are duplicates.
+    entries: Vec<IfdEntry>,
+    // HashMap to the index of the Vec for faster random access.
+    entry_map: HashMap<(In, Tag), usize>,
     // True if the TIFF data is little endian.
     little_endian: bool,
 }
@@ -88,12 +90,13 @@ impl Reader {
         }
 
         let (entries, le) = tiff::parse_exif(&buf)?;
-        let entries = entries.into_iter()
-            .map(|e| (e.ifd_num_tag(), e)).collect();
+        let entry_map = entries.iter().enumerate()
+            .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
 
         Ok(Reader {
             buf: buf,
             entries: entries,
+            entry_map: entry_map,
             little_endian: le,
         })
     }
@@ -107,7 +110,7 @@ impl Reader {
     /// Returns a slice of Exif fields.
     #[inline]
     pub fn fields<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a Field> {
-        self.entries.values()
+        self.entries.iter()
             .map(move |e| e.ref_field(&self.buf, self.little_endian))
     }
 
@@ -121,8 +124,8 @@ impl Reader {
     /// and the IFD number.
     #[inline]
     pub fn get_field(&self, tag: Tag, ifd_num: In) -> Option<&Field> {
-        self.entries.get(&(ifd_num, tag))
-            .map(|e| e.ref_field(&self.buf, self.little_endian))
+        self.entry_map.get(&(ifd_num, tag))
+            .map(|&i| self.entries[i].ref_field(&self.buf, self.little_endian))
     }
 }
 
