@@ -44,19 +44,88 @@
 //! }
 //! ```
 //!
-//! # Compatibility
+//! # Upgrade Guide (0.3.x to 0.4.x)
 //!
-//! Major changes between 0.3.1 and 0.4 are listed below.
+//! ## API compatibilities
 //!
-//! * The constants in tag module (`tag::TagName`) have been removed.
-//!   Use `Tag::TagName` instead.
-//! * Sturct `In` (IFD number) has been added to indicate primary/thumbnail
-//!   images, which were distinguished by `bool` previously.  Function
-//!   parameters and struct members now take `In`s instead of `bool`s.
-//!   `Field::thumbnail` was renamed to `Field::ifd_num` accordingly.
-//! * `Value` became a self-contained type.  The structures of `Value::Ascii`
-//!   and `Value::Undefined` have been changed to use Vec<u8> instead of &[u8].
+//! * Use struct `In` instead of `bool` to indicate primary/thumbnail images.
+//!   - On `Reader::get_field`, the old code in 0.3.x:
+//!     ```ignore
+//!     reader.get_field(Tag::DateTime, false)
+//!     ```
+//!     The new code in 0.4.x:
+//!     ```
+//!     # use exif::{In, Reader, Tag};
+//!     # let file = std::fs::File::open("tests/exif.tif").unwrap();
+//!     # let reader = Reader::new(
+//!     #     &mut std::io::BufReader::new(&file)).unwrap();
+//!     reader.get_field(Tag::DateTime, In::PRIMARY)
+//!     # ;
+//!     ```
+//!     As an additional feature, access to the 2nd or further IFD,
+//!     which some RAW formats may have, is also possible in 0.4.x:
+//!     ```
+//!     # use exif::{In, Reader, Tag};
+//!     # let file = std::fs::File::open("tests/exif.tif").unwrap();
+//!     # let reader = Reader::new(
+//!     #     &mut std::io::BufReader::new(&file)).unwrap();
+//!     reader.get_field(Tag::ImageWidth, In(2))
+//!     # ;
+//!     ```
+//!   - On `Field`, the old code in 0.3.x:
+//!     ```ignore
+//!     if field.thumbnail {
+//!         // for the thumbnail image
+//!     } else {
+//!         // for the primary image
+//!     }
+//!     ```
+//!     The new code in 0.4.x:
+//!     ```
+//!     # use exif::{In, Reader};
+//!     # let file = std::fs::File::open("tests/exif.tif").unwrap();
+//!     # let reader = Reader::new(
+//!     #     &mut std::io::BufReader::new(&file)).unwrap();
+//!     # let field = reader.fields().next().unwrap();
+//!     match field.ifd_num {
+//!         In::PRIMARY => {},   // for the primary image
+//!         In::THUMBNAIL => {}, // for the thumbnail image
+//!         _ => {},
+//!     }
+//!     ```
 //! * `Reader::fields` now returns an iterator instead of a slice.
+//! * Enum variants of `Context` and `Error` are no longer exhaustive.
+//!   You need a wildcard arm (`_`) in a match expression.
+//! * The associated value of `Value::Undefined` and `Value::Ascii` has
+//!   been changed from a slice to a `Vec`.
+//!
+//! ## Other new features
+//!
+//! * `Field::display_value` has been introduced.
+//!   It is usually handier than `Value::display_as`.
+//!   ```
+//!   # let file = std::fs::File::open("tests/exif.tif").unwrap();
+//!   # let reader = exif::Reader::new(
+//!   #     &mut std::io::BufReader::new(&file)).unwrap();
+//!   # let field = reader.fields().next().unwrap();
+//!   assert_eq!(field.display_value().to_string(),
+//!              field.value.display_as(field.tag).to_string());
+//!   ```
+//! * Displaying a value with its unit is supported.
+//!   ```
+//!   # let file = std::fs::File::open("tests/exif.tif").unwrap();
+//!   # let reader = exif::Reader::new(
+//!   #     &mut std::io::BufReader::new(&file)).unwrap();
+//!   # let field = reader.fields().next().unwrap();
+//!   // Display the value only.
+//!   println!("{}", field.display_value());
+//!   // Display the value with its unit.  If the unit depends on another
+//!   // field, it is taken from the reader.
+//!   println!("{}", field.display_value().with_unit(&reader));
+//!   ```
+//! * `Value` and `Field` are self-contained and no longer borrow the raw
+//!   buffer or `Reader` (thanks to the change of `Value::Undefined`
+//!   and `Value::Ascii` described above).
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
