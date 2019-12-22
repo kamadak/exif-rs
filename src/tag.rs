@@ -109,6 +109,7 @@ impl fmt::Display for Tag {
 
 /// An enum that indicates how a tag number is interpreted.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub enum Context {
     /// TIFF attributes defined in the TIFF Rev. 6.0 specification.
     Tiff,	// 0th/1st IFD (toplevel)

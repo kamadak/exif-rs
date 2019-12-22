@@ -30,6 +30,7 @@ use std::io;
 
 /// An error type returned when parsing Exif data.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Input data was malformed or truncated.
     InvalidFormat(&'static str),
