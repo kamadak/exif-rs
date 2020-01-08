@@ -502,9 +502,7 @@ fn compose_value<E>(value: &Value)
             Ok((5, vec.len(), buf))
         },
         Value::SByte(ref vec) => {
-            let bytes = vec.into_iter()
-                .map(|x| *x as u8)
-                .collect();
+            let bytes = vec.iter().map(|x| *x as u8).collect();
             Ok((6, vec.len(), bytes))
         },
         Value::Undefined(ref s, _) =>

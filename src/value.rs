@@ -364,9 +364,8 @@ fn parse_rational<E>(data: &[u8], offset: usize, count: usize)
 }
 
 fn parse_sbyte(data: &[u8], offset: usize, count: usize) -> Value {
-    let bytes = data[offset .. offset + count].into_iter()
-        .map(|x| *x as i8)
-        .collect();
+    let bytes = data[offset .. offset + count].iter()
+        .map(|x| *x as i8).collect();
     Value::SByte(bytes)
 }
 
