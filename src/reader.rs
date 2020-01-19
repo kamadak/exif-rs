@@ -29,6 +29,7 @@ use std::io;
 use std::io::Read;
 
 use crate::error::Error;
+use crate::isobmff;
 use crate::jpeg;
 use crate::tag::Tag;
 use crate::tiff;
@@ -85,6 +86,40 @@ impl Reader {
             buf = exif_buf;
         } else if tiff::is_tiff(&buf) {
             reader.read_to_end(&mut buf)?;
+        } else {
+            return Err(Error::InvalidFormat("Unknown image format"));
+        }
+
+        let (entries, le) = tiff::parse_exif(&buf)?;
+        let entry_map = entries.iter().enumerate()
+            .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
+
+        Ok(Reader {
+            buf: buf,
+            entries: entries,
+            entry_map: entry_map,
+            little_endian: le,
+        })
+    }
+
+    /// Reads an image file and parses the Exif attributes in it.
+    /// If an error occurred, `exif::Error` is returned.
+    ///
+    /// Supported formats are HEIF, JPEG, and TIFF.
+    ///
+    /// This method is provided for the convenience even though
+    /// parsing containers is basically out of the scope of this library.
+    pub fn read_from_container<R>(reader: &mut R) -> Result<Reader, Error>
+    where R: io::BufRead + io::Seek {
+        let mut buf = Vec::new();
+        reader.by_ref().take(4096).read_to_end(&mut buf)?;
+        if tiff::is_tiff(&buf) {
+            reader.read_to_end(&mut buf)?;
+        } else if jpeg::is_jpeg(&buf) {
+            buf = jpeg::get_exif_attr(&mut buf.chain(reader))?;
+        } else if isobmff::is_heif(&buf) {
+            reader.seek(io::SeekFrom::Start(0))?;
+            buf = isobmff::get_exif_attr(reader)?;
         } else {
             return Err(Error::InvalidFormat("Unknown image format"));
         }
@@ -184,5 +219,15 @@ mod tests {
         let gpslat = reader.get_field(Tag::GPSLatitude, In::PRIMARY).unwrap();
         assert_eq!(gpslat.display_value().with_unit(&reader).to_string(),
                    "10 deg 0 min 0 sec [GPSLatitudeRef missing]");
+    }
+
+    #[test]
+    fn heif() {
+        let file = std::fs::File::open("tests/exif.heic").unwrap();
+        let reader = Reader::read_from_container(
+            &mut std::io::BufReader::new(&file)).unwrap();
+        assert_eq!(reader.fields().len(), 2);
+        let exifver = reader.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
+        assert_eq!(exifver.display_value().to_string(), "2.31");
     }
 }

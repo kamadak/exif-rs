@@ -42,7 +42,8 @@ fn main() {
 
 fn dump_file(path: &Path) -> Result<(), exif::Error> {
     let file = File::open(path)?;
-    let reader = exif::Reader::new(&mut BufReader::new(&file))?;
+    let reader = exif::Reader::read_from_container(
+        &mut BufReader::new(&file))?;
 
     println!("{}", path.display());
     for f in reader.fields() {
