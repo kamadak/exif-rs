@@ -37,7 +37,8 @@ pub enum Error {
     /// Input data could not be read due to an I/O error and
     /// a `std::io::Error` value is associated with this variant.
     Io(io::Error),
-    /// Exif attribute information was not found in JPEG data.
+    /// Exif attribute information was not found in an image file
+    /// such as JPEG.
     NotFound(&'static str),
     /// The value of the field is blank.  Some fields have blank values
     /// whose meanings are defined as "unknown".  Such a blank value

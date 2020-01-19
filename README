@@ -29,8 +29,10 @@ Dependencies
 
    Rust 1.40 or later is required to build.
 
-Specifications
---------------
+Standards
+---------
 
    -  Exif Version 2.31
    -  TIFF Revision 6.0
+   -  ISO/IEC 14496-12:2015
+   -  ISO/IEC 23008-12:2017
