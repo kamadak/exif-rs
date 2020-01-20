@@ -47,19 +47,6 @@ use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
 /// assert_eq!(xres.display_value().with_unit(&reader).to_string(),
 ///            "72 pixels per inch");
 /// ```
-//
-// The struct Reader is self-contained, which means that it does not
-// have any external reference.  The `fields` field actually refers to
-// the `buf` field.  The type system of the current Rust (as of 1.15)
-// cannot represent this, so the static lifetime is used to trick it.
-//
-// This struct can be moved because the contents of a Vec are allocated
-// in the heap and do not change their addresses by the move.
-//
-// The static lifetime is a lie and it must be kept secret in this struct.
-// - This struct must not be destructured by the users.
-// - The `fields` must be adjusted to refer the struct itself when
-//   returned to the outside world.
 pub struct Reader {
     // TIFF data.
     buf: Vec<u8>,
