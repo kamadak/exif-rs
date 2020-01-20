@@ -37,7 +37,7 @@ use std::path::Path;
 
 #[cfg(not(test))]
 use exif::Error;
-use exif::{In, Reader, Value, Tag};
+use exif::{Exif, In, Reader, Value, Tag};
 use exif::experimental::Writer;
 
 #[test]
@@ -61,24 +61,25 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
 
     // Read.
     let file = File::open(path).unwrap();
+    let mut bufreader = BufReader::new(&file);
     #[cfg(test)]
-    let reader1 = Reader::new(&mut BufReader::new(&file)).unwrap();
+    let exif1 = Reader::new().read_from_container(&mut bufreader).unwrap();
     #[cfg(not(test))]
-    let reader1 = match Reader::new(&mut BufReader::new(&file)) {
-        Ok(reader) => reader,
+    let exif1 = match Reader::new().read_from_container(&mut bufreader) {
+        Ok(exif) => exif,
         Err(e) => {
             println!("{}: {}: Skipped", path.display(), e);
             return;
         },
     };
-    let strips = get_strips(&reader1, In::PRIMARY);
-    let tn_strips = get_strips(&reader1, In::THUMBNAIL);
-    let tiles = get_tiles(&reader1, In::PRIMARY);
-    let tn_jpeg = get_jpeg(&reader1, In::THUMBNAIL);
+    let strips = get_strips(&exif1, In::PRIMARY);
+    let tn_strips = get_strips(&exif1, In::THUMBNAIL);
+    let tiles = get_tiles(&exif1, In::PRIMARY);
+    let tn_jpeg = get_jpeg(&exif1, In::THUMBNAIL);
 
     // Write.
     let mut writer = Writer::new();
-    for f in reader1.fields() {
+    for f in exif1.fields() {
         writer.push_field(f);
     }
     if let Some(ref strips) = strips {
@@ -95,9 +96,9 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
     }
     let mut out = Cursor::new(Vec::new());
     #[cfg(test)]
-    writer.write(&mut out, reader1.little_endian()).unwrap();
+    writer.write(&mut out, exif1.little_endian()).unwrap();
     #[cfg(not(test))]
-    match writer.write(&mut out, reader1.little_endian()) {
+    match writer.write(&mut out, exif1.little_endian()) {
         Ok(_) => {},
         Err(Error::NotSupported(_)) => {
             println!("{}: Contains unknown type", path.display());
@@ -108,12 +109,12 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
     let out = out.into_inner();
 
     // Re-read.
-    let reader2 = Reader::new(&mut &out[..]).unwrap();
+    let exif2 = Reader::new().read_raw(out).unwrap();
 
     // Sort the fields (some files have wrong tag order).
-    let mut fields1 = reader1.fields().collect::<Vec<_>>();
+    let mut fields1 = exif1.fields().collect::<Vec<_>>();
     fields1.sort_by_key(|f| (f.ifd_num, f.tag));
-    let mut fields2 = reader2.fields().collect::<Vec<_>>();
+    let mut fields2 = exif2.fields().collect::<Vec<_>>();
     fields2.sort_by_key(|f| (f.ifd_num, f.tag));
 
     // Compare.
@@ -128,10 +129,10 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
         }
         compare_field_value(&f1.value, &f2.value);
     }
-    assert_eq!(get_strips(&reader2, In::PRIMARY), strips);
-    assert_eq!(get_strips(&reader2, In::THUMBNAIL), tn_strips);
-    assert_eq!(get_tiles(&reader2, In::PRIMARY), tiles);
-    assert_eq!(get_jpeg(&reader2, In::THUMBNAIL), tn_jpeg);
+    assert_eq!(get_strips(&exif2, In::PRIMARY), strips);
+    assert_eq!(get_strips(&exif2, In::THUMBNAIL), tn_strips);
+    assert_eq!(get_tiles(&exif2, In::PRIMARY), tiles);
+    assert_eq!(get_jpeg(&exif2, In::THUMBNAIL), tn_jpeg);
 }
 
 // Compare field values.
@@ -176,27 +177,27 @@ fn compare_field_value(value1: &Value, value2: &Value) {
     }
 }
 
-fn get_strips(reader: &Reader, ifd_num: In) -> Option<Vec<&[u8]>> {
-    let offsets = reader.get_field(Tag::StripOffsets, ifd_num)
+fn get_strips(exif: &Exif, ifd_num: In) -> Option<Vec<&[u8]>> {
+    let offsets = exif.get_field(Tag::StripOffsets, ifd_num)
         .and_then(|f| f.value.iter_uint());
-    let counts = reader.get_field(Tag::StripByteCounts, ifd_num)
+    let counts = exif.get_field(Tag::StripByteCounts, ifd_num)
         .and_then(|f| f.value.iter_uint());
     let (offsets, counts) = match (offsets, counts) {
         (Some(offsets), Some(counts)) => (offsets, counts),
         (None, None) => return None,
         _ => panic!("inconsistent strip offsets and byte counts"),
     };
-    let buf = reader.buf();
+    let buf = exif.buf();
     assert_eq!(offsets.len(), counts.len());
     let strips = offsets.zip(counts).map(
         |(ofs, cnt)| &buf[ofs as usize .. (ofs + cnt) as usize]).collect();
     Some(strips)
 }
 
-fn get_tiles(reader: &Reader, ifd_num: In) -> Option<Vec<&[u8]>> {
-    let offsets = reader.get_field(Tag::TileOffsets, ifd_num)
+fn get_tiles(exif: &Exif, ifd_num: In) -> Option<Vec<&[u8]>> {
+    let offsets = exif.get_field(Tag::TileOffsets, ifd_num)
         .and_then(|f| f.value.iter_uint());
-    let counts = reader.get_field(Tag::TileByteCounts, ifd_num)
+    let counts = exif.get_field(Tag::TileByteCounts, ifd_num)
         .and_then(|f| f.value.iter_uint());
     let (offsets, counts) = match (offsets, counts) {
         (Some(offsets), Some(counts)) => (offsets, counts),
@@ -204,22 +205,22 @@ fn get_tiles(reader: &Reader, ifd_num: In) -> Option<Vec<&[u8]>> {
         _ => panic!("inconsistent tile offsets and byte counts"),
     };
     assert_eq!(offsets.len(), counts.len());
-    let buf = reader.buf();
+    let buf = exif.buf();
     let strips = offsets.zip(counts).map(
         |(ofs, cnt)| &buf[ofs as usize .. (ofs + cnt) as usize]).collect();
     Some(strips)
 }
 
-fn get_jpeg(reader: &Reader, ifd_num: In) -> Option<&[u8]> {
-    let offset = reader.get_field(Tag::JPEGInterchangeFormat, ifd_num)
+fn get_jpeg(exif: &Exif, ifd_num: In) -> Option<&[u8]> {
+    let offset = exif.get_field(Tag::JPEGInterchangeFormat, ifd_num)
         .and_then(|f| f.value.get_uint(0));
-    let len = reader.get_field(Tag::JPEGInterchangeFormatLength, ifd_num)
+    let len = exif.get_field(Tag::JPEGInterchangeFormatLength, ifd_num)
         .and_then(|f| f.value.get_uint(0));
     let (offset, len) = match (offset, len) {
         (Some(offset), Some(len)) => (offset as usize, len as usize),
         (None, None) => return None,
         _ => panic!("inconsistent JPEG offset and length"),
     };
-    let buf = reader.buf();
+    let buf = exif.buf();
     Some(&buf[offset..offset+len])
 }

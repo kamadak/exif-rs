@@ -42,14 +42,14 @@ fn main() {
 
 fn dump_file(path: &Path) -> Result<(), exif::Error> {
     let file = File::open(path)?;
-    let reader = exif::Reader::read_from_container(
+    let exif = exif::Reader::new().read_from_container(
         &mut BufReader::new(&file))?;
 
     println!("{}", path.display());
-    for f in reader.fields() {
+    for f in exif.fields() {
         println!("  {}/{}: {}",
                  f.ifd_num.index(), f.tag,
-                 f.display_value().with_unit(&reader));
+                 f.display_value().with_unit(&exif));
         if let exif::Value::Ascii(ref v) = f.value {
             println!("      Ascii({:?})",
                      v.iter().map(|x| escape(x)).collect::<Vec<_>>());

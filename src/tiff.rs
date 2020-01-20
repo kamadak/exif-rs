@@ -379,9 +379,9 @@ impl Field {
     ///
     /// To print the value with the unit, call `with_unit` method on the
     /// returned object.  It takes a parameter, which is either `()`,
-    /// `&Field`, or `&Reader` and provides the unit information.
+    /// `&Field`, or `&Exif` and provides the unit information.
     /// If the unit does not depend on another field, `()` can be used.
-    /// Otherwise, `&Field` or `&Reader` should be used.
+    /// Otherwise, `&Field` or `&Exif` should be used.
     ///
     /// # Examples
     ///

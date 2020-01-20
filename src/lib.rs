@@ -35,11 +35,11 @@
 //! ```
 //! for path in &["tests/exif.jpg", "tests/exif.tif"] {
 //!     let file = std::fs::File::open(path).unwrap();
-//!     let reader = exif::Reader::new(
+//!     let exif = exif::Reader::new().read_from_container(
 //!         &mut std::io::BufReader::new(&file)).unwrap();
-//!     for f in reader.fields() {
+//!     for f in exif.fields() {
 //!         println!("{} {} {}",
-//!                  f.tag, f.ifd_num, f.display_value().with_unit(&reader));
+//!                  f.tag, f.ifd_num, f.display_value().with_unit(&exif));
 //!     }
 //! }
 //! ```
@@ -54,7 +54,7 @@
 //!     reader.get_field(Tag::DateTime, false)
 //!     ```
 //!     The new code in 0.4.x:
-//!     ```
+//!     ```ignore
 //!     # use exif::{In, Reader, Tag};
 //!     # let file = std::fs::File::open("tests/exif.tif").unwrap();
 //!     # let reader = Reader::new(
@@ -64,7 +64,7 @@
 //!     ```
 //!     As an additional feature, access to the 2nd or further IFD,
 //!     which some RAW formats may have, is also possible in 0.4.x:
-//!     ```
+//!     ```ignore
 //!     # use exif::{In, Reader, Tag};
 //!     # let file = std::fs::File::open("tests/exif.tif").unwrap();
 //!     # let reader = Reader::new(
@@ -84,9 +84,9 @@
 //!     ```
 //!     # use exif::{In, Reader};
 //!     # let file = std::fs::File::open("tests/exif.tif").unwrap();
-//!     # let reader = Reader::new(
+//!     # let exif = Reader::new().read_from_container(
 //!     #     &mut std::io::BufReader::new(&file)).unwrap();
-//!     # let field = reader.fields().next().unwrap();
+//!     # let field = exif.fields().next().unwrap();
 //!     match field.ifd_num {
 //!         In::PRIMARY => {},   // for the primary image
 //!         In::THUMBNAIL => {}, // for the thumbnail image
@@ -105,14 +105,14 @@
 //!   It is usually handier than `Value::display_as`.
 //!   ```
 //!   # let file = std::fs::File::open("tests/exif.tif").unwrap();
-//!   # let reader = exif::Reader::new(
+//!   # let exif = exif::Reader::new().read_from_container(
 //!   #     &mut std::io::BufReader::new(&file)).unwrap();
-//!   # let field = reader.fields().next().unwrap();
+//!   # let field = exif.fields().next().unwrap();
 //!   assert_eq!(field.display_value().to_string(),
 //!              field.value.display_as(field.tag).to_string());
 //!   ```
 //! * Displaying a value with its unit is supported.
-//!   ```
+//!   ```ignore
 //!   # let file = std::fs::File::open("tests/exif.tif").unwrap();
 //!   # let reader = exif::Reader::new(
 //!   #     &mut std::io::BufReader::new(&file)).unwrap();
@@ -129,7 +129,7 @@
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
-pub use reader::Reader;
+pub use reader::{Exif, Reader};
 pub use tag::{Context, Tag};
 pub use tiff::{DateTime, Field, In};
 pub use tiff::parse_exif_compat03 as parse_exif;

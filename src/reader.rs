@@ -35,53 +35,37 @@ use crate::tag::Tag;
 use crate::tiff;
 use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
 
-/// The `Reader` struct reads a JPEG or TIFF image,
-/// parses the Exif attributes in it, and holds the results.
+/// The `Reader` struct parses the Exif attributes and
+/// returns `Exif` struct that holds the results.
 ///
 /// # Examples
 /// ```
 /// use exif::{In, Reader, Tag};
 /// let file = std::fs::File::open("tests/exif.jpg").unwrap();
-/// let reader = Reader::new(&mut std::io::BufReader::new(&file)).unwrap();
-/// let xres = reader.get_field(Tag::XResolution, In::PRIMARY).unwrap();
-/// assert_eq!(xres.display_value().with_unit(&reader).to_string(),
+/// let exif = Reader::new().read_from_container(
+///     &mut std::io::BufReader::new(&file)).unwrap();
+/// let xres = exif.get_field(Tag::XResolution, In::PRIMARY).unwrap();
+/// assert_eq!(xres.display_value().with_unit(&exif).to_string(),
 ///            "72 pixels per inch");
 /// ```
 pub struct Reader {
-    // TIFF data.
-    buf: Vec<u8>,
-    // Exif fields.  Vec is used to keep the ability to enumerate all fields
-    // even if there are duplicates.
-    entries: Vec<IfdEntry>,
-    // HashMap to the index of the Vec for faster random access.
-    entry_map: HashMap<(In, Tag), usize>,
-    // True if the TIFF data is little endian.
-    little_endian: bool,
 }
 
 impl Reader {
-    /// Reads a JPEG or TIFF image and parses the Exif attributes in it.
-    /// If an error occurred, `exif::Error` is returned.
-    pub fn new<R>(reader: &mut R)
-                  -> Result<Reader, Error> where R: io::BufRead {
-        // Parse the data.
-        let mut buf = Vec::new();
-        reader.by_ref().take(4).read_to_end(&mut buf)?;
-        if jpeg::is_jpeg(&buf) {
-            let exif_buf = jpeg::get_exif_attr(
-                &mut buf.as_mut_slice().chain(reader))?;
-            buf = exif_buf;
-        } else if tiff::is_tiff(&buf) {
-            reader.read_to_end(&mut buf)?;
-        } else {
-            return Err(Error::InvalidFormat("Unknown image format"));
-        }
+    /// Construct a new `Reader`.
+    pub fn new() -> Self {
+        Self {}
+    }
 
+    /// Parses the Exif attributes from raw Exif data.
+    /// If an error occurred, `exif::Error` is returned.
+    pub fn read_raw(&self, data: Vec<u8>) -> Result<Exif, Error> {
+        let buf = data;
         let (entries, le) = tiff::parse_exif(&buf)?;
         let entry_map = entries.iter().enumerate()
             .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
 
-        Ok(Reader {
+        Ok(Exif {
             buf: buf,
             entries: entries,
             entry_map: entry_map,
@@ -96,7 +80,7 @@ impl Reader {
     ///
     /// This method is provided for the convenience even though
     /// parsing containers is basically out of the scope of this library.
-    pub fn read_from_container<R>(reader: &mut R) -> Result<Reader, Error>
+    pub fn read_from_container<R>(&self, reader: &mut R) -> Result<Exif, Error>
     where R: io::BufRead + io::Seek {
         let mut buf = Vec::new();
         reader.by_ref().take(4096).read_to_end(&mut buf)?;
@@ -115,14 +99,45 @@ impl Reader {
         let entry_map = entries.iter().enumerate()
             .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
 
-        Ok(Reader {
+        Ok(Exif {
             buf: buf,
             entries: entries,
             entry_map: entry_map,
             little_endian: le,
         })
     }
+}
 
+/// The `Exif` struct holds the parsed Exif attributes.
+///
+/// # Examples
+/// ```
+/// # use exif::{In, Reader, Tag};
+/// # let file = std::fs::File::open("tests/exif.jpg").unwrap();
+/// # let exif = Reader::new().read_from_container(
+/// #     &mut std::io::BufReader::new(&file)).unwrap();
+/// // Get a specific field.
+/// let xres = exif.get_field(Tag::XResolution, In::PRIMARY).unwrap();
+/// assert_eq!(xres.display_value().with_unit(&exif).to_string(),
+///            "72 pixels per inch");
+/// // Iterate over all fields.
+/// for f in exif.fields() {
+///     println!("{} {} {}", f.tag, f.ifd_num, f.display_value());
+/// }
+/// ```
+pub struct Exif {
+    // TIFF data.
+    buf: Vec<u8>,
+    // Exif fields.  Vec is used to keep the ability to enumerate all fields
+    // even if there are duplicates.
+    entries: Vec<IfdEntry>,
+    // HashMap to the index of the Vec for faster random access.
+    entry_map: HashMap<(In, Tag), usize>,
+    // True if the TIFF data is little endian.
+    little_endian: bool,
+}
+
+impl Exif {
     /// Returns the slice that contains the TIFF data.
     #[inline]
     pub fn buf(&self) -> &[u8] {
@@ -151,7 +166,7 @@ impl Reader {
     }
 }
 
-impl<'a> ProvideUnit<'a> for &'a Reader {
+impl<'a> ProvideUnit<'a> for &'a Exif {
     fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field> {
         self.get_field(tag, ifd_num)
     }
@@ -167,16 +182,17 @@ mod tests {
     #[test]
     fn get_field() {
         let file = File::open("tests/yaminabe.tif").unwrap();
-        let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
-        match reader.get_field(Tag::ImageDescription, In(0)).unwrap().value {
+        let exif = Reader::new().read_from_container(
+            &mut BufReader::new(&file)).unwrap();
+        match exif.get_field(Tag::ImageDescription, In(0)).unwrap().value {
             Value::Ascii(ref vec) => assert_eq!(vec, &[b"Test image"]),
             ref v => panic!("wrong variant {:?}", v)
         }
-        match reader.get_field(Tag::ImageDescription, In(1)).unwrap().value {
+        match exif.get_field(Tag::ImageDescription, In(1)).unwrap().value {
             Value::Ascii(ref vec) => assert_eq!(vec, &[b"Test thumbnail"]),
             ref v => panic!("wrong variant {:?}", v)
         }
-        match reader.get_field(Tag::ImageDescription, In(2)).unwrap().value {
+        match exif.get_field(Tag::ImageDescription, In(2)).unwrap().value {
             Value::Ascii(ref vec) => assert_eq!(vec, &[b"Test 2nd IFD"]),
             ref v => panic!("wrong variant {:?}", v)
         }
@@ -185,36 +201,37 @@ mod tests {
     #[test]
     fn display_value_with_unit() {
         let file = File::open("tests/yaminabe.tif").unwrap();
-        let reader = Reader::new(&mut BufReader::new(&file)).unwrap();
+        let exif = Reader::new().read_from_container(
+            &mut BufReader::new(&file)).unwrap();
         // No unit.
-        let exifver = reader.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
-        assert_eq!(exifver.display_value().with_unit(&reader).to_string(),
+        let exifver = exif.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
+        assert_eq!(exifver.display_value().with_unit(&exif).to_string(),
                    "2.31");
         // Fixed string.
-        let width = reader.get_field(Tag::ImageWidth, In::PRIMARY).unwrap();
-        assert_eq!(width.display_value().with_unit(&reader).to_string(),
+        let width = exif.get_field(Tag::ImageWidth, In::PRIMARY).unwrap();
+        assert_eq!(width.display_value().with_unit(&exif).to_string(),
                    "17 pixels");
         // Unit tag (with a non-default value).
-        let gpsalt = reader.get_field(Tag::GPSAltitude, In::PRIMARY).unwrap();
-        assert_eq!(gpsalt.display_value().with_unit(&reader).to_string(),
+        let gpsalt = exif.get_field(Tag::GPSAltitude, In::PRIMARY).unwrap();
+        assert_eq!(gpsalt.display_value().with_unit(&exif).to_string(),
                    "0.5 meters below sea level");
         // Unit tag is missing but the default is specified.
-        let xres = reader.get_field(Tag::XResolution, In::PRIMARY).unwrap();
-        assert_eq!(xres.display_value().with_unit(&reader).to_string(),
+        let xres = exif.get_field(Tag::XResolution, In::PRIMARY).unwrap();
+        assert_eq!(xres.display_value().with_unit(&exif).to_string(),
                    "72 pixels per inch");
         // Unit tag is missing and the default is not specified.
-        let gpslat = reader.get_field(Tag::GPSLatitude, In::PRIMARY).unwrap();
-        assert_eq!(gpslat.display_value().with_unit(&reader).to_string(),
+        let gpslat = exif.get_field(Tag::GPSLatitude, In::PRIMARY).unwrap();
+        assert_eq!(gpslat.display_value().with_unit(&exif).to_string(),
                    "10 deg 0 min 0 sec [GPSLatitudeRef missing]");
     }
 
     #[test]
     fn heif() {
         let file = std::fs::File::open("tests/exif.heic").unwrap();
-        let reader = Reader::read_from_container(
+        let exif = Reader::new().read_from_container(
             &mut std::io::BufReader::new(&file)).unwrap();
-        assert_eq!(reader.fields().len(), 2);
-        let exifver = reader.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
+        assert_eq!(exif.fields().len(), 2);
+        let exifver = exif.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
         assert_eq!(exifver.display_value().to_string(), "2.31");
     }
 }
