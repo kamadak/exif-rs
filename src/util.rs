@@ -42,6 +42,12 @@ pub fn read16<R>(reader: &mut R) -> Result<u16, io::Error> where R: io::Read {
     Ok(u16::from_be_bytes(buf))
 }
 
+pub fn read64<R>(reader: &mut R) -> Result<u64, io::Error> where R: io::Read {
+    let mut buf = [0u8; 8];
+    reader.read_exact(&mut buf)?;
+    Ok(u64::from_be_bytes(buf))
+}
+
 // This function must not be called with more than 4 bytes.
 pub fn atou16(bytes: &[u8]) -> Result<u16, Error> {
     if cfg!(debug_assertions) && bytes.len() >= 5 {

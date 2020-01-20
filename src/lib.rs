@@ -147,6 +147,7 @@ mod tmacro;
 
 mod endian;
 mod error;
+mod isobmff;
 mod jpeg;
 mod reader;
 mod tag;
