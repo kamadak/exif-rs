@@ -172,8 +172,9 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
         // because the "heic", "heix", "heim", and "heis" files shall
         // include "mif1" among the compatible brands [ISO23008-12 B.4.1]
         // [ISO23008-12 B.4.3].
+        // Same for "msf1" [ISO23008-12 B.4.2] [ISO23008-12 B.4.4].
         while let Ok(compat_brand) = boxp.slice(4) {
-            if compat_brand == b"mif1" {
+            if compat_brand == b"mif1" || compat_brand == b"msf1" {
                 return Ok(());
             }
         }
@@ -329,7 +330,8 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
 
 pub fn is_heif(buf: &[u8]) -> bool {
     static HEIF_BRANDS: &[&[u8]] =
-        &[b"mif1", b"heic", b"heix", b"heim", b"heis"];
+        &[b"mif1", b"heic", b"heix", b"heim", b"heis",
+          b"msf1", b"hevc", b"hevx", b"hevm", b"hevs"];
     let mut boxp = BoxSplitter::new(buf);
     while let Ok((boxtype, mut body)) = boxp.child_box() {
         if boxtype == b"ftyp" {
