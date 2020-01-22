@@ -31,6 +31,12 @@ use crate::endian::{Endian, BigEndian};
 use crate::error::Error;
 use crate::util::read64;
 
+// Checking "mif1" in the compatible brands should be enough, because
+// the "heic", "heix", "heim", and "heis" files shall include "mif1"
+// among the compatible brands [ISO23008-12 B.4.1] [ISO23008-12 B.4.3].
+// Same for "msf1" [ISO23008-12 B.4.2] [ISO23008-12 B.4.4].
+static HEIF_BRANDS: &[[u8; 4]] = &[*b"mif1", *b"msf1"];
+
 // Most errors in this file are Error::InvalidFormat.
 impl From<&'static str> for Error {
     fn from(err: &'static str) -> Error {
@@ -168,13 +174,8 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
         let head = boxp.slice(8)?;
         let _major_brand = &head[0..4];
         let _minor_version = BigEndian::loadu32(&head, 4);
-        // Checking "mif1" in the compatible brands should be enough,
-        // because the "heic", "heix", "heim", and "heis" files shall
-        // include "mif1" among the compatible brands [ISO23008-12 B.4.1]
-        // [ISO23008-12 B.4.3].
-        // Same for "msf1" [ISO23008-12 B.4.2] [ISO23008-12 B.4.4].
-        while let Ok(compat_brand) = boxp.slice(4) {
-            if compat_brand == b"mif1" || compat_brand == b"msf1" {
+        while let Ok(compat_brand) = boxp.array4() {
+            if HEIF_BRANDS.contains(&compat_brand) {
                 return Ok(());
             }
         }
@@ -329,15 +330,18 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
 }
 
 pub fn is_heif(buf: &[u8]) -> bool {
-    static HEIF_BRANDS: &[&[u8]] =
-        &[b"mif1", b"heic", b"heix", b"heim", b"heis",
-          b"msf1", b"hevc", b"hevx", b"hevm", b"hevs"];
     let mut boxp = BoxSplitter::new(buf);
     while let Ok((boxtype, mut body)) = boxp.child_box() {
         if boxtype == b"ftyp" {
-            return body.slice(4)
-                .map(|major_brand| HEIF_BRANDS.contains(&major_brand))
-                .unwrap_or(false);
+            let _major_brand_minor_version = if body.slice(8).is_err() {
+                return false;
+            };
+            while let Ok(compat_brand) = body.array4() {
+                if HEIF_BRANDS.contains(&compat_brand) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
     false
@@ -403,6 +407,11 @@ impl<'a> BoxSplitter<'a> {
         self.slice(8).map(|num| BigEndian::loadu64(num, 0))
     }
 
+    fn array4(&mut self) -> Result<[u8; 4], Error> {
+        self.slice(4).map(|x| std::convert::TryFrom::try_from(x)
+                          .expect("never happen"))
+    }
+
     fn slice(&mut self, at: usize) -> Result<&'a [u8], Error> {
         let slice = self.inner.get(..at).ok_or("Box too small")?;
         self.inner = &self.inner[at..];
@@ -460,10 +469,31 @@ mod tests {
     }
 
     #[test]
-    fn is_heif() {
-        assert!(super::is_heif(b"\0\0\0\x0cftypmif1"));
-        assert!(!super::is_heif(b"\0\0\0\x0bftypmif1"));
-        assert!(!super::is_heif(b"\0\0\0\x0cftypmif"));
+    fn is_heif_test() {
+        // HEIF (with any coding format)
+        assert!(is_heif(b"\0\0\0\x14ftypmif1\0\0\0\0mif1"));
+        // HEIC
+        assert!(is_heif(b"\0\0\0\x18ftypheic\0\0\0\0heicmif1"));
+        // HEIC image sequence
+        assert!(is_heif(b"\0\0\0\x18ftyphevc\0\0\0\0msf1hevc"));
+        // unknown major brand but compatible with HEIF
+        assert!(is_heif(b"\0\0\0\x18ftypXXXX\0\0\0\0XXXXmif1"));
+        // incomplete brand (OK to ignore?)
+        assert!(is_heif(b"\0\0\0\x15ftypmif1\0\0\0\0mif1h"));
+        assert!(is_heif(b"\0\0\0\x16ftypmif1\0\0\0\0mif1he"));
+        assert!(is_heif(b"\0\0\0\x17ftypmif1\0\0\0\0mif1hei"));
+        // ISO base media file but not a HEIF
+        assert!(!is_heif(b"\0\0\0\x14ftypmp41\0\0\0\0mp41"));
+        // missing compatible brands (what should we do?)
+        assert!(!is_heif(b"\0\0\0\x10ftypmif1\0\0\0\0"));
+        // truncated box
+        let mut data: &[u8] = b"\0\0\0\x14ftypmif1\0\0\0\0mif1";
+        while let Some((_, rest)) = data.split_last() {
+            data = rest;
+            assert!(!is_heif(data));
+        }
+        // short box size
+        assert!(!is_heif(b"\0\0\0\x13ftypmif1\0\0\0\0mif1"));
     }
 
     #[test]
