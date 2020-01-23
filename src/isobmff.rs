@@ -179,7 +179,7 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
                 return Ok(());
             }
         }
-        Err("Not a HEIF file".into())
+        Err("No compatible brand recognized in ISO base media file".into())
     }
 
     fn parse_meta(&mut self, mut boxp: BoxSplitter) -> Result<Vec<u8>, Error> {
