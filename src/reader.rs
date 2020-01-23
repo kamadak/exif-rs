@@ -144,7 +144,7 @@ impl Exif {
         &self.buf[..]
     }
 
-    /// Returns a slice of Exif fields.
+    /// Returns an iterator of Exif fields.
     #[inline]
     pub fn fields(&self) -> impl ExactSizeIterator<Item = &Field> {
         self.entries.iter()
