@@ -37,6 +37,8 @@ use crate::util::read64;
 // Same for "msf1" [ISO23008-12 B.4.2] [ISO23008-12 B.4.4].
 static HEIF_BRANDS: &[[u8; 4]] = &[*b"mif1", *b"msf1"];
 
+const MAX_EXIF_SIZE: usize = 65535;
+
 // Most errors in this file are Error::InvalidFormat.
 impl From<&'static str> for Error {
     fn from(err: &'static str) -> Error {
@@ -222,6 +224,9 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
                         return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
                                                   "truncated extent").into());
                     }
+                    if buf.len() > MAX_EXIF_SIZE {
+                        return Err("Exif data too large".into());
+                    }
                 }
             },
             1 => {
@@ -236,6 +241,9 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
                         0 => idat.get(off..),
                         _ => idat.get(off..end),
                     }.ok_or("Out of ItemDataBox")?);
+                    if buf.len() > MAX_EXIF_SIZE {
+                        return Err("Exif data too large".into());
+                    }
                 }
             },
             2 => return Err(Error::NotSupported(
