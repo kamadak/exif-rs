@@ -61,7 +61,7 @@ impl fmt::Display for Error {
         match *self {
             Error::InvalidFormat(msg) => f.write_str(msg),
             Error::Io(ref err) => err.fmt(f),
-            Error::NotFound(msg) => f.write_str(msg),
+            Error::NotFound(ctn) => write!(f, "No Exif data found in {}", ctn),
             Error::BlankValue(msg) => f.write_str(msg),
             Error::TooBig(msg) => f.write_str(msg),
             Error::NotSupported(msg) => f.write_str(msg),

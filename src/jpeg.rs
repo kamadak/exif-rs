@@ -81,7 +81,7 @@ fn get_exif_attr_sub<R>(reader: &mut R)
         match code {
             marker::Z | marker::TEM | marker::RST0..=marker::RST7 => continue,
             marker::SOI => return Err(Error::InvalidFormat("Unexpected SOI")),
-            marker::EOI => return Err(Error::NotFound("No Exif data found")),
+            marker::EOI => return Err(Error::NotFound("JPEG")),
             _ => {},
         }
         // Read marker segments.

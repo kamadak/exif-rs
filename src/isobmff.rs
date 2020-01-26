@@ -124,7 +124,7 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
                 _ => self.skip_file_level_box(size)?,
             }
         }
-        Err(Error::NotFound("No Exif data found"))
+        Err(Error::NotFound("HEIF"))
     }
 
     // Reads size, type, and largesize,
@@ -201,7 +201,7 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
             }
         }
 
-        self.item_id.ok_or(Error::NotFound("No Exif data found"))?;
+        self.item_id.ok_or(Error::NotFound("HEIF"))?;
         self.parse_iloc(iloc.ok_or("No ItemLocationBox")?)?;
         let location = self.item_location.as_ref()
             .ok_or("No matching item in ItemLocationBox")?;
