@@ -70,17 +70,6 @@ impl fmt::Display for Error {
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::InvalidFormat(msg) => msg,
-            Error::Io(ref err) => err.description(),
-            Error::NotFound(msg) => msg,
-            Error::BlankValue(msg) => msg,
-            Error::TooBig(msg) => msg,
-            Error::NotSupported(msg) => msg,
-        }
-    }
-
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
             Error::InvalidFormat(_) => None,
