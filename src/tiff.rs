@@ -379,7 +379,7 @@ impl Field {
     ///
     /// To print the value with the unit, call `with_unit` method on the
     /// returned object.  It takes a parameter, which is either `()`,
-    /// `&Field`, or `&Exif` and provides the unit information.
+    /// `&Field`, or `&Exif`, that provides the unit information.
     /// If the unit does not depend on another field, `()` can be used.
     /// Otherwise, `&Field` or `&Exif` should be used.
     ///
@@ -393,15 +393,15 @@ impl Field {
     ///     ifd_num: In::PRIMARY,
     ///     value: Value::Rational(vec![(72, 1).into()]),
     /// };
-    /// let cm = Field {
+    /// let resunit = Field {
     ///     tag: Tag::ResolutionUnit,
     ///     ifd_num: In::PRIMARY,
     ///     value: Value::Short(vec![3]),
     /// };
     /// assert_eq!(xres.display_value().to_string(), "72");
-    /// assert_eq!(cm.display_value().to_string(), "cm");
+    /// assert_eq!(resunit.display_value().to_string(), "cm");
     /// // The unit of XResolution is indicated by ResolutionUnit.
-    /// assert_eq!(xres.display_value().with_unit(&cm).to_string(),
+    /// assert_eq!(xres.display_value().with_unit(&resunit).to_string(),
     ///            "72 pixels per cm");
     /// // If ResolutionUnit is not given, the default value is used.
     /// assert_eq!(xres.display_value().with_unit(()).to_string(),
@@ -416,8 +416,10 @@ impl Field {
     /// };
     /// // The unit of the focal length is always mm, so the argument
     /// // has nothing to do with the result.
-    /// assert_eq!(flen.display_value().with_unit(()).to_string(), "24 mm");
-    /// assert_eq!(flen.display_value().with_unit(&cm).to_string(), "24 mm");
+    /// assert_eq!(flen.display_value().with_unit(()).to_string(),
+    ///            "24 mm");
+    /// assert_eq!(flen.display_value().with_unit(&resunit).to_string(),
+    ///            "24 mm");
     /// ```
     #[inline]
     pub fn display_value(&self) -> DisplayValue {

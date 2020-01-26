@@ -35,6 +35,9 @@ use crate::util::atou16;
 /// Some well-known tags are provided as associated constants of
 /// this type.  The constant names follow the Exif specification
 /// but not the Rust naming conventions.
+///
+/// A non-predefined tag can also be specified
+/// by the context and the number as in `Tag(Context::Tiff, 0x100)`.
 //
 // This is not an enum to keep safety and API stability, while
 // supporting unknown tag numbers.  This comment is based on the
@@ -220,11 +223,13 @@ generate_well_known_tag_constants!(
 
     /// A pointer to the Exif IFD.  This is used for the internal structure
     /// of Exif data and will not be returned to the user.
+    #[doc(hidden)]
     (ExifIFDPointer, 0x8769, DefaultValue::None, d_default,
      unit![],
      "Exif IFD pointer"),
     /// A pointer to the GPS IFD.  This is used for the internal structure
     /// of Exif data and will not be returned to the user.
+    #[doc(hidden)]
     (GPSInfoIFDPointer, 0x8825, DefaultValue::None, d_default,
      unit![],
      "GPS Info IFD pointer"),
@@ -233,6 +238,7 @@ generate_well_known_tag_constants!(
 
     /// A pointer to the interoperability IFD.  This is used for the internal
     /// structure of Exif data and will not be returned to the user.
+    #[doc(hidden)]
     (InteropIFDPointer, 0xa005, DefaultValue::None, d_default,
      unit![],
      "Interoperability IFD pointer"),

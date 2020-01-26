@@ -2,8 +2,13 @@ Exif parsing library written in pure Rust
 -----------------------------------------
 
    This is a pure-Rust library to parse Exif data.
-   This library can parse TIFF and JPEG images and extract Exif
-   attributes.
+   This library parses Exif attributes in a raw Exif data block.
+   It can also read Exif data directly from some image formats.
+
+   Supported formats are:
+   -  TIFF and some RAW image formats based on it
+   -  JPEG
+   -  HEIF and coding-specific variations including HEIC and AVIF
 
 Usage
 -----

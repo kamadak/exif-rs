@@ -25,8 +25,10 @@
 //
 
 //! This is a pure-Rust library to parse Exif data.
-//! This library can parse TIFF and JPEG images and extract Exif
-//! attributes.
+//!
+//! This library parses Exif attributes in a raw Exif data block.
+//! It can also read Exif data directly from some image formats
+//! including TIFF, JPEG, and HEIF.
 //!
 //! # Examples
 //!
@@ -35,8 +37,9 @@
 //! ```
 //! for path in &["tests/exif.jpg", "tests/exif.tif"] {
 //!     let file = std::fs::File::open(path).unwrap();
-//!     let exif = exif::Reader::new().read_from_container(
-//!         &mut std::io::BufReader::new(&file)).unwrap();
+//!     let mut bufreader = std::io::BufReader::new(&file);
+//!     let exifreader = exif::Reader::new();
+//!     let exif = exifreader.read_from_container(&mut bufreader).unwrap();
 //!     for f in exif.fields() {
 //!         println!("{} {} {}",
 //!                  f.tag, f.ifd_num, f.display_value().with_unit(&exif));
@@ -44,16 +47,48 @@
 //! }
 //! ```
 //!
-//! # Upgrade Guide (0.3.x to 0.4.x)
+//! # Upgrade Guide from 0.4.x to 0.5.x
+//!
+//! ## API compatibilities
+//!
+//! * `Reader` has been split into two: `Reader` and `Exif`.
+//!   `Reader` is now the builder for `Exif`, and `Exif` provides
+//!   access to `Field`s via `get_field`, `fields` and other methods.
+//!   Old code `Reader::new(data)` should be changed to
+//!   `Reader::new().read_raw(data)` or
+//!   `Reader::new().read_from_container(data)`.
+//!
+//!   The old code using 0.4.x:
+//!   ```ignore
+//!   # use exif::Reader;
+//!   # let file = std::fs::File::open("tests/exif.jpg").unwrap();
+//!   # let mut bufreader = std::io::BufReader::new(&file);
+//!   let reader = Reader::new(&mut bufreader).unwrap();
+//!   for f in reader.fields() { /* do something */ }
+//!   ```
+//!   The new code using 0.5.x:
+//!   ```
+//!   # use exif::{Exif, Reader};
+//!   # let file = std::fs::File::open("tests/exif.jpg").unwrap();
+//!   # let mut bufreader = std::io::BufReader::new(&file);
+//!   let exif = Reader::new().read_from_container(&mut bufreader).unwrap();
+//!   for f in exif.fields() { /* do something */ }
+//!   ```
+//!
+//! ## Other new features
+//!
+//! * Support for parsing Exif in HEIF (HEIC/AVIF) has been added.
+//!
+//! # Upgrade Guide from 0.3.x to 0.4.x
 //!
 //! ## API compatibilities
 //!
 //! * Use struct `In` instead of `bool` to indicate primary/thumbnail images.
-//!   - On `Reader::get_field`, the old code in 0.3.x:
+//!   - On `Reader::get_field`, the old code using 0.3.x:
 //!     ```ignore
 //!     reader.get_field(Tag::DateTime, false)
 //!     ```
-//!     The new code in 0.4.x:
+//!     The new code using 0.4.x:
 //!     ```ignore
 //!     # use exif::{In, Reader, Tag};
 //!     # let file = std::fs::File::open("tests/exif.tif").unwrap();
@@ -63,7 +98,8 @@
 //!     # ;
 //!     ```
 //!     As an additional feature, access to the 2nd or further IFD,
-//!     which some RAW formats may have, is also possible in 0.4.x:
+//!     which some TIFF-based RAW formats may have, is also possible
+//!     with 0.4.x:
 //!     ```ignore
 //!     # use exif::{In, Reader, Tag};
 //!     # let file = std::fs::File::open("tests/exif.tif").unwrap();
@@ -72,7 +108,7 @@
 //!     reader.get_field(Tag::ImageWidth, In(2))
 //!     # ;
 //!     ```
-//!   - On `Field`, the old code in 0.3.x:
+//!   - On `Field`, the old code using 0.3.x:
 //!     ```ignore
 //!     if field.thumbnail {
 //!         // for the thumbnail image
@@ -80,7 +116,7 @@
 //!         // for the primary image
 //!     }
 //!     ```
-//!     The new code in 0.4.x:
+//!     The new code using 0.4.x:
 //!     ```
 //!     # use exif::{In, Reader};
 //!     # let file = std::fs::File::open("tests/exif.tif").unwrap();

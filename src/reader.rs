@@ -35,8 +35,8 @@ use crate::tag::Tag;
 use crate::tiff;
 use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
 
-/// The `Reader` struct parses the Exif attributes and
-/// returns `Exif` struct that holds the results.
+/// A struct to parse the Exif attributes and
+/// create an `Exif` instance that holds the results.
 ///
 /// # Examples
 /// ```
@@ -76,7 +76,10 @@ impl Reader {
     /// Reads an image file and parses the Exif attributes in it.
     /// If an error occurred, `exif::Error` is returned.
     ///
-    /// Supported formats are HEIF, JPEG, and TIFF.
+    /// Supported formats are:
+    /// - TIFF and some RAW image formats based on it
+    /// - JPEG
+    /// - HEIF and coding-specific variations including HEIC and AVIF
     ///
     /// This method is provided for the convenience even though
     /// parsing containers is basically out of the scope of this library.
@@ -108,7 +111,7 @@ impl Reader {
     }
 }
 
-/// The `Exif` struct holds the parsed Exif attributes.
+/// A struct that holds the parsed Exif attributes.
 ///
 /// # Examples
 /// ```
@@ -151,7 +154,8 @@ impl Exif {
             .map(move |e| e.ref_field(&self.buf, self.little_endian))
     }
 
-    /// Returns true if the TIFF data is in the little-endian byte order.
+    /// Returns true if the Exif data (TIFF structure) is in the
+    /// little-endian byte order.
     #[inline]
     pub fn little_endian(&self) -> bool {
         self.little_endian

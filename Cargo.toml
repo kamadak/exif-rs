@@ -10,7 +10,7 @@ homepage = "https://github.com/kamadak/exif-rs"
 repository = "https://github.com/kamadak/exif-rs"
 readme = "README"
 keywords = ["Exif", "JPEG", "parser", "reader", "TIFF"]
-categories = ["multimedia::encoding", "parser-implementations"]
+categories = ["multimedia::encoding", "multimedia::images", "parser-implementations"]
 license = "BSD-2-Clause"
 
 [dependencies]
