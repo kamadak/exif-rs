@@ -273,10 +273,12 @@ pub fn is_tiff(buf: &[u8]) -> bool {
 ///
 /// # Examples
 /// ```
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// use exif::DateTime;
-/// let dt = DateTime::from_ascii(b"2016:05:04 03:02:01").unwrap();
+/// let dt = DateTime::from_ascii(b"2016:05:04 03:02:01")?;
 /// assert_eq!(dt.year, 2016);
 /// assert_eq!(dt.to_string(), "2016-05-04 03:02:01");
+/// # Ok(()) }
 /// ```
 #[derive(Debug)]
 pub struct DateTime {

@@ -40,13 +40,22 @@ use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
 ///
 /// # Examples
 /// ```
+/// # use std::fmt::{Display, Formatter, Result};
+/// # #[derive(Debug)] struct Error(&'static str);
+/// # impl std::error::Error for Error {}
+/// # impl Display for Error {
+/// #     fn fmt(&self, f: &mut Formatter) -> Result { f.write_str(self.0) }
+/// # }
+/// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 /// use exif::{In, Reader, Tag};
-/// let file = std::fs::File::open("tests/exif.jpg").unwrap();
-/// let exif = Reader::new().read_from_container(
-///     &mut std::io::BufReader::new(&file)).unwrap();
-/// let xres = exif.get_field(Tag::XResolution, In::PRIMARY).unwrap();
+/// let file = std::fs::File::open("tests/exif.jpg")?;
+/// let exif = Reader::new()
+///     .read_from_container(&mut std::io::BufReader::new(&file))?;
+/// let xres = exif.get_field(Tag::XResolution, In::PRIMARY)
+///     .ok_or(Error("tests/exif.jpg must have XResolution"))?;
 /// assert_eq!(xres.display_value().with_unit(&exif).to_string(),
 ///            "72 pixels per inch");
+/// # Ok(()) }
 /// ```
 pub struct Reader {
 }
@@ -115,18 +124,21 @@ impl Reader {
 ///
 /// # Examples
 /// ```
+/// # fn main() { sub(); }
+/// # fn sub() -> Option<()> {
 /// # use exif::{In, Reader, Tag};
 /// # let file = std::fs::File::open("tests/exif.jpg").unwrap();
 /// # let exif = Reader::new().read_from_container(
 /// #     &mut std::io::BufReader::new(&file)).unwrap();
 /// // Get a specific field.
-/// let xres = exif.get_field(Tag::XResolution, In::PRIMARY).unwrap();
+/// let xres = exif.get_field(Tag::XResolution, In::PRIMARY)?;
 /// assert_eq!(xres.display_value().with_unit(&exif).to_string(),
 ///            "72 pixels per inch");
 /// // Iterate over all fields.
 /// for f in exif.fields() {
 ///     println!("{} {} {}", f.tag, f.ifd_num, f.display_value());
 /// }
+/// # Some(()) }
 /// ```
 pub struct Exif {
     // TIFF data.

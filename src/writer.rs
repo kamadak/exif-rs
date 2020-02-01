@@ -38,6 +38,7 @@ use crate::value::Value;
 /// # Examples
 ///
 /// ```
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// use exif::{Field, In, Tag, Value};
 /// use exif::experimental::Writer;
 /// let image_desc = Field {
@@ -48,13 +49,14 @@ use crate::value::Value;
 /// let mut writer = Writer::new();
 /// let mut buf = std::io::Cursor::new(Vec::new());
 /// writer.push_field(&image_desc);
-/// writer.write(&mut buf, false).unwrap();
+/// writer.write(&mut buf, false)?;
 /// static expected: &[u8] =
 ///     b"\x4d\x4d\x00\x2a\x00\x00\x00\x08\
 ///       \x00\x01\x01\x0e\x00\x02\x00\x00\x00\x07\x00\x00\x00\x1a\
 ///       \x00\x00\x00\x00\
 ///       Sample\0";
 /// assert_eq!(buf.into_inner(), expected);
+/// # Ok(()) }
 /// ```
 #[derive(Debug)]
 pub struct Writer<'a> {
