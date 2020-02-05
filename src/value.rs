@@ -25,11 +25,12 @@
 //
 
 use std::fmt;
+use std::fmt::Write as _;
 
 use crate::endian::Endian;
 
 /// Types and values of TIFF fields (for Exif attributes).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Value {
     /// Vector of 8-bit unsigned integers.
     Byte(Vec<u8>),
@@ -156,6 +157,65 @@ impl<'a> fmt::Display for Display<'a> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         (self.fmt)(f, self.value)
+    }
+}
+
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Byte(v) => f.debug_tuple("Byte").field(v).finish(),
+            Self::Ascii(v) => f.debug_tuple("Ascii")
+                .field(&IterDebugAdapter(
+                    || v.iter().map(|x| AsciiDebugAdapter(x)))).finish(),
+            Self::Short(v) => f.debug_tuple("Short").field(v).finish(),
+            Self::Long(v) => f.debug_tuple("Long").field(v).finish(),
+            Self::Rational(v) => f.debug_tuple("Rational").field(v).finish(),
+            Self::SByte(v) => f.debug_tuple("SByte").field(v).finish(),
+            Self::Undefined(v, o) => f.debug_tuple("Undefined")
+                .field(&HexDebugAdapter(v))
+                .field(&format_args!("ofs={:#x}", o)).finish(),
+            Self::SShort(v) => f.debug_tuple("SShort").field(v).finish(),
+            Self::SLong(v) => f.debug_tuple("SLong").field(v).finish(),
+            Self::SRational(v) => f.debug_tuple("SRational").field(v).finish(),
+            Self::Float(v) => f.debug_tuple("Float").field(v).finish(),
+            Self::Double(v) => f.debug_tuple("Double").field(v).finish(),
+            Self::Unknown(t, c, oo) => f.debug_tuple("Unknown")
+                .field(&format_args!("typ={}", t))
+                .field(&format_args!("cnt={}", c))
+                .field(&format_args!("ofs={:#x}", oo)).finish(),
+        }
+    }
+}
+
+struct IterDebugAdapter<F>(F);
+
+impl<F, T, I> fmt::Debug for IterDebugAdapter<F>
+where F: Fn() -> T, T: Iterator<Item = I>, I: fmt::Debug {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_list().entries(self.0()).finish()
+    }
+}
+
+struct AsciiDebugAdapter<'a>(&'a [u8]);
+
+impl<'a> fmt::Debug for AsciiDebugAdapter<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_char('"')?;
+        self.0.iter().try_for_each(|&c| match c {
+            b'\\' | b'"' => write!(f, "\\{}", c as char),
+            0x20..=0x7e => f.write_char(c as char),
+            _ => write!(f, "\\x{:02x}", c),
+        })?;
+        f.write_char('"')
+    }
+}
+
+struct HexDebugAdapter<'a>(&'a [u8]);
+
+impl<'a> fmt::Debug for HexDebugAdapter<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("0x")?;
+        self.0.iter().try_for_each(|x| write!(f, "{:02x}", x))
     }
 }
 
@@ -715,6 +775,38 @@ mod tests {
         assert_eq!(it.len(), 3);
         assert_eq!(it.next(), Some(1));
         assert_eq!(it.len(), 2);
+    }
+
+    #[test]
+    fn value_fmt_debug() {
+        let v = Value::Byte(b"b\0y".to_vec());
+        assert_eq!(format!("{:?}", v), "Byte([98, 0, 121])");
+        let v = Value::Ascii(vec![]);
+        assert_eq!(format!("{:?}", v), "Ascii([])");
+        let v = Value::Ascii(vec![b"abc\"\\\n\x7f".to_vec(), b"".to_vec()]);
+        assert_eq!(format!("{:?}", v), r#"Ascii(["abc\"\\\x0a\x7f", ""])"#);
+        let v = Value::Short(vec![]);
+        assert_eq!(format!("{:?}", v), "Short([])");
+        let v = Value::Long(vec![1, 2]);
+        assert_eq!(format!("{:?}", v), "Long([1, 2])");
+        let v = Value::Rational(vec![(0, 0).into()]);
+        assert_eq!(format!("{:?}", v), "Rational([Rational(0/0)])");
+        let v = Value::SByte(vec![-3, 4, 5]);
+        assert_eq!(format!("{:?}", v), "SByte([-3, 4, 5])");
+        let v = Value::Undefined(vec![0, 0xff], 0);
+        assert_eq!(format!("{:?}", v), "Undefined(0x00ff, ofs=0x0)");
+        let v = Value::SShort(vec![6, -7]);
+        assert_eq!(format!("{:?}", v), "SShort([6, -7])");
+        let v = Value::SLong(vec![-9]);
+        assert_eq!(format!("{:?}", v), "SLong([-9])");
+        let v = Value::SRational(vec![(-2, -1).into()]);
+        assert_eq!(format!("{:?}", v), "SRational([SRational(-2/-1)])");
+        let v = Value::Float(vec![1.5, 0.0]);
+        assert_eq!(format!("{:?}", v), "Float([1.5, 0.0])");
+        let v = Value::Double(vec![-0.5, 1.0]);
+        assert_eq!(format!("{:?}", v), "Double([-0.5, 1.0])");
+        let v = Value::Unknown(1, 2, 10);
+        assert_eq!(format!("{:?}", v), "Unknown(typ=1, cnt=2, ofs=0xa)");
     }
 
     #[test]

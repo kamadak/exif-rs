@@ -27,7 +27,6 @@
 extern crate exif;
 
 use std::env;
-use std::fmt::Write;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -50,24 +49,7 @@ fn dump_file(path: &Path) -> Result<(), exif::Error> {
         println!("  {}/{}: {}",
                  f.ifd_num.index(), f.tag,
                  f.display_value().with_unit(&exif));
-        if let exif::Value::Ascii(ref v) = f.value {
-            println!("      Ascii({:?})",
-                     v.iter().map(|x| escape(x)).collect::<Vec<_>>());
-        } else {
-            println!("      {:?}", f.value);
-        }
+        println!("      {:?}", f.value);
     }
     Ok(())
-}
-
-fn escape(bytes: &[u8]) -> String {
-    let mut buf = String::new();
-    for &c in bytes {
-        match c {
-            b'\\' | b'"' => write!(buf, "\\{}", c as char).unwrap(),
-            0x20..=0x7e => buf.write_char(c as char).unwrap(),
-            _ => write!(buf, "\\x{:02x}", c).unwrap(),
-        }
-    }
-    buf
 }
