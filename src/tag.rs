@@ -584,6 +584,15 @@ generate_well_known_tag_constants!(
     (LensSerialNumber, 0xa435, DefaultValue::None, d_default,
      unit![],
      "Lens serial number"),
+    (CompositeImage, 0xa460, DefaultValue::Short(&[0]), d_cpstimg,
+     unit![],
+     "Composite image"),
+    (SourceImageNumberOfCompositeImage, 0xa461, DefaultValue::None, d_numcpstimg,
+     unit![],
+     "Source image number of composite image"),
+    (SourceExposureTimesOfCompositeImage, 0xa462, DefaultValue::None, d_default,
+     unit![],
+     "Source exposure times of composite image"),
     (Gamma, 0xa500, DefaultValue::None, d_decimal,
      unit![],
      "Gamma"),
@@ -1198,6 +1207,25 @@ fn d_lensspec(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
                    v[0].to_f64(), v[1].to_f64(),
                    v[2].to_f64(), v[3].to_f64()),
         _ => d_default(w, value),
+    }
+}
+
+// CompositeImage (Exif 0xa460)
+fn d_cpstimg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(1) => "non-composite",
+        Some(2) => "composite (general)",
+        Some(3) => "composite (at the moment of shooting)",
+        _ => return d_unknown(w, value, "unknown composite image "),
+    };
+    w.write_str(s)
+}
+
+// SourceImageNumberOfCompositeImage (Exif 0xa461)
+fn d_numcpstimg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
+    match (value.get_uint(0), value.get_uint(1)) {
+        (Some(t), Some(u)) => write!(w, "total {}, used {}", t, u),
+        _ => d_unknown(w, value, "unknown image number of composite imsage "),
     }
 }
 
