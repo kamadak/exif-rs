@@ -92,7 +92,8 @@ fn get_exif_attr_sub<R>(reader: &mut R)
         let mut seg = Vec::new();
         reader.by_ref().take(seglen as u64 - 2).read_to_end(&mut seg)?;
         if code == marker::APP1 && seg.starts_with(&EXIF_ID) {
-            return Ok(seg.split_off(EXIF_ID.len()));
+            seg.drain(..EXIF_ID.len());
+            return Ok(seg);
         }
         if code == marker::SOS {
             // Skipping the scan data is handled in the main loop,
