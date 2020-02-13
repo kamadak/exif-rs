@@ -419,7 +419,7 @@ generate_well_known_tag_constants!(
     (ApertureValue, 0x9202, DefaultValue::None, d_decimal,
      unit!["EV"],
      "Aperture"),
-    (BrightnessValue, 0x9203, DefaultValue::None, d_decimal,
+    (BrightnessValue, 0x9203, DefaultValue::None, d_optdecimal,
      unit!["EV"],
      "Brightness"),
     (ExposureBiasValue, 0x9204, DefaultValue::None, d_decimal,
@@ -1006,6 +1006,7 @@ fn d_subjarea(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // Rational/SRational with 0xffffffff being unknown.
+// BrightnessValue (Exif 0x9203),
 // Temperature (Exif 0x9400), Humidity (Exif 0x9401),
 // Pressure (Exif 0x9402), WaterDepth (Exif 0x9403),
 // Acceleration (Exif 0x9404), CameraElevationAngle (Exif 0x9405)
