@@ -26,6 +26,7 @@
 
 use std::fmt;
 
+use crate::error::Error;
 use crate::value;
 use crate::value::Value;
 use crate::util::atou16;
@@ -721,7 +722,7 @@ fn d_compression(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(2) => "Modified Huffman",
         Some(6) => "JPEG",
         Some(32773) => "PackBits",
-        _ => return d_unknown(w, value, "unknown compression "),
+        _ => return d_reserved(w, value, "compression"),
     };
     w.write_str(s)
 }
@@ -735,7 +736,7 @@ fn d_photointp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(3) => "palette color",
         Some(4) => "transparency mask",
         Some(6) => "YCbCr",
-        _ => return d_unknown(w, value, "unknown photometric interpretation "),
+        _ => return d_reserved(w, value, "photometric interpretation"),
     };
     w.write_str(s)
 }
@@ -751,7 +752,7 @@ fn d_orientation(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(6) => "row 0 at right and column 0 at top",
         Some(7) => "row 0 at right and column 0 at bottom",
         Some(8) => "row 0 at left and column 0 at bottom",
-        _ => return d_unknown(w, value, "unknown orientation "),
+        _ => return d_reserved(w, value, "orientation"),
     };
     w.write_str(s)
 }
@@ -761,7 +762,7 @@ fn d_planarcfg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "chunky",
         Some(2) => "planar",
-        _ => return d_unknown(w, value, "unknown planar configuration "),
+        _ => return d_reserved(w, value, "planar configuration"),
     };
     w.write_str(s)
 }
@@ -772,7 +773,7 @@ fn d_resunit(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(1) => "no absolute unit",
         Some(2) => "inch",
         Some(3) => "cm",
-        _ => return d_unknown(w, value, "unknown unit "),
+        _ => return d_reserved(w, value, "resolution unit"),
     };
     w.write_str(s)
 }
@@ -781,8 +782,10 @@ fn d_resunit(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // DateTimeDigitized (Exif 0x9004)
 fn d_datetime(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Some(dt) = value.ascii().and_then(|x| x.first()) {
-        if let Ok(dt) = crate::tiff::DateTime::from_ascii(dt) {
-            return write!(w, "{}", dt)
+        match crate::tiff::DateTime::from_ascii(dt) {
+            Ok(dt) => return write!(w, "{}", dt),
+            Err(Error::BlankValue(_)) => return w.write_str("unknown"),
+            _ => {},
         }
     }
     d_default(w, value)
@@ -812,7 +815,7 @@ fn d_ycbcrpos(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "centered",
         Some(2) => "co-sited",
-        _ => return d_unknown(w, value, "unknown YCbCr positioning "),
+        _ => return d_reserved(w, value, "YCbCr positioning"),
     };
     w.write_str(s)
 }
@@ -832,6 +835,7 @@ fn d_exptime(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // ExposureProgram (Exif 0x8822)
 fn d_expprog(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
+        Some(0) => "not defined",
         Some(1) => "manual",
         Some(2) => "normal program",
         Some(3) => "aperture priority",
@@ -840,7 +844,7 @@ fn d_expprog(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(6) => "action program",
         Some(7) => "portrait mode",
         Some(8) => "landscape mode",
-        _ => return d_unknown(w, value, "unknown exposure program "),
+        _ => return d_reserved(w, value, "exposure program"),
     };
     w.write_str(s)
 }
@@ -848,6 +852,7 @@ fn d_expprog(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // SensitivityType (Exif 0x8830)
 fn d_sensitivitytype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
+        Some(0) => "unknown",
         Some(1) => "SOS",
         Some(2) => "REI",
         Some(3) => "ISO speed",
@@ -855,7 +860,7 @@ fn d_sensitivitytype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(5) => "SOS/ISO speed",
         Some(6) => "REI/ISO speed",
         Some(7) => "SOS/REI/ISO speed",
-        _ => return d_unknown(w, value, "unknown sensitivity type "),
+        _ => return d_reserved(w, value, "sensitivity type"),
     };
     w.write_str(s)
 }
@@ -908,6 +913,7 @@ fn d_subjdist(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // MeteringMode (Exif 0x9207)
 fn d_metering(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
+        Some(0) => "unknown",
         Some(1) => "average",
         Some(2) => "center-weighted average",
         Some(3) => "spot",
@@ -915,7 +921,7 @@ fn d_metering(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(5) => "pattern",
         Some(6) => "partial",
         Some(255) => "other",
-        _ => return d_unknown(w, value, "unknown metering mode "),
+        _ => return d_reserved(w, value, "metering mode"),
     };
     w.write_str(s)
 }
@@ -923,6 +929,7 @@ fn d_metering(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // LightSource (Exif 0x9208)
 fn d_lightsrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
+        Some(0) => "unknown",
         Some(1) => "daylight",
         Some(2) => "fluorescent",
         Some(3) => "tungsten",
@@ -944,7 +951,7 @@ fn d_lightsrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(23) => "D50",
         Some(24) => "ISO studio tungsten",
         Some(255) => "other",
-        _ => return d_unknown(w, value, "unknown light source "),
+        _ => return d_reserved(w, value, "light source"),
     };
     w.write_str(s)
 }
@@ -1022,7 +1029,7 @@ fn d_cspace(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "sRGB",
         Some(0xffff) => "uncalibrated",
-        _ => return d_unknown(w, value, "unknown color space "),
+        _ => return d_reserved(w, value, "color space"),
     };
     w.write_str(s)
 }
@@ -1037,7 +1044,7 @@ fn d_sensingmethod(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(5) => "color sequential area sensor",
         Some(7) => "trilinear sensor",
         Some(8) => "color sequential linear sensor",
-        _ => return d_unknown(w, value, "unknown sensing method "),
+        _ => return d_reserved(w, value, "sensing method"),
     };
     w.write_str(s)
 }
@@ -1049,7 +1056,7 @@ fn d_filesrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(1) => "transparency scanner",
         Some(2) => "reflective scanner",
         Some(3) => "DSC",
-        _ => return d_unknown(w, value, "unknown file source "),
+        _ => return d_reserved(w, value, "file source"),
     };
     w.write_str(s)
 }
@@ -1058,7 +1065,7 @@ fn d_filesrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 fn d_scenetype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.undefined().and_then(|x| x.first().copied()) {
         Some(1) => "directly photographed image",
-        _ => return d_unknown(w, value, "unknown scene type "),
+        _ => return d_reserved(w, value, "scene type"),
     };
     w.write_str(s)
 }
@@ -1068,7 +1075,7 @@ fn d_customrendered(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "normal process",
         Some(1) => "custom process",
-        _ => return d_unknown(w, value, "unknown custom rendered "),
+        _ => return d_reserved(w, value, "custom rendered"),
     };
     w.write_str(s)
 }
@@ -1079,7 +1086,7 @@ fn d_expmode(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(0) => "auto exposure",
         Some(1) => "manual exposure",
         Some(2) => "auto bracket",
-        _ => return d_unknown(w, value, "unknown exposure mode "),
+        _ => return d_reserved(w, value, "exposure mode"),
     };
     w.write_str(s)
 }
@@ -1089,7 +1096,7 @@ fn d_whitebalance(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "auto white balance",
         Some(1) => "manual white balance",
-        _ => return d_unknown(w, value, "unknown white balance mode "),
+        _ => return d_reserved(w, value, "white balance mode"),
     };
     w.write_str(s)
 }
@@ -1117,7 +1124,7 @@ fn d_scenecaptype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(1) => "landscape",
         Some(2) => "portrait",
         Some(3) => "night scene",
-        _ => return d_unknown(w, value, "unknown scene capture type "),
+        _ => return d_reserved(w, value, "scene capture type"),
     };
     w.write_str(s)
 }
@@ -1130,7 +1137,7 @@ fn d_gainctrl(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(2) => "high gain up",
         Some(3) => "low gain down",
         Some(4) => "high gain down",
-        _ => return d_unknown(w, value, "unknown gain control "),
+        _ => return d_reserved(w, value, "gain control"),
     };
     w.write_str(s)
 }
@@ -1141,7 +1148,7 @@ fn d_contrast(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(0) => "normal",
         Some(1) => "soft",
         Some(2) => "hard",
-        _ => return d_unknown(w, value, "unknown contrast processing "),
+        _ => return d_reserved(w, value, "contrast processing"),
     };
     w.write_str(s)
 }
@@ -1152,7 +1159,7 @@ fn d_saturation(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(0) => "normal",
         Some(1) => "low saturation",
         Some(2) => "high saturation",
-        _ => return d_unknown(w, value, "unknown saturation processing "),
+        _ => return d_reserved(w, value, "saturation processing"),
     };
     w.write_str(s)
 }
@@ -1163,7 +1170,7 @@ fn d_sharpness(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(0) => "normal",
         Some(1) => "soft",
         Some(2) => "hard",
-        _ => return d_unknown(w, value, "unknown sharpness processing "),
+        _ => return d_reserved(w, value, "sharpness processing"),
     };
     w.write_str(s)
 }
@@ -1171,10 +1178,11 @@ fn d_sharpness(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // SubjectDistanceRange (Exif 0xa40c)
 fn d_subjdistrange(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
+        Some(0) => "unknown",
         Some(1) => "macro",
         Some(2) => "close view",
         Some(3) => "distant view",
-        _ => return d_unknown(w, value, "unknown subject distance range "),
+        _ => return d_reserved(w, value, "subject distance range"),
     };
     w.write_str(s)
 }
@@ -1194,10 +1202,11 @@ fn d_lensspec(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // CompositeImage (Exif 0xa460)
 fn d_cpstimg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
+        Some(0) => "unknown",
         Some(1) => "non-composite",
         Some(2) => "composite (general)",
         Some(3) => "composite (at the moment of shooting)",
-        _ => return d_unknown(w, value, "unknown composite image "),
+        _ => return d_reserved(w, value, "composite image"),
     };
     w.write_str(s)
 }
@@ -1206,7 +1215,7 @@ fn d_cpstimg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 fn d_numcpstimg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match (value.get_uint(0), value.get_uint(1)) {
         (Some(t), Some(u)) => write!(w, "total {}, used {}", t, u),
-        _ => d_unknown(w, value, "unknown image number of composite imsage "),
+        _ => d_default(w, value),
     }
 }
 
@@ -1242,7 +1251,7 @@ fn d_gpsaltref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "above sea level",
         Some(1) => "below sea level",
-        _ => return d_unknown(w, value, "unknown GPS altitude ref "),
+        _ => return d_reserved(w, value, "GPS altitude ref"),
     };
     w.write_str(s)
 }
@@ -1266,7 +1275,7 @@ fn d_gpsstatus(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"A") => "measurement in progress",
         Some(b"V") => "measurement interrupted",
-        _ => return d_unknown(w, value, "unknown GPS status "),
+        _ => return d_reserved(w, value, "GPS status"),
     };
     w.write_str(s)
 }
@@ -1276,7 +1285,7 @@ fn d_gpsmeasuremode(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"2") => "2-dimensional measurement",
         Some(b"3") => "3-dimensional measurement",
-        _ => return d_unknown(w, value, "unknown GPS measurement mode "),
+        _ => return d_reserved(w, value, "GPS measurement mode"),
     };
     w.write_str(s)
 }
@@ -1287,7 +1296,7 @@ fn d_gpsspeedref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(b"K") => "km/h",
         Some(b"M") => "mph",
         Some(b"N") => "knots",
-        _ => return d_unknown(w, value, "unknown GPS speed ref "),
+        _ => return d_reserved(w, value, "GPS speed ref"),
     };
     w.write_str(s)
 }
@@ -1298,7 +1307,7 @@ fn d_gpsdirref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"T") => "true direction",
         Some(b"M") => "magnetic direction",
-        _ => return d_unknown(w, value, "unknown GPS direction ref "),
+        _ => return d_reserved(w, value, "GPS direction ref"),
     };
     w.write_str(s)
 }
@@ -1309,7 +1318,7 @@ fn d_gpsdistref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(b"K") => "km",
         Some(b"M") => "miles",
         Some(b"N") => "nautical miles",
-        _ => return d_unknown(w, value, "unknown GPS distance ref "),
+        _ => return d_reserved(w, value, "GPS distance ref"),
     };
     w.write_str(s)
 }
@@ -1336,7 +1345,7 @@ fn d_gpsdifferential(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "no differential correction",
         Some(1) => "differential correction applied",
-        _ => return d_unknown(w, value, "unknown GPS differential correction "),
+        _ => return d_reserved(w, value, "GPS differential correction"),
     };
     w.write_str(s)
 }
@@ -1357,10 +1366,11 @@ fn d_decimal(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 }
 
 #[inline(never)]
-fn d_unknown(w: &mut dyn fmt::Write, value: &Value, prefix: &str)
-             -> fmt::Result {
-    w.write_str(prefix)?;
-    d_default(w, value)
+fn d_reserved(w: &mut dyn fmt::Write, value: &Value, name: &str)
+              -> fmt::Result {
+    write!(w, "[reserved {} ", name)?;
+    d_default(w, value)?;
+    w.write_char(']')
 }
 
 fn d_default(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
