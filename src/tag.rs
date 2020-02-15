@@ -780,11 +780,9 @@ fn d_resunit(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // DateTime (TIFF 0x132), DateTimeOriginal (Exif 0x9003), and
 // DateTimeDigitized (Exif 0x9004)
 fn d_datetime(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Ascii(ref v) = *value {
-        if let Some(dt) = v.first() {
-            if let Ok(dt) = crate::tiff::DateTime::from_ascii(dt) {
-                return write!(w, "{}", dt)
-            }
+    if let Some(dt) = value.ascii().and_then(|x| x.first()) {
+        if let Ok(dt) = crate::tiff::DateTime::from_ascii(dt) {
+            return write!(w, "{}", dt)
         }
     }
     d_default(w, value)
@@ -821,13 +819,11 @@ fn d_ycbcrpos(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // ExposureTime (Exif 0x829a)
 fn d_exptime(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Rational(ref v) = *value {
-        if let Some(et) = v.first() {
-            if et.num >= et.denom {
-                return write!(w, "{}", et.to_f64());
-            } else if et.num != 0 {
-                return write!(w, "1/{}", et.denom as f64 / et.num as f64);
-            }
+    if let Some(et) = value.rational().and_then(|x| x.first()) {
+        if et.num >= et.denom {
+            return write!(w, "{}", et.to_f64());
+        } else if et.num != 0 {
+            return write!(w, "1/{}", et.denom as f64 / et.num as f64);
         }
     }
     d_default(w, value)
@@ -866,15 +862,13 @@ fn d_sensitivitytype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // ExifVersion (Exif 0x9000), FlashpixVersion (Exif 0xa000)
 fn d_exifver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Undefined(ref v, _) = *value {
-        if v.len() == 4 {
-            if let Ok(major) = atou16(&v[0..2]) {
-                if let Ok(minor) = atou16(&v[2..4]) {
-                    if minor % 10 == 0 {
-                        return write!(w, "{}.{}", major, minor / 10);
-                    } else {
-                        return write!(w, "{}.{:02}", major, minor);
-                    }
+    if let Some(s) = value.undefined().filter(|s| s.len() == 4) {
+        if let Ok(major) = atou16(&s[0..2]) {
+            if let Ok(minor) = atou16(&s[2..4]) {
+                if minor % 10 == 0 {
+                    return write!(w, "{}.{}", major, minor / 10);
+                } else {
+                    return write!(w, "{}.{:02}", major, minor);
                 }
             }
         }
@@ -884,33 +878,28 @@ fn d_exifver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // ComponentsConfiguration (Exif 0x9101)
 fn d_cpntcfg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Undefined(ref v, _) = *value {
-        for x in v {
-            match x {
-                0 => w.write_char('_'),
-                1 => w.write_char('Y'),
-                2 => w.write_str("Cb"),
-                3 => w.write_str("Cr"),
-                4 => w.write_char('R'),
-                5 => w.write_char('G'),
-                6 => w.write_char('B'),
-                _ => w.write_char('?'),
-            }?;
-        }
-        return Ok(());
+    match value.undefined() {
+        Some(s) => s.iter().try_for_each(|x| match x {
+            0 => w.write_char('_'),
+            1 => w.write_char('Y'),
+            2 => w.write_str("Cb"),
+            3 => w.write_str("Cr"),
+            4 => w.write_char('R'),
+            5 => w.write_char('G'),
+            6 => w.write_char('B'),
+            _ => w.write_char('?'),
+        }),
+        None => d_default(w, value),
     }
-    d_default(w, value)
 }
 
 // SubjectDistance (Exif 0x9206)
 fn d_subjdist(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Rational(ref v) = *value {
-        if let Some(dist) = v.first() {
-            if dist.num == 0 {
-                return w.write_str("unknown");
-            } else if dist.num == 0xffffffff {
-                return w.write_str("infinity");
-            }
+    if let Some(dist) = value.rational().and_then(|x| x.first()) {
+        if dist.num == 0 {
+            return w.write_str("unknown");
+        } else if dist.num == 0xffffffff {
+            return w.write_str("infinity");
         }
     }
     d_decimal(w, value)
@@ -1055,10 +1044,7 @@ fn d_sensingmethod(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // FileSource (Exif 0xa300)
 fn d_filesrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Undefined(ref v, _) => v.first().map(|&x| x),
-        _ => None,
-    } {
+    let s = match value.undefined().and_then(|x| x.first().copied()) {
         Some(0) => "others",
         Some(1) => "transparency scanner",
         Some(2) => "reflective scanner",
@@ -1070,10 +1056,7 @@ fn d_filesrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // SceneType (Exif 0xa301)
 fn d_scenetype(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Undefined(ref v, _) => v.first().map(|&x| x),
-        _ => None,
-    } {
+    let s = match value.undefined().and_then(|x| x.first().copied()) {
         Some(1) => "directly photographed image",
         _ => return d_unknown(w, value, "unknown scene type "),
     };
@@ -1113,10 +1096,8 @@ fn d_whitebalance(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // DigitalZoomRatio (Exif 0xa404)
 fn d_dzoomratio(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Rational(ref v) = *value {
-        if v.len() > 0 && v[0].num == 0 {
-            return w.write_str("unused");
-        }
+    if value.rational().and_then(|x| x.first()).map(|x| x.num) == Some(0) {
+        return w.write_str("unused");
     }
     d_decimal(w, value)
 }
@@ -1200,13 +1181,12 @@ fn d_subjdistrange(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // LensSpecification (Exif 0xa432)
 fn d_lensspec(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    match *value {
-        Value::Rational(ref v) if v.len() >= 4 =>
-            // There are several notations: "F1.4" in Japan, "f/1.4"
-            // in the U.S., and so on.
-            write!(w, "{}-{} mm, f/{}-{}",
-                   v[0].to_f64(), v[1].to_f64(),
-                   v[2].to_f64(), v[3].to_f64()),
+    match value.rational().and_then(|x| x.get(..4)) {
+        // There are several notations: "F1.4" in Japan, "f/1.4"
+        // in the U.S., and so on.
+        Some(s) => write!(w, "{}-{} mm, f/{}-{}",
+                          s[0].to_f64(), s[1].to_f64(),
+                          s[2].to_f64(), s[3].to_f64()),
         _ => d_default(w, value),
     }
 }
@@ -1232,9 +1212,8 @@ fn d_numcpstimg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSVersionID (Exif/GPS 0x0)
 fn d_gpsver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    match *value {
-        Value::Byte(ref v) if v.len() >= 4 =>
-            write!(w, "{}.{}.{}.{}", v[0], v[1], v[2], v[3]),
+    match value.byte().and_then(|x| x.get(..4)) {
+        Some(s) => write!(w, "{}.{}.{}.{}", s[0], s[1], s[2], s[3]),
         _ => d_default(w, value),
     }
 }
@@ -1242,10 +1221,8 @@ fn d_gpsver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // GPSLatitudeRef (Exif/GPS 0x1), GPSLongitudeRef (Exif/GPS 0x3)
 // GPSDestLatitudeRef (Exif/GPS 0x13), GPSDestLongitudeRef (Exif/GPS 0x15)
 fn d_gpslatlongref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    match *value {
-        Value::Ascii(ref v) if (v.len() == 1 && v[0].len() == 1 &&
-                                v[0][0].is_ascii_uppercase()) =>
-            w.write_char(v[0][0] as char),
+    match value.ascii().and_then(|x| x.first()) {
+        Some([c]) if c.is_ascii_uppercase() => w.write_char(*c as char),
         _ => d_default(w, value),
     }
 }
@@ -1253,10 +1230,9 @@ fn d_gpslatlongref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // GPSLatitude (Exif/GPS 0x2), GPSLongitude (Exif/GPS 0x4),
 // GPSDestLatitude (Exif/GPS 0x14), GPSDestLongitude (Exif/GPS 0x16)
 fn d_gpsdms(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    match *value {
-        Value::Rational(ref v) if v.len() >= 3 =>
-            write!(w, "{} deg {} min {} sec",
-                   v[0].to_f64(), v[1].to_f64(), v[2].to_f64()),
+    match value.rational().and_then(|x| x.get(..3)) {
+        Some(s) => write!(w, "{} deg {} min {} sec",
+                          s[0].to_f64(), s[1].to_f64(), s[2].to_f64()),
         _ => d_default(w, value),
     }
 }
@@ -1273,9 +1249,9 @@ fn d_gpsaltref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSTimeStamp (Exif/GPS 0x7)
 fn d_gpstimestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    match *value {
-        Value::Rational(ref v) if v.len() >= 3 => {
-            let (h, m, s) = (v[0].to_f64(), v[1].to_f64(), v[2].to_f64());
+    match value.rational().and_then(|x| x.get(..3)) {
+        Some(s) => {
+            let (h, m, s) = (s[0].to_f64(), s[1].to_f64(), s[2].to_f64());
             write!(w, "{}{}:{}{}:{}{}",
                    if h < 10.0 { "0" } else { "" }, h,
                    if m < 10.0 { "0" } else { "" }, m,
@@ -1287,10 +1263,7 @@ fn d_gpstimestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSStatus (Exif/GPS 0x9)
 fn d_gpsstatus(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|x| &x[..]),
-        _ => None,
-    } {
+    let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"A") => "measurement in progress",
         Some(b"V") => "measurement interrupted",
         _ => return d_unknown(w, value, "unknown GPS status "),
@@ -1300,10 +1273,7 @@ fn d_gpsstatus(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSMeasure (Exif/GPS 0xa)
 fn d_gpsmeasuremode(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|x| &x[..]),
-        _ => None,
-    } {
+    let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"2") => "2-dimensional measurement",
         Some(b"3") => "3-dimensional measurement",
         _ => return d_unknown(w, value, "unknown GPS measurement mode "),
@@ -1313,10 +1283,7 @@ fn d_gpsmeasuremode(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSSpeedRef (Exif/GPS 0xc)
 fn d_gpsspeedref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|x| &x[..]),
-        _ => None,
-    } {
+    let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"K") => "km/h",
         Some(b"M") => "mph",
         Some(b"N") => "knots",
@@ -1328,10 +1295,7 @@ fn d_gpsspeedref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // GPSTrackRef (Exif/GPS 0xe), GPSImgDirectionRef (Exif/GPS 0x10),
 // GPSDestBearingRef (Exif/GPS 0x17)
 fn d_gpsdirref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|x| &x[..]),
-        _ => None,
-    } {
+    let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"T") => "true direction",
         Some(b"M") => "magnetic direction",
         _ => return d_unknown(w, value, "unknown GPS direction ref "),
@@ -1341,10 +1305,7 @@ fn d_gpsdirref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSDestDistanceRef (Exif/GPS 0x19)
 fn d_gpsdistref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    let s = match match *value {
-        Value::Ascii(ref v) => v.first().map(|x| &x[..]),
-        _ => None,
-    } {
+    let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"K") => "km",
         Some(b"M") => "miles",
         Some(b"N") => "nautical miles",
@@ -1355,15 +1316,13 @@ fn d_gpsdistref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // GPSDateStamp (Exif/GPS 0x1d)
 fn d_gpsdatestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
-    if let Value::Ascii(ref v) = *value {
-        if let Some(data) = v.first() {
-            if data.len() >= 10 && data[4] == b':' && data[7] == b':' {
-                if let Ok(year) = atou16(&data[0..4]) {
-                    if let Ok(month) = atou16(&data[5..7]) {
-                        if let Ok(day) = atou16(&data[8..10]) {
-                            return write!(w, "{:04}-{:02}-{:02}",
-                                          year, month, day)
-                        }
+    if let Some(data) = value.ascii().and_then(|x| x.first()) {
+        if data.len() >= 10 && data[4] == b':' && data[7] == b':' {
+            if let Ok(year) = atou16(&data[0..4]) {
+                if let Ok(month) = atou16(&data[5..7]) {
+                    if let Ok(day) = atou16(&data[8..10]) {
+                        return write!(w, "{:04}-{:02}-{:02}",
+                                      year, month, day);
                     }
                 }
             }

@@ -94,6 +94,42 @@ impl Value {
         crate::tag::display_value_as(self, tag)
     }
 
+    /// Returns the value as a slice if the type is BYTE.
+    #[inline]
+    pub(crate) fn byte(&self) -> Option<&[u8]> {
+        match *self {
+            Value::Byte(ref v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Returns the value as `AsciiValues` if the type is ASCII.
+    #[inline]
+    pub(crate) fn ascii(&self) -> Option<AsciiValues> {
+        match *self {
+            Value::Ascii(ref v) => Some(AsciiValues(v)),
+            _ => None,
+        }
+    }
+
+    /// Returns the value as a slice if the type is RATIONAL.
+    #[inline]
+    pub(crate) fn rational(&self) -> Option<&[Rational]> {
+        match *self {
+            Value::Rational(ref v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Returns the value as a slice if the type is UNDEFINED.
+    #[inline]
+    pub(crate) fn undefined(&self) -> Option<&[u8]> {
+        match *self {
+            Value::Undefined(ref v, _) => Some(v),
+            _ => None,
+        }
+    }
+
     /// Returns the unsigned integer at the given position.
     /// None is returned if the value type is not unsigned integer
     /// (BYTE, SHORT, or LONG) or the position is out of bounds.
@@ -122,6 +158,14 @@ impl Value {
                 Some(UIntIter { iter: Box::new(v.iter().map(|&x| x)) }),
             _ => None,
         }
+    }
+}
+
+pub struct AsciiValues<'a>(&'a [Vec<u8>]);
+
+impl<'a> AsciiValues<'a> {
+    pub fn first(&self) -> Option<&'a [u8]> {
+        self.0.first().map(|x| &x[..])
     }
 }
 
