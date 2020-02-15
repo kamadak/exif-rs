@@ -55,7 +55,7 @@
 //!
 //! * `Reader` has been split into two: `Reader` and `Exif`.
 //!   `Reader` is now the builder for `Exif`, and `Exif` provides
-//!   access to `Field`s via `get_field`, `fields` and other methods.
+//!   access to `Field`s via `get_field`, `fields`, and other methods.
 //!   Old code `Reader::new(data)` should be changed to
 //!   `Reader::new().read_raw(data)` or
 //!   `Reader::new().read_from_container(data)`.

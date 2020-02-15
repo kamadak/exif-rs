@@ -115,7 +115,7 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
                 },
                 b"meta" => {
                     if !self.ftyp_checked {
-                        return Err("Found MetaBox before FileTypeBox".into());
+                        return Err("MetaBox found before FileTypeBox".into());
                     }
                     let buf = self.read_file_level_box(size)?;
                     let exif = self.parse_meta(BoxSplitter::new(&buf))?;

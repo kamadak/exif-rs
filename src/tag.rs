@@ -793,15 +793,13 @@ fn d_datetime(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 // YCbCrSubSampling (TIFF 0x212)
 fn d_ycbcrsubsamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
+    // 0 is used to go to d_default in the match below.
     let horiz = value.get_uint(0).unwrap_or(0);
     let vert = value.get_uint(1).unwrap_or(0);
     let s = match (horiz, vert) {
         (1, 1) => "full horizontally, full vertically (4:4:4)",
-        (1, 2) => "full horizontally, half vertically",
-        (1, 4) => "full horizontally, quarter vertically",
         (2, 1) => "half horizontally, full vertically (4:2:2)",
         (2, 2) => "half horizontally, half vertically (4:2:0)",
-        (2, 4) => "half horizontally, quarter vertically",
         (4, 1) => "quarter horizontally, full vertically (4:1:1)",
         (4, 2) => "quarter horizontally, half vertically",
         (4, 4) => "quarter horizontally, quarter vertically",
@@ -1055,7 +1053,7 @@ fn d_filesrc(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Some(0) => "others",
         Some(1) => "transparency scanner",
         Some(2) => "reflective scanner",
-        Some(3) => "DSC",
+        Some(3) => "digital still camera",
         _ => return d_reserved(w, value, "file source"),
     };
     w.write_str(s)
@@ -1219,7 +1217,7 @@ fn d_numcpstimg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     }
 }
 
-// GPSVersionID (Exif/GPS 0x0)
+// GPSVersionID (GPS 0x0)
 fn d_gpsver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match value.byte().and_then(|x| x.get(..4)) {
         Some(s) => write!(w, "{}.{}.{}.{}", s[0], s[1], s[2], s[3]),
@@ -1227,8 +1225,8 @@ fn d_gpsver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     }
 }
 
-// GPSLatitudeRef (Exif/GPS 0x1), GPSLongitudeRef (Exif/GPS 0x3)
-// GPSDestLatitudeRef (Exif/GPS 0x13), GPSDestLongitudeRef (Exif/GPS 0x15)
+// GPSLatitudeRef (GPS 0x1), GPSLongitudeRef (GPS 0x3)
+// GPSDestLatitudeRef (GPS 0x13), GPSDestLongitudeRef (GPS 0x15)
 fn d_gpslatlongref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match value.ascii().and_then(|x| x.first()) {
         Some([c]) if c.is_ascii_uppercase() => w.write_char(*c as char),
@@ -1236,8 +1234,8 @@ fn d_gpslatlongref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     }
 }
 
-// GPSLatitude (Exif/GPS 0x2), GPSLongitude (Exif/GPS 0x4),
-// GPSDestLatitude (Exif/GPS 0x14), GPSDestLongitude (Exif/GPS 0x16)
+// GPSLatitude (GPS 0x2), GPSLongitude (GPS 0x4),
+// GPSDestLatitude (GPS 0x14), GPSDestLongitude (GPS 0x16)
 fn d_gpsdms(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match value.rational().and_then(|x| x.get(..3)) {
         Some(s) => write!(w, "{} deg {} min {} sec",
@@ -1246,7 +1244,7 @@ fn d_gpsdms(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     }
 }
 
-// GPSAltitudeRef (Exif/GPS 0x5)
+// GPSAltitudeRef (GPS 0x5)
 fn d_gpsaltref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "above sea level",
@@ -1256,7 +1254,7 @@ fn d_gpsaltref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     w.write_str(s)
 }
 
-// GPSTimeStamp (Exif/GPS 0x7)
+// GPSTimeStamp (GPS 0x7)
 fn d_gpstimestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match value.rational().and_then(|x| x.get(..3)) {
         Some(s) => {
@@ -1270,7 +1268,7 @@ fn d_gpstimestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     }
 }
 
-// GPSStatus (Exif/GPS 0x9)
+// GPSStatus (GPS 0x9)
 fn d_gpsstatus(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"A") => "measurement in progress",
@@ -1280,7 +1278,7 @@ fn d_gpsstatus(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     w.write_str(s)
 }
 
-// GPSMeasure (Exif/GPS 0xa)
+// GPSMeasureMode (GPS 0xa)
 fn d_gpsmeasuremode(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"2") => "2-dimensional measurement",
@@ -1290,7 +1288,7 @@ fn d_gpsmeasuremode(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     w.write_str(s)
 }
 
-// GPSSpeedRef (Exif/GPS 0xc)
+// GPSSpeedRef (GPS 0xc)
 fn d_gpsspeedref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"K") => "km/h",
@@ -1301,8 +1299,8 @@ fn d_gpsspeedref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     w.write_str(s)
 }
 
-// GPSTrackRef (Exif/GPS 0xe), GPSImgDirectionRef (Exif/GPS 0x10),
-// GPSDestBearingRef (Exif/GPS 0x17)
+// GPSTrackRef (GPS 0xe), GPSImgDirectionRef (GPS 0x10),
+// GPSDestBearingRef (GPS 0x17)
 fn d_gpsdirref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"T") => "true direction",
@@ -1312,7 +1310,7 @@ fn d_gpsdirref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     w.write_str(s)
 }
 
-// GPSDestDistanceRef (Exif/GPS 0x19)
+// GPSDestDistanceRef (GPS 0x19)
 fn d_gpsdistref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.ascii().and_then(|x| x.first()) {
         Some(b"K") => "km",
@@ -1323,7 +1321,7 @@ fn d_gpsdistref(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     w.write_str(s)
 }
 
-// GPSDateStamp (Exif/GPS 0x1d)
+// GPSDateStamp (GPS 0x1d)
 fn d_gpsdatestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     if let Some(data) = value.ascii().and_then(|x| x.first()) {
         if data.len() >= 10 && data[4] == b':' && data[7] == b':' {
@@ -1340,7 +1338,7 @@ fn d_gpsdatestamp(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     d_default(w, value)
 }
 
-// GPSDifferential (Exif/GPS 0x1e)
+// GPSDifferential (GPS 0x1e)
 fn d_gpsdifferential(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(0) => "no differential correction",
