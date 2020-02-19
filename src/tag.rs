@@ -235,6 +235,11 @@ generate_well_known_tag_constants!(
      unit![],
      "GPS Info IFD pointer"),
 
+    #[doc(hidden)]
+    (SubIFDPointers, 0x014a, DefaultValue::None, d_default,
+     unit![],
+     "Sub IFD pointers"),
+
     |Context::Exif|
 
     /// A pointer to the interoperability IFD.  This is used for the internal
@@ -248,6 +253,10 @@ generate_well_known_tag_constants!(
     // 4.6.8 Table 17, and 4.6.8 Table 21].
     |Context::Tiff|
 
+    // Not referenced in Exif.
+    (SubfileType, 0xfe, DefaultValue::None, d_subfile_type,
+     unit![],
+     "Subfile type"),
     (ImageWidth, 0x100, DefaultValue::None, d_default,
      unit!["pixels"],
      "Image width"),
@@ -713,6 +722,26 @@ pub fn display_value_as<'a>(value: &'a Value, tag: Tag) -> value::Display<'a> {
         Some(ti) => value::Display { fmt: ti.dispval, value: value },
         None => value::Display { fmt: d_default, value: value },
     }
+}
+
+// Subfile type (TIFF 0xfe)
+fn d_subfile_type(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
+    let s = match value.get_uint(0) {
+        Some(0x0) => "Full-resolution image",
+        Some(0x1) => "Reduced-resolution image",
+        Some(0x2) => "Single page of multi-page image",
+        Some(0x3) => "Single page of multi-page reduced-resolution image",
+        Some(0x4) => "Transparency mask",
+        Some(0x5) => "Transparency mask of reduced-resolution image",
+        Some(0x6) => "Transparency mask of multi-page image",
+        Some(0x7) => "Transparency mask of reduced-resolution multi-page image",
+        Some(0x8) => "Depth map",
+        Some(0x9) => "Depth map of reduced-resolution image",
+        Some(0x10) => "Enhanced image data",
+        Some(0x10001) => "Alternate reduced-resolution image",
+        _ => "invalid"
+    };
+    w.write_str(s)
 }
 
 // Compression (TIFF 0x103)

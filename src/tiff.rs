@@ -122,25 +122,36 @@ pub struct Field {
 /// assert_eq!(In::THUMBNAIL.index(), 1);
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct In(pub u16);
+pub struct In(pub u16, pub Option<u16>);
 
 impl In {
-    pub const PRIMARY: In = In(0);
-    pub const THUMBNAIL: In = In(1);
+    pub const PRIMARY: In = In(0, None);
+    pub const THUMBNAIL: In = In(1, None);
 
     /// Returns the IFD number.
     #[inline]
     pub fn index(self) -> u16 {
         self.0
     }
+
+    #[inline]
+    pub fn with_subifd(self, index: u16) -> Self {
+        Self(self.0, Some(index))
+    }
+
+    #[inline]
+    pub fn is_subifd(self) -> bool {
+        self.1.is_some()
+    }
 }
 
 impl fmt::Display for In {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0 {
-            0 => f.pad("primary"),
-            1 => f.pad("thumbnail"),
-            n => f.pad(&format!("IFD{}", n)),
+        match self {
+            In(0, None) => f.pad("primary"),
+            In(1, None) => f.pad("thumbnail"),
+            In(n, None) => f.pad(&format!("IFD{}", n)),
+            In(n, Some(s)) => f.pad(&format!("IFD{}-{}", n, s)),
         }
     }
 }
@@ -177,7 +188,7 @@ fn parse_exif_sub<E>(data: &[u8])
         return Err(Error::InvalidFormat("Invalid forty two"));
     }
     let mut ifd_offset = E::loadu32(data, 4) as usize;
-    let mut ifd_num_ck = Some(0);
+    let mut ifd_num_ck = Some(0_u16);
     let mut entries = Vec::new();
     while ifd_offset != 0 {
         let ifd_num = ifd_num_ck.ok_or(Error::InvalidFormat("Too many IFDs"))?;
@@ -187,7 +198,7 @@ fn parse_exif_sub<E>(data: &[u8])
             return Err(Error::InvalidFormat("Limit the IFD count to 8"));
         }
         ifd_offset = parse_ifd::<E>(
-            &mut entries, data, ifd_offset, Context::Tiff, ifd_num)?;
+            &mut entries, data, ifd_offset, Context::Tiff, In(ifd_num, None))?;
         ifd_num_ck = ifd_num.checked_add(1);
     }
     Ok(entries)
@@ -195,7 +206,7 @@ fn parse_exif_sub<E>(data: &[u8])
 
 // Parse IFD [EXIF23 4.6.2].
 fn parse_ifd<E>(entries: &mut Vec<IfdEntry>, data: &[u8],
-                offset: usize, ctx: Context, ifd_num: u16)
+                offset: usize, ctx: Context, ifd_num: In)
                 -> Result<usize, Error> where E: Endian {
     // Count (the number of the entries).
     if data.len() < offset || data.len() - offset < 2 {
@@ -230,13 +241,19 @@ fn parse_ifd<E>(entries: &mut Vec<IfdEntry>, data: &[u8],
         let tag = Tag(ctx, tag);
         match tag {
             Tag::ExifIFDPointer => parse_child_ifd::<E>(
-                entries, data, &mut val, Context::Exif, ifd_num)?,
+                entries, data, &mut val, Context::Exif, ifd_num, false)?,
             Tag::GPSInfoIFDPointer => parse_child_ifd::<E>(
-                entries, data, &mut val, Context::Gps, ifd_num)?,
+                entries, data, &mut val, Context::Gps, ifd_num, false)?,
             Tag::InteropIFDPointer => parse_child_ifd::<E>(
-                entries, data, &mut val, Context::Interop, ifd_num)?,
+                entries, data, &mut val, Context::Interop, ifd_num, false)?,
+            Tag::SubIFDPointers => {
+                if ifd_num.is_subifd() {
+                    return Err(Error::InvalidFormat("Got SubIFD within SubIFD"));
+                }
+                parse_child_ifd::<E>(entries, data, &mut val, Context::Tiff, ifd_num, true)?
+            },
             _ => entries.push(IfdEntry { field: Field {
-                tag: tag, ifd_num: In(ifd_num), value: val }.into()}),
+                tag: tag, ifd_num, value: val }.into()}),
         }
     }
 
@@ -249,20 +266,32 @@ fn parse_ifd<E>(entries: &mut Vec<IfdEntry>, data: &[u8],
 }
 
 fn parse_child_ifd<E>(entries: &mut Vec<IfdEntry>, data: &[u8],
-                      pointer: &mut Value, ctx: Context, ifd_num: u16)
+                      pointer: &mut Value, ctx: Context, ifd_num: In,
+                      is_sub_ifd: bool)
                       -> Result<(), Error> where E: Endian {
     // The pointer is not yet parsed, so do it here.
     IfdEntry::parse_value::<E>(pointer, data);
 
-    // A pointer field has type == LONG and count == 1, so the
-    // value (IFD offset) must be embedded in the "value offset"
-    // element of the field.
-    let ofs = pointer.get_uint(0).ok_or(
-        Error::InvalidFormat("Invalid pointer"))? as usize;
-    match parse_ifd::<E>(entries, data, ofs, ctx, ifd_num)? {
-        0 => Ok(()),
-        _ => Err(Error::InvalidFormat("Unexpected next IFD")),
+    let pointers = pointer.iter_uint().ok_or(Error::InvalidFormat("Invalid value type"))?;
+    if !is_sub_ifd && pointers.len() > 1 {
+        return Err(Error::InvalidFormat("Got multiple pointers"));
     }
+
+    if pointers.len() == 0 {
+        return Err(Error::InvalidFormat("Got no pointers"));
+    }
+
+    for (i, ofs) in pointers.map(|x| x as usize).enumerate() {
+        let mut ifd_num = ifd_num;
+        if is_sub_ifd {
+            ifd_num = ifd_num.with_subifd(i as u16);
+        }
+        if parse_ifd::<E>(entries, data, ofs, ctx, ifd_num)? > 0 {
+            return Err(Error::InvalidFormat("Unexpected next IFD"));
+        }
+    }
+
+    Ok(())
 }
 
 pub fn is_tiff(buf: &[u8]) -> bool {

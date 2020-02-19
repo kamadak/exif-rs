@@ -24,7 +24,7 @@
 // SUCH DAMAGE.
 //
 
-extern crate exif;
+use exif::Value;
 
 use std::env;
 use std::fs::File;
@@ -46,10 +46,28 @@ fn dump_file(path: &Path) -> Result<(), exif::Error> {
 
     println!("{}", path.display());
     for f in exif.fields() {
-        println!("  {}/{}: {}",
-                 f.ifd_num.index(), f.tag,
-                 f.display_value().with_unit(&exif));
-        println!("      {:?}", f.value);
+        // Avoid printing huge binary blobs such as embedded thumbnails
+        let (display_value, value) = match f.value {
+            Value::Byte(ref blob)
+            | Value::Undefined(ref blob, _) => (
+                format!("{} byte blob", blob.len()),
+                if blob.len() < 32 {
+                    format!("{:?}", blob)
+                } else {
+                    "".to_owned()
+                },
+            ),
+            _ => (
+                format!("{}", f.display_value().with_unit(&exif)),
+                format!("{:?}", f.value),
+            ),
+        };
+        println!("  {}/{} (0x{:x}): {}",
+                 f.ifd_num, f.tag, f.tag.1,
+                 display_value);
+        if value != "" {
+            println!("      {:?}", value);
+        }
     }
     Ok(())
 }

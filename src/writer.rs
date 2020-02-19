@@ -200,7 +200,7 @@ impl<'a> Writer<'a> {
                 w.seek(SeekFrom::Start(origpos))?;
             }
             next_ifd_offset_offset =
-                synthesize_fields(w, ifd, In(ifd_num), little_endian)?;
+                synthesize_fields(w, ifd, In(ifd_num, None), little_endian)?;
             ifd_num_ck = ifd_num.checked_add(1);
         }
         w.flush()?;
