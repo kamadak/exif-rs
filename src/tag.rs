@@ -1357,8 +1357,10 @@ fn d_ascii_in_undef(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 
 fn d_decimal(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
-        Value::Rational(ref v) => d_sub_comma_f64(w, v),
-        Value::SRational(ref v) => d_sub_comma_f64(w, v),
+        Value::Rational(ref v) =>
+            d_sub_comma(w, v.iter().map(|x| x.to_f64())),
+        Value::SRational(ref v) =>
+            d_sub_comma(w, v.iter().map(|x| x.to_f64())),
         _ => d_default(w, value),
     }
 }
@@ -1374,17 +1376,8 @@ fn d_reserved(w: &mut dyn fmt::Write, value: &Value, name: &str)
 fn d_default(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
         Value::Byte(ref v) => d_sub_comma(w, v),
-        Value::Ascii(ref v) => {
-            let mut first = true;
-            for x in v {
-                if !first {
-                    w.write_str(", ")?;
-                }
-                first = false;
-                d_sub_ascii(w, x)?;
-            }
-            Ok(())
-        },
+        Value::Ascii(ref v) =>
+            d_sub_comma(w, v.iter().map(|x| AsciiDisplay(x))),
         Value::Short(ref v) => d_sub_comma(w, v),
         Value::Long(ref v) => d_sub_comma(w, v),
         Value::Rational(ref v) => d_sub_comma(w, v),
@@ -1401,10 +1394,10 @@ fn d_default(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     }
 }
 
-fn d_sub_comma<T>(w: &mut dyn fmt::Write, slice: &[T])
-                  -> fmt::Result where T: fmt::Display {
+fn d_sub_comma<I, T>(w: &mut dyn fmt::Write, itit: I) -> fmt::Result
+where I: IntoIterator<Item = T>, T: fmt::Display {
     let mut first = true;
-    for x in slice {
+    for x in itit {
         match first {
             true => write!(w, "{}", x),
             false => write!(w, ", {}", x),
@@ -1414,18 +1407,12 @@ fn d_sub_comma<T>(w: &mut dyn fmt::Write, slice: &[T])
     Ok(())
 }
 
-fn d_sub_comma_f64<T>(w: &mut dyn fmt::Write, slice: &[T])
-                      -> fmt::Result where T: Copy + Into<f64> {
-    let mut first = true;
-    for &x in slice {
-        let x: f64 = x.into();
-        match first {
-            true => write!(w, "{}", x),
-            false => write!(w, ", {}", x),
-        }?;
-        first = false;
+struct AsciiDisplay<'a>(&'a [u8]);
+
+impl<'a> fmt::Display for AsciiDisplay<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        d_sub_ascii(f, self.0)
     }
-    Ok(())
 }
 
 fn d_sub_hex(w: &mut dyn fmt::Write, bytes: &[u8]) -> fmt::Result {
@@ -1523,7 +1510,8 @@ mod tests {
         assert_eq!(buf, "3/5");
 
         let mut buf = String::new();
-        d_sub_comma_f64(&mut buf, &[Rational::from((1, 2))]).unwrap();
+        let list = &[Rational::from((1, 2))];
+        d_sub_comma(&mut buf, list.iter().map(|x| x.to_f64())).unwrap();
         assert_eq!(buf, "0.5");
 
         let mut buf = String::new();
