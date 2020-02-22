@@ -443,6 +443,44 @@ mod tests {
     }
 
     #[test]
+    fn unknown_before_ftyp() {
+        let data =
+            b"\0\0\0\x09XXXXx\
+              \0\0\0\x14ftypmif1\0\0\0\0mif1\
+              \0\0\0\x57meta\0\0\0\0\
+                  \0\0\0\x18iloc\x01\0\0\0\0\0\0\x01\x1e\x1d\0\x01\0\0\0\x01\
+                  \0\0\0\x22iinf\0\0\0\0\0\x01\
+                      \0\0\0\x14infe\x02\0\0\0\x1e\x1d\0\0Exif\
+                  \0\0\0\x11idat\0\0\0\x01xabcd";
+        assert!(is_heif(data));
+        let exif = get_exif_attr(&mut Cursor::new(&data[..])).unwrap();
+        assert_eq!(exif, b"abcd");
+    }
+
+    #[test]
+    fn bad_exif_data_block() {
+        let data =
+            b"\0\0\0\x14ftypmif1\0\0\0\0mif1\
+              \0\0\0\x52meta\0\0\0\0\
+                  \0\0\0\x18iloc\x01\0\0\0\0\0\0\x01\x1e\x1d\0\x01\0\0\0\x01\
+                  \0\0\0\x22iinf\0\0\0\0\0\x01\
+                      \0\0\0\x14infe\x02\0\0\0\x1e\x1d\0\0Exif\
+                  \0\0\0\x0cidat\0\0\0\x01";
+        assert_err_pat!(get_exif_attr(&mut Cursor::new(&data[..])),
+                        Error::InvalidFormat("Invalid Exif header offset"));
+
+        let data =
+            b"\0\0\0\x14ftypmif1\0\0\0\0mif1\
+              \0\0\0\x51meta\0\0\0\0\
+                  \0\0\0\x18iloc\x01\0\0\0\0\0\0\x01\x1e\x1d\0\x01\0\0\0\x01\
+                  \0\0\0\x22iinf\0\0\0\0\0\x01\
+                      \0\0\0\x14infe\x02\0\0\0\x1e\x1d\0\0Exif\
+                  \0\0\0\x0bidat\0\0\0";
+        assert_err_pat!(get_exif_attr(&mut Cursor::new(&data[..])),
+                        Error::InvalidFormat("ExifDataBlock too small"));
+    }
+
+    #[test]
     fn parser_box_header() {
         // size
         let mut p = Parser::new(Cursor::new(b"\0\0\0\x08abcd"));

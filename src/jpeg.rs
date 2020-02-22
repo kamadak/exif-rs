@@ -125,6 +125,12 @@ mod tests {
             assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
                             Error::InvalidFormat("Broken JPEG file"));
         }
+
+        let mut data = b"\xff\xd8\xff\xe1\x00\x08Exif\0\0".to_vec();
+        get_exif_attr(&mut Cursor::new(&data)).unwrap();
+        while let Some(_) = data.pop() {
+            get_exif_attr(&mut &data[..]).unwrap_err();
+        }
     }
 
     #[test]

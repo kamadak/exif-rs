@@ -531,6 +531,17 @@ mod tests {
         assert_eq!(format!("{:^10}", In(65535)), " IFD65535 ");
     }
 
+    #[test]
+    fn truncated() {
+        let mut data =
+            b"MM\0\x2a\0\0\0\x08\
+              \0\x01\x01\0\0\x03\0\0\0\x01\0\x14\0\0\0\0\0\0".to_vec();
+        parse_exif(&data).unwrap();
+        while let Some(_) = data.pop() {
+            parse_exif(&data).unwrap_err();
+        }
+    }
+
     // Before the error is returned, the IFD is parsed multiple times
     // as the 0th, 1st, ..., and n-th IFDs.
     #[test]
