@@ -247,7 +247,7 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
                 }
             },
             2 => return Err(Error::NotSupported(
-                "Construction by item offset is supported")),
+                "Construction by item offset is not supported")),
             _ => return Err("Invalid construction_method".into()),
         }
         Ok(buf)
