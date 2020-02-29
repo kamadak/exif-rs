@@ -107,16 +107,7 @@ impl Reader {
             return Err(Error::InvalidFormat("Unknown image format"));
         }
 
-        let (entries, le) = tiff::parse_exif(&buf)?;
-        let entry_map = entries.iter().enumerate()
-            .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
-
-        Ok(Exif {
-            buf: buf,
-            entries: entries,
-            entry_map: entry_map,
-            little_endian: le,
-        })
+        self.read_raw(buf)
     }
 }
 
