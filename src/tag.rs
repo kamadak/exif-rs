@@ -699,12 +699,25 @@ generate_well_known_tag_constants!(
      unit!["m"],
      "Horizontal positioning error"),
 
-    // Interoperability attributes [EXIF23 4.6.7 Table 16 and 4.6.8 Table 20].
+    // Interoperability attributes [EXIF23 4.6.7 Table 16 and 4.6.8 Table 20]
+    // [DCF20 4.4.5.3, 4.5.4.3, and 4.6.4.3].
     |Context::Interop|
 
     (InteroperabilityIndex, 0x1, DefaultValue::None, d_default,
      unit![],
      "Interoperability identification"),
+    (InteroperabilityVersion, 0x2, DefaultValue::None, d_interopver,
+     unit![],
+     "Interoperability version"),
+    (RelatedImageFileFormat, 0x1000, DefaultValue::None, d_default,
+     unit![],
+     "Related image file format"),
+    (RelatedImageWidth, 0x1001, DefaultValue::None, d_default,
+     unit!["pixels"],
+     "Related image width"),
+    (RelatedImageLength, 0x1002, DefaultValue::None, d_default,
+     unit!["pixels"],
+     "Related image height"),
 );
 
 // For Value::display_as().
@@ -1346,6 +1359,18 @@ fn d_gpsdifferential(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         _ => return d_reserved(w, value, "GPS differential correction"),
     };
     w.write_str(s)
+}
+
+// InteroperabilityVersion (Interoperability 0x2)
+fn d_interopver(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
+    if let Some(s) = value.undefined().filter(|s| s.len() == 4) {
+        if let Ok(major) = atou16(&s[0..2]) {
+            if let Ok(minor) = atou16(&s[2..4]) {
+                return write!(w, "{}.{:02}", major, minor);
+            }
+        }
+    }
+    d_default(w, value)
 }
 
 fn d_ascii_in_undef(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
