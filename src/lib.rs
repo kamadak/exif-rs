@@ -165,6 +165,8 @@
 //!   buffer or `Reader` (thanks to the change of `Value::Undefined`
 //!   and `Value::Ascii` described above).
 
+#![forbid(unsafe_code)]
+
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::{Exif, Reader};
