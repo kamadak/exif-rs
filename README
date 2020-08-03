@@ -9,6 +9,7 @@ Exif parsing library written in pure Rust
    -  TIFF and some RAW image formats based on it
    -  JPEG
    -  HEIF and coding-specific variations including HEIC and AVIF
+   -  PNG
 
 Usage
 -----
@@ -42,3 +43,5 @@ Standards
    -  TIFF Revision 6.0
    -  ISO/IEC 14496-12:2015
    -  ISO/IEC 23008-12:2017
+   -  PNG Specification, Version 1.2
+   -  Extensions to the PNG 1.2 Specification, version 1.5.0

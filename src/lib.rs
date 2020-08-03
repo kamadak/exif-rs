@@ -28,7 +28,7 @@
 //!
 //! This library parses Exif attributes in a raw Exif data block.
 //! It can also read Exif data directly from some image formats
-//! including TIFF, JPEG, and HEIF.
+//! including TIFF, JPEG, HEIF, and PNG.
 //!
 //! # Examples
 //!
@@ -187,6 +187,7 @@ mod endian;
 mod error;
 mod isobmff;
 mod jpeg;
+mod png;
 mod reader;
 mod tag;
 mod tiff;

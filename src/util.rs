@@ -48,6 +48,16 @@ pub fn read64<R>(reader: &mut R) -> Result<u64, io::Error> where R: io::Read {
     Ok(u64::from_be_bytes(buf))
 }
 
+pub fn discard_exact<R>(reader: &mut R, mut len: usize)
+                        -> Result<(), io::Error> where R: io::BufRead {
+    while len > 0 {
+        let consume_len = reader.fill_buf()?.len().min(len);
+        reader.consume(consume_len);
+        len -= consume_len;
+    }
+    Ok(())
+}
+
 // This function must not be called with more than 4 bytes.
 pub fn atou16(bytes: &[u8]) -> Result<u16, Error> {
     if cfg!(debug_assertions) && bytes.len() >= 5 {

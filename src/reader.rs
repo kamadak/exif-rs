@@ -31,6 +31,7 @@ use std::io::Read;
 use crate::error::Error;
 use crate::isobmff;
 use crate::jpeg;
+use crate::png;
 use crate::tag::Tag;
 use crate::tiff;
 use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
@@ -89,6 +90,7 @@ impl Reader {
     /// - TIFF and some RAW image formats based on it
     /// - JPEG
     /// - HEIF and coding-specific variations including HEIC and AVIF
+    /// - PNG
     ///
     /// This method is provided for the convenience even though
     /// parsing containers is basically out of the scope of this library.
@@ -100,6 +102,8 @@ impl Reader {
             reader.read_to_end(&mut buf)?;
         } else if jpeg::is_jpeg(&buf) {
             buf = jpeg::get_exif_attr(&mut buf.chain(reader))?;
+        } else if png::is_png(&buf) {
+            buf = png::get_exif_attr(&mut buf.chain(reader))?;
         } else if isobmff::is_heif(&buf) {
             reader.seek(io::SeekFrom::Start(0))?;
             buf = isobmff::get_exif_attr(reader)?;
@@ -240,5 +244,15 @@ mod tests {
         assert_eq!(exif.fields().len(), 2);
         let exifver = exif.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
         assert_eq!(exifver.display_value().to_string(), "2.31");
+    }
+
+    #[test]
+    fn png() {
+        let file = std::fs::File::open("tests/exif.png").unwrap();
+        let exif = Reader::new().read_from_container(
+            &mut std::io::BufReader::new(&file)).unwrap();
+        assert_eq!(exif.fields().len(), 6);
+        let exifver = exif.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
+        assert_eq!(exifver.display_value().to_string(), "2.32");
     }
 }
