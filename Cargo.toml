@@ -1,6 +1,6 @@
 [package]
 name = "exif"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["KAMADA Ken'ichi <kamada@nanohz.org>"]
 edition = "2018"
 
