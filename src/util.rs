@@ -48,14 +48,19 @@ pub fn read64<R>(reader: &mut R) -> Result<u64, io::Error> where R: io::Read {
     Ok(u64::from_be_bytes(buf))
 }
 
-pub fn discard_exact<R>(reader: &mut R, mut len: usize)
-                        -> Result<(), io::Error> where R: io::BufRead {
-    while len > 0 {
-        let consume_len = reader.fill_buf()?.len().min(len);
-        reader.consume(consume_len);
-        len -= consume_len;
+pub trait BufReadExt {
+    fn discard_exact(&mut self, len: usize) -> io::Result<()>;
+}
+
+impl<T> BufReadExt for T where T: io::BufRead {
+    fn discard_exact(&mut self, mut len: usize) -> io::Result<()> {
+        while len > 0 {
+            let consume_len = self.fill_buf()?.len().min(len);
+            self.consume(consume_len);
+            len -= consume_len;
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 // This function must not be called with more than 4 bytes.

@@ -29,7 +29,7 @@ use std::io::Read;
 
 use crate::endian::{Endian, BigEndian};
 use crate::error::Error;
-use crate::util::discard_exact;
+use crate::util::BufReadExt;
 
 // PNG file signature [PNG12 12.12].
 const PNG_SIG: [u8; 8] = *b"\x89PNG\x0d\x0a\x1a\x0a";
@@ -77,7 +77,7 @@ fn get_exif_attr_sub<R>(reader: &mut R)
             return Ok(data);
         }
         // Chunk data and CRC.
-        discard_exact(reader, len + 4)?;
+        reader.discard_exact(len + 4)?;
     }
 }
 
