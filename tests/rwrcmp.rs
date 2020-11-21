@@ -41,8 +41,18 @@ use exif::{Exif, In, Reader, Value, Tag};
 use exif::experimental::Writer;
 
 #[test]
+fn exif_heic() {
+    rwr_compare("tests/exif.heic");
+}
+
+#[test]
 fn exif_jpg() {
     rwr_compare("tests/exif.jpg");
+}
+
+#[test]
+fn exif_png() {
+    rwr_compare("tests/exif.png");
 }
 
 #[test]
