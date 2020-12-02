@@ -94,18 +94,18 @@ pub fn ctou32(c: u8) -> Result<u32, Error> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
     use std::io::ErrorKind;
     use std::io::Read;
     use super::*;
 
     #[test]
     fn read8_len() {
-        let mut reader = Cursor::new([]);
-        assert_err_kind!(read8(&mut reader), ErrorKind::UnexpectedEof);
-        let mut reader = Cursor::new([0x01]);
-        assert_ok!(read8(&mut reader), 0x01);
-        let mut reader = Cursor::new([0x01, 0x02]);
+        let data = [];
+        assert_err_kind!(read8(&mut &data[..]), ErrorKind::UnexpectedEof);
+        let data = [0x01];
+        assert_ok!(read8(&mut &data[..]), 0x01);
+        let data = [0x01, 0x02];
+        let mut reader = &data[..];
         let mut buf = Vec::new();
         assert_ok!(read8(&mut reader), 0x01);
         assert_ok!(reader.read_to_end(&mut buf), 1);
@@ -114,13 +114,14 @@ mod tests {
 
     #[test]
     fn read16_len() {
-        let mut reader = Cursor::new([]);
-        assert_err_kind!(read16(&mut reader), ErrorKind::UnexpectedEof);
-        let mut reader = Cursor::new([0x01]);
-        assert_err_kind!(read16(&mut reader), ErrorKind::UnexpectedEof);
-        let mut reader = Cursor::new([0x01, 0x02]);
-        assert_ok!(read16(&mut reader), 0x0102);
-        let mut reader = Cursor::new([0x01, 0x02, 0x03]);
+        let data = [];
+        assert_err_kind!(read16(&mut &data[..]), ErrorKind::UnexpectedEof);
+        let data = [0x01];
+        assert_err_kind!(read16(&mut &data[..]), ErrorKind::UnexpectedEof);
+        let data = [0x01, 0x02];
+        assert_ok!(read16(&mut &data[..]), 0x0102);
+        let data = [0x01, 0x02, 0x03];
+        let mut reader = &data[..];
         let mut buf = Vec::new();
         assert_ok!(read16(&mut reader), 0x0102);
         assert_ok!(reader.read_to_end(&mut buf), 1);

@@ -108,7 +108,6 @@ pub fn is_jpeg(buf: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
     use super::*;
 
     #[test]
@@ -122,12 +121,12 @@ mod tests {
             b"\xff\xd8\xff\xe1\x00\x08\x03\x04",
         ];
         for &data in sets {
-            assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
+            assert_err_pat!(get_exif_attr(&mut &data[..]),
                             Error::InvalidFormat("Broken JPEG file"));
         }
 
         let mut data = b"\xff\xd8\xff\xe1\x00\x08Exif\0\0".to_vec();
-        get_exif_attr(&mut Cursor::new(&data)).unwrap();
+        get_exif_attr(&mut &data[..]).unwrap();
         while let Some(_) = data.pop() {
             get_exif_attr(&mut &data[..]).unwrap_err();
         }
@@ -136,26 +135,26 @@ mod tests {
     #[test]
     fn no_exif() {
         let data = b"\xff\xd8\xff\xd9";
-        assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
+        assert_err_pat!(get_exif_attr(&mut &data[..]),
                         Error::NotFound(_));
     }
 
     #[test]
     fn out_of_sync() {
         let data = b"\xff\xd8\x01\x02\x03\xff\x00\xff\xd9";
-        assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
+        assert_err_pat!(get_exif_attr(&mut &data[..]),
                         Error::NotFound(_));
     }
 
     #[test]
     fn empty() {
         let data = b"\xff\xd8\xff\xe1\x00\x08Exif\0\0\xff\xd9";
-        assert_ok!(get_exif_attr(&mut Cursor::new(data)), []);
+        assert_ok!(get_exif_attr(&mut &data[..]), []);
     }
 
     #[test]
     fn non_empty() {
         let data = b"\xff\xd8\xff\xe1\x00\x0aExif\0\0\xbe\xad\xff\xd9";
-        assert_ok!(get_exif_attr(&mut Cursor::new(data)), [0xbe, 0xad]);
+        assert_ok!(get_exif_attr(&mut &data[..]), [0xbe, 0xad]);
     }
 }

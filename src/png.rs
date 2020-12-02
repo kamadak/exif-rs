@@ -87,7 +87,6 @@ pub fn is_png(buf: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
     use super::*;
 
     #[test]
@@ -98,12 +97,12 @@ mod tests {
             b"\x89PNG\x0d\x0a\x1a",
         ];
         for &data in sets {
-            assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
+            assert_err_pat!(get_exif_attr(&mut &data[..]),
                             Error::InvalidFormat("Broken PNG file"));
         }
 
         let mut data = b"\x89PNG\x0d\x0a\x1a\x0a\0\0\0\x04eXIfExif".to_vec();
-        get_exif_attr(&mut Cursor::new(&data)).unwrap();
+        get_exif_attr(&mut &data[..]).unwrap();
         while let Some(_) = data.pop() {
             get_exif_attr(&mut &data[..]).unwrap_err();
         }
@@ -112,19 +111,19 @@ mod tests {
     #[test]
     fn no_exif() {
         let data = b"\x89PNG\x0d\x0a\x1a\x0a";
-        assert_err_pat!(get_exif_attr(&mut Cursor::new(data)),
+        assert_err_pat!(get_exif_attr(&mut &data[..]),
                         Error::NotFound(_));
     }
 
     #[test]
     fn empty() {
         let data = b"\x89PNG\x0d\x0a\x1a\x0a\0\0\0\0eXIfCRC_";
-        assert_ok!(get_exif_attr(&mut Cursor::new(data)), []);
+        assert_ok!(get_exif_attr(&mut &data[..]), []);
     }
 
     #[test]
     fn non_empty() {
         let data = b"\x89PNG\x0d\x0a\x1a\x0a\0\0\0\x02eXIf\xbe\xadCRC_";
-        assert_ok!(get_exif_attr(&mut Cursor::new(data)), [0xbe, 0xad]);
+        assert_ok!(get_exif_attr(&mut &data[..]), [0xbe, 0xad]);
     }
 }
