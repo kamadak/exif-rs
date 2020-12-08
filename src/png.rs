@@ -102,7 +102,7 @@ mod tests {
         }
 
         let mut data = b"\x89PNG\x0d\x0a\x1a\x0a\0\0\0\x04eXIfExif".to_vec();
-        get_exif_attr(&mut &data[..]).unwrap();
+        assert_eq!(get_exif_attr(&mut &data[..]).unwrap(), b"Exif");
         while let Some(_) = data.pop() {
             get_exif_attr(&mut &data[..]).unwrap_err();
         }
