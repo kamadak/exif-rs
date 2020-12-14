@@ -60,6 +60,11 @@ fn exif_tif() {
     rwr_compare("tests/exif.tif");
 }
 
+#[test]
+fn exif_webp() {
+    rwr_compare("tests/exif.webp");
+}
+
 fn main() {
     for path in env::args_os().skip(1) {
         rwr_compare(&path);

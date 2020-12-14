@@ -35,6 +35,7 @@ use crate::png;
 use crate::tag::Tag;
 use crate::tiff;
 use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
+use crate::webp;
 
 /// A struct to parse the Exif attributes and
 /// create an `Exif` instance that holds the results.
@@ -91,6 +92,7 @@ impl Reader {
     /// - JPEG
     /// - HEIF and coding-specific variations including HEIC and AVIF
     /// - PNG
+    /// - WebP
     ///
     /// This method is provided for the convenience even though
     /// parsing containers is basically out of the scope of this library.
@@ -107,6 +109,8 @@ impl Reader {
         } else if isobmff::is_heif(&buf) {
             reader.seek(io::SeekFrom::Start(0))?;
             buf = isobmff::get_exif_attr(reader)?;
+        } else if webp::is_webp(&buf) {
+            buf = webp::get_exif_attr(&mut buf.chain(reader))?;
         } else {
             return Err(Error::InvalidFormat("Unknown image format"));
         }
@@ -254,5 +258,17 @@ mod tests {
         assert_eq!(exif.fields().len(), 6);
         let exifver = exif.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
         assert_eq!(exifver.display_value().to_string(), "2.32");
+    }
+
+    #[test]
+    fn webp() {
+        let file = std::fs::File::open("tests/exif.webp").unwrap();
+        let exif = Reader::new().read_from_container(
+            &mut std::io::BufReader::new(&file)).unwrap();
+        assert_eq!(exif.fields().len(), 6);
+        let exifver = exif.get_field(Tag::ExifVersion, In::PRIMARY).unwrap();
+        assert_eq!(exifver.display_value().to_string(), "2.32");
+        let desc = exif.get_field(Tag::ImageDescription, In::PRIMARY).unwrap();
+        assert_eq!(desc.display_value().to_string(), "\"WebP test\"");
     }
 }
