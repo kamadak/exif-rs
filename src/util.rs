@@ -56,6 +56,9 @@ impl<T> BufReadExt for T where T: io::BufRead {
     fn discard_exact(&mut self, mut len: usize) -> io::Result<()> {
         while len > 0 {
             let consume_len = match self.fill_buf() {
+                Ok(buf) if buf.is_empty() =>
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof, "unexpected EOF")),
                 Ok(buf) => buf.len().min(len),
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
                 Err(e) => return Err(e),
@@ -97,6 +100,16 @@ mod tests {
     use std::io::ErrorKind;
     use std::io::Read;
     use super::*;
+
+    #[test]
+    fn discard_exact() {
+        let mut buf = b"abc".as_ref();
+        buf.discard_exact(1).unwrap();
+        assert_eq!(buf, b"bc");
+        buf.discard_exact(2).unwrap();
+        assert_eq!(buf, b"");
+        buf.discard_exact(1).unwrap_err();
+    }
 
     #[test]
     fn read8_len() {
