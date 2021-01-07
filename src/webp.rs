@@ -82,7 +82,7 @@ fn get_exif_attr_sub<R>(reader: &mut R)
         }
         reader.discard_exact(size as usize)?;
     }
-    return Err(Error::NotFound("WebP"));
+    Err(Error::NotFound("WebP"))
 }
 
 pub fn is_webp(buf: &[u8]) -> bool {
