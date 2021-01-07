@@ -77,8 +77,7 @@ fn get_exif_attr_sub<R>(reader: &mut R)
         }
         if size % 2 != 0 && file_size > 0 {
             file_size -= 1;
-            size = size.checked_add(1)
-                .ok_or(Error::InvalidFormat("Chunk size too big"))?;
+            size = size.checked_add(1).expect("ex-file_size - size > 0");
         }
         reader.discard_exact(size as usize)?;
     }
