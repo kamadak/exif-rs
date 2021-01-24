@@ -77,7 +77,8 @@ fn get_exif_attr_sub<R>(reader: &mut R)
             return Ok(data);
         }
         // Chunk data and CRC.
-        reader.discard_exact(len + 4)?;
+        reader.discard_exact(len.checked_add(4).ok_or(
+            Error::InvalidFormat("Invalid chunk length"))?)?;
     }
 }
 

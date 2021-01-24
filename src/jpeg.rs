@@ -85,12 +85,10 @@ fn get_exif_attr_sub<R>(reader: &mut R)
             _ => {},
         }
         // Read marker segments.
-        let seglen = read16(reader)?;
-        if seglen < 2 {
-            return Err(Error::InvalidFormat("Invalid segment length"));
-        }
+        let len = read16(reader)?.checked_sub(2)
+            .ok_or(Error::InvalidFormat("Invalid segment length"))?;
         let mut seg = Vec::new();
-        reader.by_ref().take(seglen as u64 - 2).read_to_end(&mut seg)?;
+        reader.by_ref().take(len.into()).read_to_end(&mut seg)?;
         if code == marker::APP1 && seg.starts_with(&EXIF_ID) {
             seg.drain(..EXIF_ID.len());
             return Ok(seg);

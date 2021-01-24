@@ -132,6 +132,19 @@ mod tests {
     }
 
     #[test]
+    fn overflowing_parent() {
+        let mut data = b"RIFF\x10\0\0\0WEBPEXIF\x04\0\0\0Exif".to_vec();
+        assert_eq!(get_exif_attr(&mut &data[..]).unwrap(), b"Exif");
+        for x in 0x05..=0x0f {
+            data[4] = x;
+            assert_err_pat!(get_exif_attr(&mut &data[..]),
+                            Error::InvalidFormat(_));
+        }
+        data[4] = 0x04;
+        assert_err_pat!(get_exif_attr(&mut &data[..]), Error::NotFound(_));
+    }
+
+    #[test]
     fn odd_at_last_without_padding() {
         let data = b"RIFF\x17\0\0\0WEBPwhat\0\0\0\0EXIF\x03\0\0\0abc";
         assert_ok!(get_exif_attr(&mut &data[..]), b"abc");
