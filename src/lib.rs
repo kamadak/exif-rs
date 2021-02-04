@@ -32,7 +32,9 @@
 //!
 //! # Examples
 //!
-//! An example to parse JPEG/TIFF files:
+//! To parse Exif attributes in an image file,
+//! use `Reader::read_from_container`.
+//! To convert a field value to a string, use `Field::display_value`.
 //!
 //! ```
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -47,6 +49,46 @@
 //!     }
 //! }
 //! # Ok(()) }
+//! ```
+//!
+//! To process a field value programmatically in your application,
+//! use the value itself (associated value of enum `Value`)
+//! rather than a stringified one.
+//!
+//! ```
+//! # use exif::{In, Reader, Tag, Value};
+//! # let file = std::fs::File::open("tests/exif.tif").unwrap();
+//! # let exif = Reader::new().read_from_container(
+//! #     &mut std::io::BufReader::new(&file)).unwrap();
+//! # macro_rules! eprintln { ($($tt:tt)*) => (panic!($($tt)*)) }
+//! // Orientation is stored as a SHORT.
+//! match exif.get_field(Tag::Orientation, In::PRIMARY) {
+//!     Some(orientation) =>
+//!         // You could match `orientation.value` against `Value::Short`,
+//!         // but the standard recommends that BYTE, SHORT, or LONG should
+//!         // be accepted.  `Value::get_uint` is provided for that purpose.
+//!         match orientation.value.get_uint(0) {
+//!             Some(v @ 1..=8) => {
+//!                 println!("Orientation {}", v);
+//!                 # assert_eq!(v, 1);
+//!             },
+//!             _ => eprintln!("Orientation value is broken"),
+//!         },
+//!     None => eprintln!("Orientation tag is missing"),
+//! }
+//! // XResolution is stored as a RATIONAL.
+//! match exif.get_field(Tag::XResolution, In::PRIMARY) {
+//!     Some(xres) =>
+//!         match xres.value {
+//!             Value::Rational(ref v) if !v.is_empty() => {
+//!                 println!("XResolution {}", v[0]);
+//!                 # assert_eq!(v[0].num, 72);
+//!                 # assert_eq!(v[0].denom, 1);
+//!             },
+//!             _ => eprintln!("XResolution value is broken"),
+//!         },
+//!     None => eprintln!("XResolution tag is missing"),
+//! }
 //! ```
 //!
 //! # Upgrade Guide
