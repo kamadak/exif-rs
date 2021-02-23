@@ -20,7 +20,7 @@ Usage
    but it is renamed on crates.io to avoid a naming conflict.
 
       [dependencies]
-      kamadak-exif = "0.5"
+      kamadak-exif = "x.y.z"
 
    Add the following to your crate root (before Rust 2018).
 
