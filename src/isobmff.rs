@@ -24,12 +24,11 @@
 // SUCH DAMAGE.
 //
 
-use std::io;
-use std::io::{Read, SeekFrom};
+use std::io::{BufRead, ErrorKind, Seek, SeekFrom};
 
 use crate::endian::{Endian, BigEndian};
 use crate::error::Error;
-use crate::util::read64;
+use crate::util::{read64, BufReadExt as _, ReadExt as _};
 
 // Checking "mif1" in the compatible brands should be enough, because
 // the "heic", "heix", "heim", and "heis" files shall include "mif1"
@@ -56,10 +55,10 @@ trait AnnotatableTryInto {
 impl<T> AnnotatableTryInto for T where T: From<u8> {}
 
 pub fn get_exif_attr<R>(reader: &mut R) -> Result<Vec<u8>, Error>
-where R: io::BufRead + io::Seek {
+where R: BufRead + Seek {
     let mut parser = Parser::new(reader);
     match parser.parse() {
-        Err(Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof =>
+        Err(Error::Io(ref e)) if e.kind() == ErrorKind::UnexpectedEof =>
             Err("Broken HEIF file".into()),
         Err(e) => Err(e),
         Ok(mut buf) => {
@@ -95,7 +94,7 @@ struct Location {
     base_offset: u64,
 }
 
-impl<R> Parser<R> where R: io::BufRead + io::Seek {
+impl<R> Parser<R> where R: BufRead + Seek {
     fn new(reader: R) -> Self {
         Self {
             reader: reader,
@@ -131,13 +130,11 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
     // and returns body size and type.
     // If no byte can be read due to EOF, None is returned.
     fn read_box_header(&mut self) -> Result<Option<(u64, [u8; 4])>, Error> {
-        let mut buf = Vec::new();
-        match self.reader.by_ref().take(8).read_to_end(&mut buf)? {
-            0 => return Ok(None),
-            1..=7 => return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
-                                               "truncated box").into()),
-            _ => {},
+        if self.reader.is_eof()? {
+            return Ok(None);
         }
+        let mut buf = [0; 8];
+        self.reader.read_exact(&mut buf)?;
         let size = match BigEndian::loadu32(&buf, 0) {
             0 => Some(std::u64::MAX),
             1 => read64(&mut self.reader)?.checked_sub(16),
@@ -149,15 +146,17 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
     }
 
     fn read_file_level_box(&mut self, size: u64) -> Result<Vec<u8>, Error> {
-        let mut buf = Vec::new();
+        let mut buf;
         match size {
-            std::u64::MAX => { self.reader.read_to_end(&mut buf)?; },
+            std::u64::MAX => {
+                buf = Vec::new();
+                self.reader.read_to_end(&mut buf)?;
+            },
             _ => {
-                self.reader.by_ref().take(size).read_to_end(&mut buf)?;
-                if buf.len() as u64 != size {
-                    return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
-                                              "truncated box").into());
-                }
+                let size = size.try_into()
+                    .or(Err("Box is larger than the address space"))?;
+                buf = Vec::new();
+                self.reader.read_exact_len(&mut buf, size)?;
             },
         }
         Ok(buf)
@@ -215,14 +214,13 @@ impl<R> Parser<R> where R: io::BufRead + io::Seek {
                     // implementation-defined, but the subsequent read
                     // should fail.
                     self.reader.seek(SeekFrom::Start(off))?;
-                    let read = match len {
-                        0 => self.reader.read_to_end(&mut buf),
-                        _ => self.reader.by_ref()
-                            .take(len).read_to_end(&mut buf),
-                    }?;
-                    if len != 0 && read as u64 != len {
-                        return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
-                                                  "truncated extent").into());
+                    match len {
+                        0 => { self.reader.read_to_end(&mut buf)?; },
+                        _ => {
+                            let len = len.try_into()
+                                .or(Err("Extent too large"))?;
+                            self.reader.read_exact_len(&mut buf, len)?;
+                        },
                     }
                     if buf.len() > MAX_EXIF_SIZE {
                         return Err("Exif data too large".into());

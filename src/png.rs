@@ -24,12 +24,11 @@
 // SUCH DAMAGE.
 //
 
-use std::io;
-use std::io::Read;
+use std::io::{BufRead, ErrorKind};
 
 use crate::endian::{Endian, BigEndian};
 use crate::error::Error;
-use crate::util::BufReadExt;
+use crate::util::{BufReadExt as _, ReadExt as _};
 
 // PNG file signature [PNG12 12.12].
 const PNG_SIG: [u8; 8] = *b"\x89PNG\x0d\x0a\x1a\x0a";
@@ -38,9 +37,9 @@ const EXIF_CHUNK_TYPE: [u8; 4] = *b"eXIf";
 
 // Get the contents of the eXIf chunk from a PNG file.
 pub fn get_exif_attr<R>(reader: &mut R)
-                        -> Result<Vec<u8>, Error> where R: io::BufRead {
+                        -> Result<Vec<u8>, Error> where R: BufRead {
     match get_exif_attr_sub(reader) {
-        Err(Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof =>
+        Err(Error::Io(ref e)) if e.kind() == ErrorKind::UnexpectedEof =>
             Err(Error::InvalidFormat("Broken PNG file")),
         r => r,
     }
@@ -49,7 +48,7 @@ pub fn get_exif_attr<R>(reader: &mut R)
 // The location of the eXIf chunk is restricted [PNGEXT150 3.7], but this
 // reader is liberal about it.
 fn get_exif_attr_sub<R>(reader: &mut R)
-                        -> Result<Vec<u8>, Error> where R: io::BufRead {
+                        -> Result<Vec<u8>, Error> where R: BufRead {
     let mut sig = [0u8; 8];
     reader.read_exact(&mut sig)?;
     if sig != PNG_SIG {
@@ -57,23 +56,17 @@ fn get_exif_attr_sub<R>(reader: &mut R)
     }
     // Scan the series of chunks.
     loop {
-        let mut lenbuf = Vec::new();
-        match reader.by_ref().take(4).read_to_end(&mut lenbuf)? {
-            0 => return Err(Error::NotFound("PNG")),
-            1..=3 => return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
-                                               "truncated chunk").into()),
-            _ => {},
+        if reader.is_eof()? {
+            return Err(Error::NotFound("PNG"));
         }
+        let mut lenbuf = [0; 4];
+        reader.read_exact(&mut lenbuf)?;
         let len = BigEndian::loadu32(&lenbuf, 0) as usize;
         let mut ctype = [0u8; 4];
         reader.read_exact(&mut ctype)?;
         if ctype == EXIF_CHUNK_TYPE {
             let mut data = Vec::new();
-            reader.by_ref().take(len as u64).read_to_end(&mut data)?;
-            if data.len() != len {
-                return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
-                                          "truncated chunk").into());
-            }
+            reader.read_exact_len(&mut data, len)?;
             return Ok(data);
         }
         // Chunk data and CRC.

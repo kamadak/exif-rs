@@ -25,6 +25,7 @@
 //
 
 use std::io;
+use std::io::Read as _;
 
 use crate::error::Error;
 
@@ -50,6 +51,7 @@ pub fn read64<R>(reader: &mut R) -> Result<u64, io::Error> where R: io::Read {
 
 pub trait BufReadExt {
     fn discard_exact(&mut self, len: usize) -> io::Result<()>;
+    fn is_eof(&mut self) -> io::Result<bool>;
 }
 
 impl<T> BufReadExt for T where T: io::BufRead {
@@ -65,6 +67,37 @@ impl<T> BufReadExt for T where T: io::BufRead {
             };
             self.consume(consume_len);
             len -= consume_len;
+        }
+        Ok(())
+    }
+
+    fn is_eof(&mut self) -> io::Result<bool> {
+        loop {
+            match self.fill_buf() {
+                Ok(buf) => return Ok(buf.is_empty()),
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            }
+        }
+    }
+}
+
+pub trait ReadExt {
+    fn read_exact_len(&mut self, buf: &mut Vec<u8>, len: usize)
+                      -> io::Result<()>;
+}
+
+impl<T> ReadExt for T where T: io::Read {
+    fn read_exact_len(&mut self, buf: &mut Vec<u8>, len: usize)
+                      -> io::Result<()> {
+        // Using `vec![0; len]` and `read_exact` is more efficient but
+        // less robust against broken files; a small file can easily
+        // trigger OOM by a huge length value without actual data.
+        // When the fallible allocation feature is stabilized,
+        // we could revisit this.
+        if self.take(len as u64).read_to_end(buf)? != len {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof, "unexpected EOF"));
         }
         Ok(())
     }

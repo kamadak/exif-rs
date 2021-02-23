@@ -24,8 +24,7 @@
 // SUCH DAMAGE.
 //
 
-use std::io;
-use std::io::Read;
+use std::io::{BufRead, ErrorKind};
 
 use crate::error::Error;
 use crate::util::{read8, read16};
@@ -52,16 +51,16 @@ const EXIF_ID: [u8; 6] = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00];
 
 /// Get the Exif attribute information segment from a JPEG file.
 pub fn get_exif_attr<R>(reader: &mut R)
-                        -> Result<Vec<u8>, Error> where R: io::BufRead {
+                        -> Result<Vec<u8>, Error> where R: BufRead {
     match get_exif_attr_sub(reader) {
-        Err(Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof =>
+        Err(Error::Io(ref e)) if e.kind() == ErrorKind::UnexpectedEof =>
             Err(Error::InvalidFormat("Broken JPEG file")),
         r => r,
     }
 }
 
 fn get_exif_attr_sub<R>(reader: &mut R)
-                        -> Result<Vec<u8>, Error> where R: io::BufRead {
+                        -> Result<Vec<u8>, Error> where R: BufRead {
     let mut soi = [0u8; 2];
     reader.read_exact(&mut soi)?;
     if soi != [marker::P, marker::SOI] {
@@ -87,8 +86,8 @@ fn get_exif_attr_sub<R>(reader: &mut R)
         // Read marker segments.
         let len = read16(reader)?.checked_sub(2)
             .ok_or(Error::InvalidFormat("Invalid segment length"))?;
-        let mut seg = Vec::new();
-        reader.by_ref().take(len.into()).read_to_end(&mut seg)?;
+        let mut seg = vec![0; len.into()];
+        reader.read_exact(&mut seg)?;
         if code == marker::APP1 && seg.starts_with(&EXIF_ID) {
             seg.drain(..EXIF_ID.len());
             return Ok(seg);

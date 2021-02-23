@@ -24,12 +24,11 @@
 // SUCH DAMAGE.
 //
 
-use std::io;
-use std::io::Read;
+use std::io::{BufRead, ErrorKind};
 
 use crate::endian::{Endian, LittleEndian};
 use crate::error::Error;
-use crate::util::BufReadExt;
+use crate::util::{BufReadExt as _, ReadExt as _};
 
 // Chunk identifiers for RIFF.
 const FCC_RIFF: [u8; 4] = *b"RIFF";
@@ -38,22 +37,22 @@ const FCC_EXIF: [u8; 4] = *b"EXIF";
 
 // Get the contents of the Exif chunk from a WebP file.
 pub fn get_exif_attr<R>(reader: &mut R)
-                        -> Result<Vec<u8>, Error> where R: io::BufRead {
+                        -> Result<Vec<u8>, Error> where R: BufRead {
     match get_exif_attr_sub(reader) {
-        Err(Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof =>
+        Err(Error::Io(ref e)) if e.kind() == ErrorKind::UnexpectedEof =>
             Err(Error::InvalidFormat("Broken WebP file")),
         r => r,
     }
 }
 
 fn get_exif_attr_sub<R>(reader: &mut R)
-                        -> Result<Vec<u8>, Error> where R: io::BufRead {
+                        -> Result<Vec<u8>, Error> where R: BufRead {
     let mut sig = [0; 12];
     reader.read_exact(&mut sig)?;
     if sig[0..4] != FCC_RIFF || sig[8..12] != FCC_WEBP {
         return Err(Error::InvalidFormat("Not a WebP file"));
     }
-    let mut file_size = LittleEndian::loadu32(&sig, 4);
+    let mut file_size = LittleEndian::loadu32(&sig, 4) as usize;
     file_size = file_size.checked_sub(4)
         .ok_or(Error::InvalidFormat("Invalid header file size"))?;
 
@@ -63,23 +62,19 @@ fn get_exif_attr_sub<R>(reader: &mut R)
             .ok_or(Error::InvalidFormat("Chunk overflowing parent"))?;
         let mut cheader = [0; 8];
         reader.read_exact(&mut cheader)?;
-        let mut size = LittleEndian::loadu32(&cheader, 4);
+        let mut size = LittleEndian::loadu32(&cheader, 4) as usize;
         file_size = file_size.checked_sub(size)
             .ok_or(Error::InvalidFormat("Chunk overflowing parent"))?;
         if cheader[0..4] == FCC_EXIF {
             let mut payload = Vec::new();
-            reader.by_ref().take(size.into()).read_to_end(&mut payload)?;
-            if payload.len() != size as usize {
-                return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
-                                          "truncated chunk").into());
-            }
+            reader.read_exact_len(&mut payload, size)?;
             return Ok(payload);
         }
         if size % 2 != 0 && file_size > 0 {
             file_size -= 1;
             size = size.checked_add(1).expect("ex-file_size - size > 0");
         }
-        reader.discard_exact(size as usize)?;
+        reader.discard_exact(size)?;
     }
     Err(Error::NotFound("WebP"))
 }
