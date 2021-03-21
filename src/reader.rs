@@ -63,7 +63,7 @@ pub struct Reader {
 }
 
 impl Reader {
-    /// Construct a new `Reader`.
+    /// Constructs a new `Reader`.
     pub fn new() -> Self {
         Self {}
     }

@@ -61,17 +61,14 @@
 //! # let exif = Reader::new().read_from_container(
 //! #     &mut std::io::BufReader::new(&file)).unwrap();
 //! # macro_rules! eprintln { ($($tt:tt)*) => (panic!($($tt)*)) }
-//! // Orientation is stored as a SHORT.
+//! // Orientation is stored as a SHORT.  You could match `orientation.value`
+//! // against `Value::Short`, but the standard recommends that readers
+//! // should accept BYTE, SHORT, or LONG values for any unsigned integer
+//! // field.  `Value::get_uint` is provided for that purpose.
 //! match exif.get_field(Tag::Orientation, In::PRIMARY) {
 //!     Some(orientation) =>
-//!         // You could match `orientation.value` against `Value::Short`,
-//!         // but the standard recommends that BYTE, SHORT, or LONG should
-//!         // be accepted.  `Value::get_uint` is provided for that purpose.
 //!         match orientation.value.get_uint(0) {
-//!             Some(v @ 1..=8) => {
-//!                 println!("Orientation {}", v);
-//!                 # assert_eq!(v, 1);
-//!             },
+//!             Some(v @ 1..=8) => println!("Orientation {}", v),
 //!             _ => eprintln!("Orientation value is broken"),
 //!         },
 //!     None => eprintln!("Orientation tag is missing"),
@@ -80,11 +77,8 @@
 //! match exif.get_field(Tag::XResolution, In::PRIMARY) {
 //!     Some(xres) =>
 //!         match xres.value {
-//!             Value::Rational(ref v) if !v.is_empty() => {
-//!                 println!("XResolution {}", v[0]);
-//!                 # assert_eq!(v[0].num, 72);
-//!                 # assert_eq!(v[0].denom, 1);
-//!             },
+//!             Value::Rational(ref v) if !v.is_empty() =>
+//!                 println!("XResolution {}", v[0]),
 //!             _ => eprintln!("XResolution value is broken"),
 //!         },
 //!     None => eprintln!("XResolution tag is missing"),

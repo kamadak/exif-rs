@@ -28,7 +28,7 @@ use std::error;
 use std::fmt;
 use std::io;
 
-/// An error type returned when parsing Exif data.
+/// An error returned when parsing of Exif data fails.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {

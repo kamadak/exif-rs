@@ -31,7 +31,7 @@ use crate::value;
 use crate::value::Value;
 use crate::util::atou16;
 
-/// A tag of a TIFF field.
+/// A tag of a TIFF/Exif field.
 ///
 /// Some well-known tags are provided as associated constants of
 /// this type.  The constant names follow the Exif specification
@@ -64,8 +64,8 @@ impl Tag {
     /// # Examples
     /// ```
     /// use exif::{Context, Tag};
-    /// assert_eq!(Tag::DateTime.context(), Context::Tiff);
-    /// assert_eq!(Tag::ExposureTime.context(), Context::Exif);
+    /// assert_eq!(Tag::XResolution.context(), Context::Tiff);
+    /// assert_eq!(Tag::DateTimeOriginal.context(), Context::Exif);
     /// ```
     #[inline]
     pub fn context(self) -> Context {
@@ -77,7 +77,8 @@ impl Tag {
     /// # Examples
     /// ```
     /// use exif::Tag;
-    /// assert_eq!(Tag::DateTime.number(), 0x132);
+    /// assert_eq!(Tag::XResolution.number(), 0x11a);
+    /// assert_eq!(Tag::DateTimeOriginal.number(), 0x9003);
     /// ```
     #[inline]
     pub fn number(self) -> u16 {
@@ -91,7 +92,7 @@ impl Tag {
     }
 
     /// Returns the default value of the tag.  `None` is returned if
-    /// it is not defined in the standard or it depends on the context.
+    /// it is not defined in the standard or it depends on another tag.
     #[inline]
     pub fn default_value(&self) -> Option<Value> {
         get_tag_info(*self).and_then(|ti| (&ti.default).into())
@@ -781,6 +782,7 @@ fn d_planarcfg(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 }
 
 // ResolutionUnit (TIFF 0x128)
+// FocalPlaneResolutionUnit (Exif 0xa210)
 fn d_resunit(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     let s = match value.get_uint(0) {
         Some(1) => "no absolute unit",

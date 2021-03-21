@@ -98,7 +98,7 @@ impl IfdEntry {
     }
 }
 
-/// A TIFF field.
+/// A TIFF/Exif field.
 #[derive(Debug, Clone)]
 pub struct Field {
     /// The tag of this field.
@@ -109,7 +109,7 @@ pub struct Field {
     pub value: Value,
 }
 
-/// The IFD number.
+/// An IFD number.
 ///
 /// The IFDs are indexed from 0.  The 0th IFD is for the primary image
 /// and the 1st one is for the thumbnail.  Two associated constants,

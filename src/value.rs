@@ -29,7 +29,7 @@ use std::fmt::Write as _;
 
 use crate::endian::Endian;
 
-/// Types and values of TIFF fields (for Exif attributes).
+/// A type and values of a TIFF/Exif field.
 #[derive(Clone)]
 pub enum Value {
     /// Vector of 8-bit unsigned integers.
