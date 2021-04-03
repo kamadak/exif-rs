@@ -24,6 +24,7 @@
 // SUCH DAMAGE.
 //
 
+use std::convert::{TryFrom as _, TryInto as _};
 use std::io::{BufRead, ErrorKind, Seek, SeekFrom};
 
 use crate::endian::{Endian, BigEndian};
@@ -44,15 +45,6 @@ impl From<&'static str> for Error {
         Error::InvalidFormat(err)
     }
 }
-
-trait AnnotatableTryInto {
-    fn try_into<T>(self) -> Result<T, Self::Error>
-    where Self: std::convert::TryInto<T> {
-        std::convert::TryInto::try_into(self)
-    }
-}
-
-impl<T> AnnotatableTryInto for T where T: From<u8> {}
 
 pub fn get_exif_attr<R>(reader: &mut R) -> Result<Vec<u8>, Error>
 where R: BufRead + Seek {
@@ -140,8 +132,7 @@ impl<R> Parser<R> where R: BufRead + Seek {
             1 => read64(&mut self.reader)?.checked_sub(16),
             x => u64::from(x).checked_sub(8),
         }.ok_or("Invalid box size")?;
-        let boxtype = std::convert::TryFrom::try_from(&buf[4..8])
-            .expect("never happen");
+        let boxtype = buf[4..8].try_into().expect("never fails");
         Ok(Some((size, boxtype)))
     }
 
@@ -376,7 +367,7 @@ impl<'a> BoxSplitter<'a> {
         let boxtype = self.slice(4)?;
         let body_len = match size {
             0 => Some(self.len()),
-            1 => self.uint64()?.try_into::<usize>()
+            1 => usize::try_from(self.uint64()?)
                 .or(Err("Box is larger than the address space"))?
                 .checked_sub(16),
             _ => size.checked_sub(8),
@@ -414,8 +405,7 @@ impl<'a> BoxSplitter<'a> {
     }
 
     fn array4(&mut self) -> Result<[u8; 4], Error> {
-        self.slice(4).map(|x| std::convert::TryFrom::try_from(x)
-                          .expect("never happen"))
+        self.slice(4).map(|x| x.try_into().expect("never fails"))
     }
 
     fn slice(&mut self, at: usize) -> Result<&'a [u8], Error> {
