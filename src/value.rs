@@ -333,11 +333,13 @@ impl fmt::Display for Rational {
     }
 }
 
+// This implementation has been deprecated.  Use Rational::to_f64 instead.
 impl From<Rational> for f64 {
     #[inline]
     fn from(r: Rational) -> f64 { r.to_f64() }
 }
 
+// This implementation has been deprecated.  Use Rational::to_f32 instead.
 impl From<Rational> for f32 {
     #[inline]
     fn from(r: Rational) -> f32 { r.to_f32() }
@@ -382,11 +384,13 @@ impl fmt::Display for SRational {
     }
 }
 
+// This implementation has been deprecated.  Use SRational::to_f64 instead.
 impl From<SRational> for f64 {
     #[inline]
     fn from(r: SRational) -> f64 { r.to_f64() }
 }
 
+// This implementation has been deprecated.  Use SRational::to_f32 instead.
 impl From<SRational> for f32 {
     #[inline]
     fn from(r: SRational) -> f32 { r.to_f32() }
