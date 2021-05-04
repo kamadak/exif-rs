@@ -300,6 +300,12 @@ impl From<&DefaultValue> for Option<Value> {
 pub struct Rational { pub num: u32, pub denom: u32 }
 
 impl Rational {
+    /// Converts the value to an f32.
+    #[inline]
+    pub fn to_f32(&self) -> f32 {
+        self.to_f64() as f32
+    }
+
     /// Converts the value to an f64.
     #[inline]
     pub fn to_f64(&self) -> f64 {
@@ -334,7 +340,7 @@ impl From<Rational> for f64 {
 
 impl From<Rational> for f32 {
     #[inline]
-    fn from(r: Rational) -> f32 { r.to_f64() as f32 }
+    fn from(r: Rational) -> f32 { r.to_f32() }
 }
 
 /// A signed rational number, which is a pair of 32-bit signed integers.
@@ -342,6 +348,12 @@ impl From<Rational> for f32 {
 pub struct SRational { pub num: i32, pub denom: i32 }
 
 impl SRational {
+    /// Converts the value to an f32.
+    #[inline]
+    pub fn to_f32(&self) -> f32 {
+        self.to_f64() as f32
+    }
+
     /// Converts the value to an f64.
     #[inline]
     pub fn to_f64(&self) -> f64 {
@@ -377,7 +389,7 @@ impl From<SRational> for f64 {
 
 impl From<SRational> for f32 {
     #[inline]
-    fn from(r: SRational) -> f32 { r.to_f64() as f32 }
+    fn from(r: SRational) -> f32 { r.to_f32() }
 }
 
 // Only u32 or i32 are expected for T.
