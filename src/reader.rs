@@ -191,6 +191,7 @@ impl<'a> ProvideUnit<'a> for &'a Exif {
 mod tests {
     use std::fs::File;
     use std::io::BufReader;
+    use crate::tag::Context;
     use crate::value::Value;
     use super::*;
 
@@ -238,6 +239,35 @@ mod tests {
         let gpslat = exif.get_field(Tag::GPSLatitude, In::PRIMARY).unwrap();
         assert_eq!(gpslat.display_value().with_unit(&exif).to_string(),
                    "10 deg 0 min 0 sec [GPSLatitudeRef missing]");
+    }
+
+    #[test]
+    fn yaminabe() {
+        let file = File::open("tests/yaminabe.tif").unwrap();
+        let be = Reader::new().read_from_container(
+            &mut BufReader::new(&file)).unwrap();
+        let file = File::open("tests/yaminale.tif").unwrap();
+        let le = Reader::new().read_from_container(
+            &mut BufReader::new(&file)).unwrap();
+        assert!(!be.little_endian());
+        assert!(le.little_endian());
+        for exif in &[be, le] {
+            assert_eq!(exif.fields().len(), 26);
+            let f = exif.get_field(Tag::ImageWidth, In(0)).unwrap();
+            assert_eq!(f.display_value().to_string(), "17");
+            let f = exif.get_field(Tag::Humidity, In(0)).unwrap();
+            assert_eq!(f.display_value().to_string(), "65");
+            let f = exif.get_field(Tag(Context::Tiff, 65000), In(0)).unwrap();
+            match f.value {
+                Value::Float(ref v) => assert_eq!(v[0], f32::MIN),
+                _ => panic!(),
+            }
+            let f = exif.get_field(Tag(Context::Tiff, 65001), In(0)).unwrap();
+            match f.value {
+                Value::Double(ref v) => assert_eq!(v[0], f64::MIN),
+                _ => panic!(),
+            }
+        }
     }
 
     #[test]
