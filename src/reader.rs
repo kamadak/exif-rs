@@ -71,16 +71,15 @@ impl Reader {
     /// Parses the Exif attributes from raw Exif data.
     /// If an error occurred, `exif::Error` is returned.
     pub fn read_raw(&self, data: Vec<u8>) -> Result<Exif, Error> {
-        let buf = data;
-        let (entries, le) = tiff::parse_exif(&buf)?;
-        let entry_map = entries.iter().enumerate()
+        let mut parser = tiff::Parser::new();
+        parser.parse(&data)?;
+        let entry_map = parser.entries.iter().enumerate()
             .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
-
         Ok(Exif {
-            buf: buf,
-            entries: entries,
+            buf: data,
+            entries: parser.entries,
             entry_map: entry_map,
-            little_endian: le,
+            little_endian: parser.little_endian,
         })
     }
 
