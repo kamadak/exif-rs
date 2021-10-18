@@ -105,9 +105,7 @@ impl<T> ReadExt for T where T: io::Read {
 
 // This function must not be called with more than 4 bytes.
 pub fn atou16(bytes: &[u8]) -> Result<u16, Error> {
-    if cfg!(debug_assertions) && bytes.len() >= 5 {
-        panic!("atou16 accepts up to 4 bytes");
-    }
+    debug_assert!(bytes.len() <= 4);
     if bytes.len() == 0 {
         return Err(Error::InvalidFormat("Not a number"));
     }
