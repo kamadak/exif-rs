@@ -175,6 +175,7 @@ macro_rules! generate_well_known_tag_constants {
         impl Tag {
             $($(
                 $( #[$attr] )*
+                #[doc = $desc]
                 #[allow(non_upper_case_globals)]
                 pub const $name: Tag = Tag($ctx, $num);
             )+)+
