@@ -258,12 +258,12 @@ mod tests {
             assert_eq!(f.display_value().to_string(), "65");
             let f = exif.get_field(Tag(Context::Tiff, 65000), In(0)).unwrap();
             match f.value {
-                Value::Float(ref v) => assert_eq!(v[0], f32::MIN),
+                Value::Float(ref v) => assert_eq!(v[0], std::f32::MIN),
                 _ => panic!(),
             }
             let f = exif.get_field(Tag(Context::Tiff, 65001), In(0)).unwrap();
             match f.value {
-                Value::Double(ref v) => assert_eq!(v[0], f64::MIN),
+                Value::Double(ref v) => assert_eq!(v[0], std::f64::MIN),
                 _ => panic!(),
             }
         }
