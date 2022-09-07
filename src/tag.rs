@@ -153,6 +153,25 @@ macro_rules! unit_expand {
         unit_expand!($($built,)* UnitPiece::Tag(Tag::$tag) ; $($rest)*) );
 }
 
+// This requires Rust 1.54 or later.
+// macro_rules! use_desc_if_attr_is_empty {
+//     ( $desc:expr, $(#[$attr:meta])+ ) => ( "" );
+//     ( $desc:expr, ) => ( $desc );
+// }
+
+macro_rules! define_tag_const_with_doc {
+    ( $name:ident, $ctx:path, $num:expr, $desc:expr, $(#[$attr:meta])+ ) => (
+        $( #[$attr] )*
+        #[allow(non_upper_case_globals)]
+        pub const $name: Tag = Tag($ctx, $num);
+    );
+    ( $name:ident, $ctx:path, $num:expr, $desc:expr, ) => (
+        #[doc = $desc]
+        #[allow(non_upper_case_globals)]
+        pub const $name: Tag = Tag($ctx, $num);
+    );
+}
+
 macro_rules! generate_well_known_tag_constants {
     (
         $( |$ctx:path| $(
@@ -174,10 +193,12 @@ macro_rules! generate_well_known_tag_constants {
         // // <https://github.com/rust-lang/rust/issues/25207>.
         impl Tag {
             $($(
-                $( #[$attr] )*
-                #[doc = $desc]
-                #[allow(non_upper_case_globals)]
-                pub const $name: Tag = Tag($ctx, $num);
+                // $( #[$attr] )*
+                // #[doc = use_desc_if_attr_is_empty!($desc, $(#[$attr])*)]
+                // #[allow(non_upper_case_globals)]
+                // pub const $name: Tag = Tag($ctx, $num);
+                define_tag_const_with_doc!($name, $ctx, $num, $desc,
+                                           $(#[$attr])*);
             )+)+
         }
 
