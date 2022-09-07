@@ -387,6 +387,15 @@ generate_well_known_tag_constants!(
     (SpectralSensitivity, 0x8824, DefaultValue::None, d_default,
      unit![],
      "Spectral sensitivity"),
+    /// Sensitivity of the device.
+    ///
+    /// The value may be represented by standard output sensitivity (SOS),
+    /// recommended exposure index (REI), or ISO speed.
+    /// What is stored is designated by the `SensitivityType` field.
+    ///
+    /// This field is 16-bit and may be saturated.  For 32-bit values,
+    /// see `StandardOutputSensitivity`, `RecommendedExposureIndex`,
+    /// `ISOSpeed`, `ISOSpeedLatitudeyyy`, and `ISOSpeedLatitudezzz`.
     (PhotographicSensitivity, 0x8827, DefaultValue::None, d_default,
      unit![],
      "Photographic sensitivity"),
