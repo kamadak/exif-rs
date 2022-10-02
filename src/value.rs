@@ -28,6 +28,7 @@ use std::fmt;
 use std::fmt::Write as _;
 
 use crate::endian::Endian;
+use crate::error::Error;
 
 /// A type and values of a TIFF/Exif field.
 #[derive(Clone)]
@@ -130,6 +131,30 @@ impl Value {
         }
     }
 
+    /// Returns `UIntValue` if the value type is unsigned integer (BYTE,
+    /// SHORT, or LONG).  Otherwise `exif::Error` is returned.
+    ///
+    /// The integer(s) can be obtained by `get(&self, index: usize)` method
+    /// on `UIntValue`, which returns `Option<u32>`.
+    /// `None` is returned if the index is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use exif::Value;
+    /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    /// let v = Value::Byte(vec![1u8, 2]);
+    /// assert_eq!(v.as_uint()?.get(0), Some(1u32));
+    /// assert_eq!(v.as_uint()?.get(2), None);
+    /// let v = Value::SLong(vec![1, 2]);
+    /// assert!(v.as_uint().is_err());
+    /// # Ok(()) }
+    /// ```
+    #[inline]
+    pub fn as_uint(&self) -> Result<&UIntValue, Error> {
+        UIntValue::ref_from(self)
+    }
+
     /// Returns the unsigned integer at the given position.
     /// None is returned if the value type is not unsigned integer
     /// (BYTE, SHORT, or LONG) or the position is out of bounds.
@@ -166,6 +191,31 @@ pub struct AsciiValues<'a>(&'a [Vec<u8>]);
 impl<'a> AsciiValues<'a> {
     pub fn first(&self) -> Option<&'a [u8]> {
         self.0.first().map(|x| &x[..])
+    }
+}
+
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct UIntValue(Value);
+
+impl UIntValue {
+    #[inline]
+    fn ref_from(v: &Value) -> Result<&Self, Error> {
+        match *v {
+            Value::Byte(_) | Value::Short(_) | Value::Long(_) =>
+                Ok(unsafe { &*(v as *const Value as *const Self) }),
+            _ => Err(Error::UnexpectedValue("Not unsigned integer")),
+        }
+    }
+
+    #[inline]
+    pub fn get(&self, index: usize) -> Option<u32> {
+        match self.0 {
+            Value::Byte(ref v) => v.get(index).map(|&x| x.into()),
+            Value::Short(ref v) => v.get(index).map(|&x| x.into()),
+            Value::Long(ref v) => v.get(index).map(|&x| x),
+            _ => panic!(),
+        }
     }
 }
 
@@ -788,6 +838,24 @@ mod tests {
     fn unknown() {
         let (unitlen, _parser) = get_type_info::<BigEndian>(0xffff);
         assert_eq!(unitlen, 0);
+    }
+
+    #[test]
+    fn as_uint() {
+        let v = Value::Byte(vec![1, 2]);
+        assert_eq!(v.as_uint().unwrap().get(0), Some(1));
+        assert_eq!(v.as_uint().unwrap().get(1), Some(2));
+        assert_eq!(v.as_uint().unwrap().get(2), None);
+        let v = Value::Short(vec![1, 2]);
+        assert_eq!(v.as_uint().unwrap().get(0), Some(1));
+        assert_eq!(v.as_uint().unwrap().get(1), Some(2));
+        assert_eq!(v.as_uint().unwrap().get(2), None);
+        let v = Value::Long(vec![1, 2]);
+        assert_eq!(v.as_uint().unwrap().get(0), Some(1));
+        assert_eq!(v.as_uint().unwrap().get(1), Some(2));
+        assert_eq!(v.as_uint().unwrap().get(2), None);
+        let v = Value::SLong(vec![1, 2]);
+        assert_err_pat!(v.as_uint(), Error::UnexpectedValue(_));
     }
 
     #[test]

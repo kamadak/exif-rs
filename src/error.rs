@@ -48,6 +48,8 @@ pub enum Error {
     TooBig(&'static str),
     /// The field type is not supported and cannnot be encoded.
     NotSupported(&'static str),
+    /// The field has an unexpected value.
+    UnexpectedValue(&'static str),
 }
 
 impl From<io::Error> for Error {
@@ -65,6 +67,7 @@ impl fmt::Display for Error {
             Error::BlankValue(msg) => f.write_str(msg),
             Error::TooBig(msg) => f.write_str(msg),
             Error::NotSupported(msg) => f.write_str(msg),
+            Error::UnexpectedValue(msg) => f.write_str(msg),
         }
     }
 }
@@ -78,6 +81,7 @@ impl error::Error for Error {
             Error::BlankValue(_) => None,
             Error::TooBig(_) => None,
             Error::NotSupported(_) => None,
+            Error::UnexpectedValue(_) => None,
         }
     }
 }
