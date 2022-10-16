@@ -153,25 +153,6 @@ macro_rules! unit_expand {
         unit_expand!($($built,)* UnitPiece::Tag(Tag::$tag) ; $($rest)*) );
 }
 
-// This requires Rust 1.54 or later.
-// macro_rules! use_desc_if_attr_is_empty {
-//     ( $desc:expr, $(#[$attr:meta])+ ) => ( "" );
-//     ( $desc:expr, ) => ( $desc );
-// }
-
-macro_rules! define_tag_const_with_doc {
-    ( $name:ident, $ctx:path, $num:expr, $desc:expr, $(#[$attr:meta])+ ) => (
-        $( #[$attr] )*
-        #[allow(non_upper_case_globals)]
-        pub const $name: Tag = Tag($ctx, $num);
-    );
-    ( $name:ident, $ctx:path, $num:expr, $desc:expr, ) => (
-        #[doc = $desc]
-        #[allow(non_upper_case_globals)]
-        pub const $name: Tag = Tag($ctx, $num);
-    );
-}
-
 macro_rules! generate_well_known_tag_constants {
     (
         $( |$ctx:path| $(
@@ -193,12 +174,9 @@ macro_rules! generate_well_known_tag_constants {
         // // <https://github.com/rust-lang/rust/issues/25207>.
         impl Tag {
             $($(
-                // $( #[$attr] )*
-                // #[doc = use_desc_if_attr_is_empty!($desc, $(#[$attr])*)]
-                // #[allow(non_upper_case_globals)]
-                // pub const $name: Tag = Tag($ctx, $num);
-                define_tag_const_with_doc!($name, $ctx, $num, $desc,
-                                           $(#[$attr])*);
+                $( #[$attr] )*
+                #[allow(non_upper_case_globals)]
+                pub const $name: Tag = Tag($ctx, $num);
             )+)+
         }
 
@@ -289,9 +267,11 @@ generate_well_known_tag_constants!(
     (ImageDescription, 0x10e, DefaultValue::None, d_default,
      unit![],
      "Image title"),
+    /// Manufacturer of the image input equipment.
     (Make, 0x10f, DefaultValue::None, d_default,
      unit![],
      "Manufacturer of image input equipment"),
+    /// Model name or number of the image input equipment.
     (Model, 0x110, DefaultValue::None, d_default,
      unit![],
      "Model of image input equipment"),
@@ -319,15 +299,19 @@ generate_well_known_tag_constants!(
     (PlanarConfiguration, 0x11c, DefaultValue::Short(&[1]), d_planarcfg,
      unit![],
      "Image data arrangement"),
+    /// Unit of XResolution and YResolution fields.
     (ResolutionUnit, 0x128, DefaultValue::Short(&[2]), d_resunit,
      unit![],
      "Unit of X and Y resolution"),
     (TransferFunction, 0x12d, DefaultValue::None, d_default,
      unit![],
      "Transfer function"),
+    /// Name and version of the software used to create the image.
     (Software, 0x131, DefaultValue::None, d_default,
      unit![],
      "Software used"),
+    /// Date and time when the image file was created or last edited.
+    /// For the time when the picture was taken, see DateTimeOriginal field.
     (DateTime, 0x132, DefaultValue::None, d_datetime,
      unit![],
      "File change date and time"),
@@ -391,11 +375,11 @@ generate_well_known_tag_constants!(
     ///
     /// The value may be represented by standard output sensitivity (SOS),
     /// recommended exposure index (REI), or ISO speed.
-    /// What is stored is designated by the `SensitivityType` field.
+    /// What is stored is designated by SensitivityType field.
     ///
     /// This field is 16-bit and may be saturated.  For 32-bit values,
-    /// see `StandardOutputSensitivity`, `RecommendedExposureIndex`,
-    /// `ISOSpeed`, `ISOSpeedLatitudeyyy`, and `ISOSpeedLatitudezzz`.
+    /// see StandardOutputSensitivity, RecommendedExposureIndex,
+    /// ISOSpeed, ISOSpeedLatitudeyyy, and ISOSpeedLatitudezzz fields.
     (PhotographicSensitivity, 0x8827, DefaultValue::None, d_default,
      unit![],
      "Photographic sensitivity"),
@@ -425,18 +409,26 @@ generate_well_known_tag_constants!(
     (ExifVersion, 0x9000, DefaultValue::None, d_exifver,
      unit![],
      "Exif version"),
+    /// Date and time when the original image was generated (e.g.,
+    /// the picture was taken by a camera).
     (DateTimeOriginal, 0x9003, DefaultValue::None, d_datetime,
      unit![],
      "Date and time of original data generation"),
+    /// Date and time when the image was stored as digital data.
+    /// If a picture is taken by a film camera and then digitized later,
+    /// this value will be different from DateTimeOriginal field.
     (DateTimeDigitized, 0x9004, DefaultValue::None, d_datetime,
      unit![],
      "Date and time of digital data generation"),
+    /// Timezone offset for DateTime field.
     (OffsetTime, 0x9010, DefaultValue::None, d_default,
      unit![],
      "Offset data of DateTime"),
+    /// Timezone offset for DateTimeOriginal field.
     (OffsetTimeOriginal, 0x9011, DefaultValue::None, d_default,
      unit![],
      "Offset data of DateTimeOriginal"),
+    /// Timezone offset for DateTimeDigitized field.
     (OffsetTimeDigitized, 0x9012, DefaultValue::None, d_default,
      unit![],
      "Offset data of DateTimeDigitized"),
@@ -485,12 +477,15 @@ generate_well_known_tag_constants!(
     (UserComment, 0x9286, DefaultValue::None, d_default,
      unit![],
      "User comments"),
+    /// Subseconds for DateTime field.
     (SubSecTime, 0x9290, DefaultValue::None, d_default,
      unit![],
      "DateTime subseconds"),
+    /// Subseconds for DateTimeOriginal field.
     (SubSecTimeOriginal, 0x9291, DefaultValue::None, d_default,
      unit![],
      "DateTimeOriginal subseconds"),
+    /// Subseconds for DateTimeDigitized field.
     (SubSecTimeDigitized, 0x9292, DefaultValue::None, d_default,
      unit![],
      "DateTimeDigitized subseconds"),
@@ -539,6 +534,7 @@ generate_well_known_tag_constants!(
     (FocalPlaneYResolution, 0xa20f, DefaultValue::None, d_decimal,
      unit![V, " pixels per ", Tag::FocalPlaneResolutionUnit],
      "Focal plane Y resolution"),
+    /// Unit of FocalPlaneXResolution and FocalPlaneYResolution fields.
     (FocalPlaneResolutionUnit, 0xa210, DefaultValue::Short(&[2]), d_resunit,
      unit![],
      "Focal plane resolution unit"),
