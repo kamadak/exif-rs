@@ -1,3 +1,7 @@
+0.5.5 (2022-10-22)
+
+   -  `Value::as_uint` and `Error::UnexpectedValue` have been added.
+
 0.5.4 (2021-03-26)
 
    -  WebP format support has been added.
