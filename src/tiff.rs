@@ -247,6 +247,10 @@ impl Parser {
             return Err(Error::InvalidFormat("Truncated next IFD offset"));
         }
         let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12);
+        if next_ifd_offset != 0 && ctx != Context::Tiff {
+            // Invalid Next IFD offset. ignored.
+            return Ok(0usize);
+        }
         Ok(next_ifd_offset as usize)
     }
 
