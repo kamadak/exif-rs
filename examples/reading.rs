@@ -44,7 +44,7 @@ fn main() {
                     Tag::XResolution,
                     Tag::ImageDescription,
                     Tag::DateTime];
-    for &tag in tag_list.iter() {
+    for tag in tag_list {
         if let Some(field) = exif.get_field(tag, In::PRIMARY) {
             println!("{}: {}",
                      field.tag, field.display_value().with_unit(&exif));

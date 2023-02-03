@@ -857,7 +857,7 @@ mod tests {
              (12, 2, b"\x00\x00\x00\x00\x00\x00\x04\x40\
                        \x00\x00\x00\x00\x00\x00\xe0\xbf".to_vec())),
         ];
-        for (val, be, le) in patterns.into_iter() {
+        for (val, be, le) in patterns {
             assert_eq!(compose_value::<BigEndian>(&val).unwrap(), be);
             assert_eq!(compose_value::<LittleEndian>(&val).unwrap(), le);
         }
