@@ -46,6 +46,10 @@ doc_module_with_external_source!(
 
 /// # Upgrade Guide
 ///
+/// ## Upgrade from 0.5.x to 0.6.x
+///
+/// ### API compatibilities
+///
 /// ## Upgrade from 0.4.x to 0.5.x
 ///
 /// ### API compatibilities

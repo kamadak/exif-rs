@@ -1,3 +1,6 @@
+0.6
+
+
 0.5.5 (2022-10-22)
 
    -  `Value::as_uint` and `Error::UnexpectedValue` have been added.
