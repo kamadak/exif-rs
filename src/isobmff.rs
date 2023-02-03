@@ -24,7 +24,6 @@
 // SUCH DAMAGE.
 //
 
-use std::convert::{TryFrom as _, TryInto as _};
 use std::io::{BufRead, ErrorKind, Seek, SeekFrom};
 
 use crate::endian::{Endian, BigEndian};
