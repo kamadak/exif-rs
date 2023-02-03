@@ -3,6 +3,7 @@ name = "exif"
 version = "0.5.5"
 authors = ["KAMADA Ken'ichi <kamada@nanohz.org>"]
 edition = "2018"
+rust-version = "1.60"
 
 description = "Exif parsing library written in pure Rust"
 documentation = "https://docs.rs/kamadak-exif"

@@ -1,5 +1,6 @@
 0.6
 
+   -  Rust 1.60 or later is now required to build this package.
 
 0.5.5 (2022-10-22)
 

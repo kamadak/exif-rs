@@ -34,7 +34,7 @@ Usage
 Dependencies
 ------------
 
-   Rust 1.40 or later is required to build.
+   Rust 1.60 or later is required to build.
 
 Standards
 ---------
