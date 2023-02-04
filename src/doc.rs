@@ -26,23 +26,9 @@
 
 //! Documentation
 
-// Rust 1.54 stabilized invoking function-like macros in attributes.
-// We will use it after bumping MSRV.
-// #![feature(extended_key_value_attributes)],
-// #[doc = include_str!("../NEWS")]
-// pub mod news {}
-macro_rules! doc_module_with_external_source {
-    ($( #[$attr:meta] )*
-     $name: ident, $doc: expr) => {
-        $( #[$attr] )*
-        #[doc = ""]
-        #[doc = $doc]
-        pub mod $name {}
-    }
-}
-doc_module_with_external_source!(
-    /// # News
-    news, include_str!("../NEWS"));
+/// # News
+#[doc = include_str!("../NEWS")]
+pub mod news {}
 
 /// # Upgrade Guide
 ///
