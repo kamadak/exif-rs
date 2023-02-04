@@ -87,7 +87,7 @@
 //!
 //! # Upgrade Guide
 //!
-//! See the [upgrade guide](doc/upgrade/index.html) for API incompatibilities.
+//! See the [upgrade guide](doc::upgrade) for API incompatibilities.
 
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
