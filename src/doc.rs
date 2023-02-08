@@ -36,6 +36,10 @@ pub mod news {}
 ///
 /// ### API compatibilities
 ///
+/// * `From<Rational>` and `From<SRational>` implementations for `f32`
+///   and `f64` have been removed.
+///   Use `Rational::to_f64` and so on.
+///
 /// ## Upgrade from 0.4.x to 0.5.x
 ///
 /// ### API compatibilities

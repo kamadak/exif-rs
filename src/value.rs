@@ -383,18 +383,6 @@ impl fmt::Display for Rational {
     }
 }
 
-// This implementation has been deprecated.  Use Rational::to_f64 instead.
-impl From<Rational> for f64 {
-    #[inline]
-    fn from(r: Rational) -> f64 { r.to_f64() }
-}
-
-// This implementation has been deprecated.  Use Rational::to_f32 instead.
-impl From<Rational> for f32 {
-    #[inline]
-    fn from(r: Rational) -> f32 { r.to_f32() }
-}
-
 /// A signed rational number, which is a pair of 32-bit signed integers.
 #[derive(Copy, Clone)]
 pub struct SRational { pub num: i32, pub denom: i32 }
@@ -432,18 +420,6 @@ impl fmt::Display for SRational {
             f, self.num.wrapping_abs() as u32, self.denom);
         f.pad_integral(self.num >= 0, "", &buf)
     }
-}
-
-// This implementation has been deprecated.  Use SRational::to_f64 instead.
-impl From<SRational> for f64 {
-    #[inline]
-    fn from(r: SRational) -> f64 { r.to_f64() }
-}
-
-// This implementation has been deprecated.  Use SRational::to_f32 instead.
-impl From<SRational> for f32 {
-    #[inline]
-    fn from(r: SRational) -> f32 { r.to_f32() }
 }
 
 // Only u32 or i32 are expected for T.
@@ -974,30 +950,30 @@ mod tests {
     #[test]
     fn ratioanl_f64() {
         use std::{f64, u32};
-        assert_eq!(f64::from(Rational::from((1, 2))), 0.5);
-        assert_eq!(f64::from(Rational::from((1, u32::MAX))),
+        assert_eq!(Rational::from((1, 2)).to_f64(), 0.5);
+        assert_eq!(Rational::from((1, u32::MAX)).to_f64(),
                    2.3283064370807974e-10);
-        assert_eq!(f64::from(Rational::from((u32::MAX, 1))),
+        assert_eq!(Rational::from((u32::MAX, 1)).to_f64(),
                    u32::MAX as f64);
-        assert_eq!(f64::from(Rational::from((u32::MAX - 1, u32::MAX))),
+        assert_eq!(Rational::from((u32::MAX - 1, u32::MAX)).to_f64(),
                    0.9999999997671694);
-        assert_eq!(f64::from(Rational::from((u32::MAX, u32::MAX - 1))),
+        assert_eq!(Rational::from((u32::MAX, u32::MAX - 1)).to_f64(),
                    1.0000000002328306);
-        assert_eq!(f64::from(Rational::from((1, 0))), f64::INFINITY);
-        assert!(f64::from(Rational::from((0, 0))).is_nan());
+        assert_eq!(Rational::from((1, 0)).to_f64(), f64::INFINITY);
+        assert!(Rational::from((0, 0)).to_f64().is_nan());
 
-        assert_eq!(f64::from(SRational::from((1, 2))), 0.5);
-        assert_eq!(f64::from(SRational::from((-1, 2))), -0.5);
-        assert_eq!(f64::from(SRational::from((1, -2))), -0.5);
-        assert_eq!(f64::from(SRational::from((-1, -2))), 0.5);
-        assert_eq!(f64::from(SRational::from((1, 0))), f64::INFINITY);
-        assert_eq!(f64::from(SRational::from((-1, 0))), f64::NEG_INFINITY);
+        assert_eq!(SRational::from((1, 2)).to_f64(), 0.5);
+        assert_eq!(SRational::from((-1, 2)).to_f64(), -0.5);
+        assert_eq!(SRational::from((1, -2)).to_f64(), -0.5);
+        assert_eq!(SRational::from((-1, -2)).to_f64(), 0.5);
+        assert_eq!(SRational::from((1, 0)).to_f64(), f64::INFINITY);
+        assert_eq!(SRational::from((-1, 0)).to_f64(), f64::NEG_INFINITY);
     }
 
     #[test]
     fn rational_f32() {
         // If num and demon are converted to f32 before the division,
         // the precision is lost in this example.
-        assert_eq!(f32::from(Rational::from((1, 16777217))), 5.960464e-8);
+        assert_eq!(Rational::from((1, 16777217)).to_f32(), 5.960464e-8);
     }
 }
