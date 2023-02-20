@@ -26,9 +26,9 @@
 
 //! Documentation
 
-/// # News
-#[doc = include_str!("../NEWS")]
-pub mod news {}
+/// # Changelog
+#[doc = include_str!("../CHANGELOG.md")]
+pub mod changelog {}
 
 /// # Upgrade Guide
 ///
