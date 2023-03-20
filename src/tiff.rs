@@ -30,10 +30,10 @@ use mutate_once::MutOnce;
 use crate::endian::{Endian, BigEndian, LittleEndian};
 use crate::error::Error;
 use crate::tag::{Context, Tag, UnitPiece};
+use crate::util::{atou16, ctou32};
 use crate::value;
 use crate::value::Value;
 use crate::value::get_type_info;
-use crate::util::{atou16, ctou32};
 
 // TIFF header magic numbers [EXIF23 4.5.2].
 const TIFF_BE: u16 = 0x4d4d;
