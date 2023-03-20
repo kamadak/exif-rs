@@ -224,33 +224,19 @@ impl Parser {
             return Err(Error::InvalidFormat("Truncated IFD"));
         }
         for i in 0..count as usize {
-            let tag = E::loadu16(data, offset + 2 + i * 12);
-            let typ = E::loadu16(data, offset + 2 + i * 12 + 2);
-            let cnt = E::loadu32(data, offset + 2 + i * 12 + 4);
-            let valofs_at = offset + 2 + i * 12 + 8;
-            let (unitlen, _parser) = get_type_info::<E>(typ);
-            let vallen = unitlen.checked_mul(cnt as usize).ok_or(
-                Error::InvalidFormat("Invalid entry count"))?;
-            let mut val = if vallen <= 4 {
-                Value::Unknown(typ, cnt, valofs_at as u32)
-            } else {
-                let ofs = E::loadu32(data, valofs_at) as usize;
-                if data.len() < ofs || data.len() - ofs < vallen {
-                    return Err(Error::InvalidFormat("Truncated field value"));
-                }
-                Value::Unknown(typ, cnt, ofs as u32)
-            };
+            let (tag, val) =
+                Self::parse_ifd_entry::<E>(data, offset + 2 + i * 12)?;
 
             // No infinite recursion will occur because the context is not
             // recursively defined.
             let tag = Tag(ctx, tag);
             match tag {
                 Tag::ExifIFDPointer => self.parse_child_ifd::<E>(
-                    data, &mut val, Context::Exif, ifd_num)?,
+                    data, val, Context::Exif, ifd_num)?,
                 Tag::GPSInfoIFDPointer => self.parse_child_ifd::<E>(
-                    data, &mut val, Context::Gps, ifd_num)?,
+                    data, val, Context::Gps, ifd_num)?,
                 Tag::InteropIFDPointer => self.parse_child_ifd::<E>(
-                    data, &mut val, Context::Interop, ifd_num)?,
+                    data, val, Context::Interop, ifd_num)?,
                 _ => self.entries.push(IfdEntry { field: Field {
                     tag: tag, ifd_num: In(ifd_num), value: val }.into()}),
             }
@@ -264,11 +250,33 @@ impl Parser {
         Ok(next_ifd_offset as usize)
     }
 
+    fn parse_ifd_entry<E>(data: &[u8], offset: usize)
+                          -> Result<(u16, Value), Error> where E: Endian {
+        // The size of entry has been checked in parse_ifd().
+        let tag = E::loadu16(data, offset);
+        let typ = E::loadu16(data, offset + 2);
+        let cnt = E::loadu32(data, offset + 4);
+        let valofs_at = offset + 8;
+        let (unitlen, _parser) = get_type_info::<E>(typ);
+        let vallen = unitlen.checked_mul(cnt as usize).ok_or(
+            Error::InvalidFormat("Invalid entry count"))?;
+        let val = if vallen <= 4 {
+            Value::Unknown(typ, cnt, valofs_at as u32)
+        } else {
+            let ofs = E::loadu32(data, valofs_at) as usize;
+            if data.len() < ofs || data.len() - ofs < vallen {
+                return Err(Error::InvalidFormat("Truncated field value"));
+            }
+            Value::Unknown(typ, cnt, ofs as u32)
+        };
+        Ok((tag, val))
+    }
+
     fn parse_child_ifd<E>(&mut self, data: &[u8],
-                          pointer: &mut Value, ctx: Context, ifd_num: u16)
+                          mut pointer: Value, ctx: Context, ifd_num: u16)
                           -> Result<(), Error> where E: Endian {
         // The pointer is not yet parsed, so do it here.
-        IfdEntry::parse_value::<E>(pointer, data);
+        IfdEntry::parse_value::<E>(&mut pointer, data);
 
         // A pointer field has type == LONG and count == 1, so the
         // value (IFD offset) must be embedded in the "value offset"
@@ -587,6 +595,36 @@ mod tests {
         let (v, _le) = parse_exif(data).unwrap();
         assert_eq!(v.len(), 1);
         assert_pat!(v[0].value, Value::Unknown(0xffff, 1, 0x12));
+    }
+
+    #[test]
+    fn parse_ifd_entry() {
+        // BYTE (type == 1)
+        let data = b"\x02\x03\x00\x01\0\0\0\x04ABCD";
+        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 0).unwrap(),
+                    (0x0203, Value::Unknown(1, 4, 8)));
+        let data = b"\x02\x03\x00\x01\0\0\0\x05\0\0\0\x0cABCDE";
+        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 0).unwrap(),
+                    (0x0203, Value::Unknown(1, 5, 12)));
+        let data = b"\x02\x03\x00\x01\0\0\0\x05\0\0\0\x0cABCD";
+        assert_err_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 0),
+                        Error::InvalidFormat("Truncated field value"));
+
+        // SHORT (type == 3)
+        let data = b"X\x04\x05\x00\x03\0\0\0\x02ABCD";
+        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
+                    (0x0405, Value::Unknown(3, 2, 9)));
+        let data = b"X\x04\x05\x00\x03\0\0\0\x03\0\0\0\x0eXABCDEF";
+        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
+                    (0x0405, Value::Unknown(3, 3, 14)));
+        let data = b"X\x04\x05\x00\x03\0\0\0\x03\0\0\0\x0eXABCDE";
+        assert_err_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 1),
+                        Error::InvalidFormat("Truncated field value"));
+
+        // Really unknown
+        let data = b"X\x01\x02\x03\x04\x05\x06\x07\x08ABCD";
+        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
+                    (0x0102, Value::Unknown(0x0304, 0x05060708, 9)));
     }
 
     #[test]
