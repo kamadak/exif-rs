@@ -89,6 +89,8 @@
 //!
 //! See the [upgrade guide](doc::upgrade) for API incompatibilities.
 
+#![forbid(unsafe_code)]
+
 pub use error::Error;
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::{Exif, Reader};
