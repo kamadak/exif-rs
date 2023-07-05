@@ -178,7 +178,26 @@ impl Exif {
         self.entry_map.get(&(ifd_num, tag))
             .map(|&i| self.entries[i].ref_field(&self.buf, self.little_endian))
     }
+
+    // Returns the content of the UserComment tag, converted to a String, if the tag
+    // saved in an Unicode format.
+    pub fn get_user_comment(&self, ifd_num: In) -> Option<String> {
+        self.get_field(Tag::UserComment, ifd_num)
+            .and_then(|field| match &field.value {
+                crate::Value::Undefined(buffer, _) => {
+                    let unicode_prefix = "UNICODE\0".as_bytes();
+                    if &buffer[..8] == unicode_prefix {
+                        Some(crate::util::ucs2_to_string(&buffer[8..]))
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+    }
 }
+
+
 
 impl<'a> ProvideUnit<'a> for &'a Exif {
     fn get_field(self, tag: Tag, ifd_num: In) -> Option<&'a Field> {

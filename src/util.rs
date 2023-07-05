@@ -126,6 +126,20 @@ pub fn ctou32(c: u8) -> Result<u32, Error> {
     Ok((c - ASCII_0) as u32)
 }
 
+pub fn ucs2_to_string(bytes: &[u8]) -> String {
+    let mut string = String::with_capacity(bytes.len() / 2);
+
+    let mut index = 0;
+    while index < bytes.len() {
+        let code_point = (bytes[index + 1] as u16) | ((bytes[index] as u16) << 8);
+        string.push(char::from_u32(code_point.into()).unwrap());
+
+        index += 2;
+    }
+
+    string
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::ErrorKind;
