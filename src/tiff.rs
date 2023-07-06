@@ -247,6 +247,10 @@ impl Parser {
             return Err(Error::InvalidFormat("Truncated next IFD offset"));
         }
         let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12);
+        if next_ifd_offset != 0 && ctx != Context::Tiff {
+            // Invalid Next IFD offset. ignored.
+            return Ok(0usize);
+        }
         Ok(next_ifd_offset as usize)
     }
 
@@ -584,8 +588,11 @@ mod tests {
                      \x00\x00\x00\x00\
                      \x00\x01\x90\x00\x00\x07\x00\x00\x00\x040231\
                      \x00\x00\x00\x08";
-        assert_err_pat!(parse_exif(data),
-                        Error::InvalidFormat("Unexpected next IFD"));
+        let (v, _le) = parse_exif(data).unwrap();
+        assert_eq!(v.len(), 1);
+        println!("result : {:?}", v);
+        let undef_data = Value::Undefined(b"30323331".to_vec(), 0x24);
+        assert_pat!(&v[0].value, undef_data);
     }
 
     #[test]
