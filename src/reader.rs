@@ -184,7 +184,7 @@ impl Exif {
     pub fn get_user_comment(&self, ifd_num: In) -> Option<String> {
         self.get_field(Tag::UserComment, ifd_num)
             .and_then(|field| match &field.value {
-                crate::Value::Undefined(buffer, _) => {
+                crate::Value::Undefined(buffer, _) if buffer.len() > 8 => {
                     let unicode_prefix = "UNICODE\0".as_bytes();
                     if &buffer[..8] == unicode_prefix {
                         Some(crate::util::ucs2_to_string(&buffer[8..]))
