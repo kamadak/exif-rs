@@ -99,7 +99,7 @@ impl IfdEntry {
 }
 
 /// A TIFF/Exif field.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Field {
     /// The tag of this field.
     pub tag: Tag,
