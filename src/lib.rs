@@ -42,7 +42,9 @@
 //!     let file = std::fs::File::open(path)?;
 //!     let mut bufreader = std::io::BufReader::new(&file);
 //!     let exifreader = exif::Reader::new();
-//!     let exif = exifreader.read_from_container(&mut bufreader)?;
+//!     let Ok(exif) = exifreader.read_from_container(&mut bufreader) else 
+//!         return Err("No Exif data found in file".into());
+//!     };
 //!     for f in exif.fields() {
 //!         println!("{} {} {}",
 //!                  f.tag, f.ifd_num, f.display_value().with_unit(&exif));
