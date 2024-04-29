@@ -26,6 +26,8 @@
 
 use std::fmt;
 use mutate_once::MutOnce;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::endian::{Endian, BigEndian, LittleEndian};
 use crate::error::Error;
@@ -99,7 +101,7 @@ impl IfdEntry {
 }
 
 /// A TIFF/Exif field.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Serialize)]
 pub struct Field {
     /// The tag of this field.
     pub tag: Tag,
@@ -121,7 +123,7 @@ pub struct Field {
 /// assert_eq!(In::PRIMARY.index(), 0);
 /// assert_eq!(In::THUMBNAIL.index(), 1);
 /// ```
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct In(pub u16);
 
 impl In {
