@@ -25,3 +25,10 @@ name = "parse_exif"
 path = "fuzz_targets/parse_exif.rs"
 test = false
 doc = false
+
+
+[[bin]]
+name = "read_from_container"
+path = "fuzz_targets/read_from_container.rs"
+test = false
+doc = false
