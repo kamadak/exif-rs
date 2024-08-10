@@ -161,11 +161,21 @@ pub fn parse_exif(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
 pub struct Parser {
     pub entries: Vec<IfdEntry>,
     pub little_endian: bool,
+    pub default_context: Context,
+    pub offset: u32,
 }
 
 impl Parser {
     pub fn new() -> Self {
-        Self { entries: Vec::new(), little_endian: false }
+        Self { entries: Vec::new(), little_endian: false, default_context: Context::Tiff, offset: 0 }
+    }
+
+    pub fn with_context(default_context: Context) -> Self {
+        Self { entries: Vec::new(), little_endian: false, default_context, offset: 0 }
+    }
+
+    pub fn set_offset(&mut self, offset: u32) {
+        self.offset = offset
     }
 
     pub fn parse(&mut self, data: &[u8]) -> Result<(), Error> {
@@ -176,17 +186,17 @@ impl Parser {
         match BigEndian::loadu16(data, 0) {
             TIFF_BE => {
                 self.little_endian = false;
-                self.parse_sub::<BigEndian>(data)
+                self.parse_sub::<BigEndian>(data, self.default_context)
             },
             TIFF_LE => {
                 self.little_endian = true;
-                self.parse_sub::<LittleEndian>(data)
+                self.parse_sub::<LittleEndian>(data, self.default_context)
             },
             _ => Err(Error::InvalidFormat("Invalid TIFF byte order")),
         }
     }
 
-    fn parse_sub<E>(&mut self, data: &[u8])
+    fn parse_sub<E>(&mut self, data: &[u8], ctx: Context)
                     -> Result<(), Error> where E: Endian {
         // Parse the rest of the header (42 and the IFD offset).
         if E::loadu16(data, 2) != TIFF_FORTY_TWO {
@@ -203,7 +213,7 @@ impl Parser {
                 return Err(Error::InvalidFormat("Limit the IFD count to 8"));
             }
             ifd_offset = self.parse_ifd::<E>(
-                data, ifd_offset, Context::Tiff, ifd_num)?;
+                data, ifd_offset, ctx, ifd_num)?;
             ifd_num_ck = ifd_num.checked_add(1);
         }
         Ok(())
@@ -224,9 +234,13 @@ impl Parser {
             return Err(Error::InvalidFormat("Truncated IFD"));
         }
         for i in 0..count as usize {
-            let (tag, val) =
+            let (tag, raw_val) =
                 Self::parse_ifd_entry::<E>(data, offset + 2 + i * 12)?;
 
+            let val = match raw_val {
+                Value::Unknown(t, l, o) => Value::Unknown(t, l, o + self.offset),
+                _ => raw_val,
+            };
             // No infinite recursion will occur because the context is not
             // recursively defined.
             let tag = Tag(ctx, tag);

@@ -36,7 +36,7 @@ use crate::util::{read64, BufReadExt as _, ReadExt as _};
 // Same for "msf1" [ISO23008-12 B.4.2] [ISO23008-12 B.4.4].
 static HEIF_BRANDS: &[[u8; 4]] = &[*b"mif1", *b"msf1"];
 
-const MAX_EXIF_SIZE: usize = 65535;
+pub(crate) const MAX_EXIF_SIZE: usize = 65535;
 
 // Most errors in this file are Error::InvalidFormat.
 impl From<&'static str> for Error {
@@ -343,25 +343,25 @@ pub fn is_heif(buf: &[u8]) -> bool {
     false
 }
 
-struct BoxSplitter<'a> {
+pub(crate) struct BoxSplitter<'a> {
     inner: &'a [u8],
 }
 
 impl<'a> BoxSplitter<'a> {
-    fn new(slice: &'a [u8]) -> BoxSplitter<'a> {
+    pub(crate) fn new(slice: &'a [u8]) -> BoxSplitter<'a> {
         Self { inner: slice }
     }
 
-    fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
-    fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.inner.len()
     }
 
     // Returns type and body.
-    fn child_box(&mut self) -> Result<(&'a [u8], BoxSplitter<'a>), Error> {
+    pub(crate) fn child_box(&mut self) -> Result<(&'a [u8], BoxSplitter<'a>), Error> {
         let size = self.uint32()? as usize;
         let boxtype = self.slice(4)?;
         let body_len = match size {
@@ -376,7 +376,7 @@ impl<'a> BoxSplitter<'a> {
     }
 
     // Returns 0-, 4-, or 8-byte unsigned integer.
-    fn size048(&mut self, size: usize) -> Result<Option<u64>, Error> {
+    pub(crate) fn size048(&mut self, size: usize) -> Result<Option<u64>, Error> {
         match size {
             0 => Ok(Some(0)),
             4 => self.uint32().map(u64::from).map(Some),
@@ -386,28 +386,28 @@ impl<'a> BoxSplitter<'a> {
     }
 
     // Returns version and flags.
-    fn fullbox_header(&mut self) -> Result<(u32, u32), Error> {
+    pub(crate) fn fullbox_header(&mut self) -> Result<(u32, u32), Error> {
         let tmp = self.uint32()?;
         Ok((tmp >> 24, tmp & 0xffffff))
     }
 
-    fn uint16(&mut self) -> Result<u16, Error> {
+    pub(crate) fn uint16(&mut self) -> Result<u16, Error> {
         self.slice(2).map(|num| BigEndian::loadu16(num, 0))
     }
 
-    fn uint32(&mut self) -> Result<u32, Error> {
+    pub(crate) fn uint32(&mut self) -> Result<u32, Error> {
         self.slice(4).map(|num| BigEndian::loadu32(num, 0))
     }
 
-    fn uint64(&mut self) -> Result<u64, Error> {
+    pub(crate) fn uint64(&mut self) -> Result<u64, Error> {
         self.slice(8).map(|num| BigEndian::loadu64(num, 0))
     }
 
-    fn array4(&mut self) -> Result<[u8; 4], Error> {
+    pub(crate) fn array4(&mut self) -> Result<[u8; 4], Error> {
         self.slice(4).map(|x| x.try_into().expect("never fails"))
     }
 
-    fn slice(&mut self, at: usize) -> Result<&'a [u8], Error> {
+    pub(crate) fn slice(&mut self, at: usize) -> Result<&'a [u8], Error> {
         let slice = self.inner.get(..at).ok_or("Box too small")?;
         self.inner = &self.inner[at..];
         Ok(slice)
