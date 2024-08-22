@@ -88,14 +88,15 @@ impl Reader {
     pub fn read_raw_vec(&self, buffers: Vec<Vec<u8>>) -> Result<Exif, Error> {
         let mut data = Vec::new();
         let mut parser = tiff::Parser::new();
+        // Join all buffers together
         for buffer in &buffers {
             data.extend_from_slice(buffer);
         }
         let mut offset = 0;
         for (idx, buffer) in buffers.iter().enumerate() {
             let default_context = match idx {
-                1 => crate::tag::Context::Exif,
-                _ => crate::tag::Context::Tiff,
+                0 => crate::tag::Context::Tiff,
+                _ => crate::tag::Context::Exif,
             };
             parser.parse_with_context_offset(&data[offset..offset + buffer.len()], default_context, offset as u32)?;
             offset += buffer.len();
