@@ -120,4 +120,3 @@ mod util;
 mod value;
 mod webp;
 mod writer;
-mod crx;

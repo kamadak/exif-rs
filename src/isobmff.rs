@@ -414,6 +414,178 @@ impl<'a> BoxSplitter<'a> {
     }
 }
 
+pub mod crx {
+    use std::io::{BufRead, ErrorKind, Seek, SeekFrom};
+
+    use super::BoxSplitter;
+
+    use crate::endian::{BigEndian, Endian};
+    use crate::error::Error;
+    use crate::util::{read64, BufReadExt as _, ReadExt as _};
+
+    // Canon CR3 uses isobmff container format
+    static CANON_FORMATS: &[[u8; 4]] = &[*b"crx "];
+    static CANON_UUID:&[u8; 16] = &[0x85, 0xc0, 0xb6, 0x87, 0x82, 0x0f, 0x11, 0xe0, 0x81, 0x11, 0xf4, 0xce, 0x46, 0x2b, 0x6a, 0x48];
+
+    #[allow(unused)]
+    pub fn get_exif_attr<R>(reader: &mut R) -> Result<Vec<u8>, Error>
+    where
+        R: BufRead + Seek,
+    {
+        Ok(get_exif_attr_vec(reader)?.first().cloned().unwrap_or_else(|| Vec::new()))
+    }
+
+    pub fn get_exif_attr_vec<R>(reader: &mut R) -> Result<Vec<Vec<u8>>, Error>
+    where
+        R: BufRead + Seek,
+    {
+        let mut parser = Parser::new(reader);
+        match parser.parse() {
+            Err(Error::Io(ref e)) if e.kind() == ErrorKind::UnexpectedEof => Err("Broken CR3 file".into()),
+            Err(e) => Err(e),
+            // We can only parse the first segment
+            Ok(buf) => Ok(buf)
+        }
+    }
+
+    #[derive(Debug)]
+    struct Parser<R> {
+        reader: R,
+        // Whether the file type box has been checked.
+        ftyp_checked: bool,
+    }
+
+    impl<R> Parser<R>
+    where
+        R: BufRead + Seek
+    {
+        fn new(reader: R) -> Self { Self { reader, ftyp_checked: false } }
+
+        /// Extracts the Exif attributes from raw Exif data for CR3 the result are 4 non-contiguous buffer segments
+        /// If an error occurred, `exif::Error` is returned.
+        fn parse(&mut self) -> Result<Vec<Vec<u8>>, Error> {
+            while let Some((size, boxtype)) = self.read_box_header()? {
+                match &boxtype {
+                    b"ftyp" => {
+                        let buf = self.read_file_level_box(size)?;
+                        self.parse_ftyp(BoxSplitter::new(&buf))?;
+                        self.ftyp_checked = true;
+                    }
+                    b"moov" => {
+                        if !self.ftyp_checked {
+                            return Err("moov found before FileTypeBox".into());
+                        }
+                        let buf = self.read_file_level_box(size)?;
+                        let mut out_buf = Vec::new();
+                        self.parse_moov(&mut out_buf, BoxSplitter::new(&buf))?;
+                        if !out_buf.is_empty() {
+                            return Ok(out_buf);
+                        }
+                    }
+                    _ => {
+                        self.skip_file_level_box(size)?;
+                    }
+                }
+            }
+            Err(Error::NotFound("CR3"))
+        }
+
+        fn parse_moov(&mut self, out_data: &mut Vec<Vec<u8>>, mut split: BoxSplitter) -> Result<(), Error> {
+            //let indent = indent + 1;
+            while let Ok((boxtype, mut boxbody)) = split.child_box() {
+                let size = boxbody.len();
+                match boxtype {
+                    b"uuid" => {
+                        if boxbody.slice(16)? == CANON_UUID {
+                            self.parse_moov(out_data, boxbody)?;
+                        }
+                    }
+                    b"CMT1" | b"CMT2" | b"CMT3" | b"CMT4" => {
+                        out_data.push(Vec::from(boxbody.slice(size)?));
+                    }
+                    _ => {
+                        boxbody.slice(size)?;
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        // Reads size, type, and largesize,
+        // and returns body size and type.
+        // If no byte can be read due to EOF, None is returned.
+        fn read_box_header(&mut self) -> Result<Option<(u64, [u8; 4])>, Error> {
+            if self.reader.is_eof()? {
+                return Ok(None);
+            }
+            let mut buf = [0; 8];
+            self.reader.read_exact(&mut buf)?;
+            let size = match BigEndian::loadu32(&buf, 0) {
+                0 => Some(std::u64::MAX),
+                1 => read64(&mut self.reader)?.checked_sub(16),
+                x => u64::from(x).checked_sub(8),
+            }
+                .ok_or("Invalid box size")?;
+            let boxtype = buf[4..8].try_into().expect("never fails");
+            Ok(Some((size, boxtype)))
+        }
+
+        fn read_file_level_box(&mut self, size: u64) -> Result<Vec<u8>, Error> {
+            let mut buf;
+            match size {
+                std::u64::MAX => {
+                    buf = Vec::new();
+                    self.reader.read_to_end(&mut buf)?;
+                }
+                _ => {
+                    let size = size.try_into().or(Err("Box is larger than the address space"))?;
+                    buf = Vec::new();
+                    self.reader.read_exact_len(&mut buf, size)?;
+                }
+            }
+            Ok(buf)
+        }
+
+        fn skip_file_level_box(&mut self, size: u64) -> Result<(), Error> {
+            match size {
+                std::u64::MAX => self.reader.seek(SeekFrom::End(0))?,
+                _ => self.reader.seek(SeekFrom::Current(size.try_into().or(Err("Large seek not supported"))?))?,
+            };
+            Ok(())
+        }
+
+        fn parse_ftyp(&mut self, mut boxp: BoxSplitter) -> Result<(), Error> {
+            let head = boxp.slice(8)?;
+            let _major_brand = &head[0..4];
+            let _minor_version = BigEndian::loadu32(&head, 4);
+            while let Ok(compat_brand) = boxp.array4() {
+                if CANON_FORMATS.contains(&compat_brand) {
+                    return Ok(());
+                }
+            }
+            Err("No compatible brand recognized in ISO base media file".into())
+        }
+    }
+
+    pub fn is_crx(buf: &[u8]) -> bool {
+        let mut boxp = BoxSplitter::new(buf);
+        while let Ok((boxtype, mut body)) = boxp.child_box() {
+            if boxtype == b"ftyp" {
+                let _major_brand_minor_version = if body.slice(8).is_err() {
+                    return false;
+                };
+                while let Ok(compat_brand) = body.array4() {
+                    if CANON_FORMATS.contains(&compat_brand) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;

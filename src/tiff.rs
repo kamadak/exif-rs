@@ -160,25 +160,19 @@ pub fn parse_exif(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
 #[derive(Debug)]
 pub struct Parser {
     pub entries: Vec<IfdEntry>,
-    pub little_endian: bool,
-    pub default_context: Context,
-    pub offset: u32,
+    pub little_endian: bool
 }
 
 impl Parser {
     pub fn new() -> Self {
-        Self { entries: Vec::new(), little_endian: false, default_context: Context::Tiff, offset: 0 }
-    }
-
-    pub fn with_context(default_context: Context) -> Self {
-        Self { entries: Vec::new(), little_endian: false, default_context, offset: 0 }
-    }
-
-    pub fn set_offset(&mut self, offset: u32) {
-        self.offset = offset
+        Self { entries: Vec::new(), little_endian: false }
     }
 
     pub fn parse(&mut self, data: &[u8]) -> Result<(), Error> {
+        self.parse_with_context_offset(data, Context::Tiff, 0)
+    }
+
+    pub fn parse_with_context_offset(&mut self, data: &[u8], default_context: Context, base_offset: u32) -> Result<(), Error> {
         // Check the byte order and call the real parser.
         if data.len() < 8 {
             return Err(Error::InvalidFormat("Truncated TIFF header"));
@@ -186,17 +180,17 @@ impl Parser {
         match BigEndian::loadu16(data, 0) {
             TIFF_BE => {
                 self.little_endian = false;
-                self.parse_sub::<BigEndian>(data, self.default_context)
+                self.parse_sub::<BigEndian>(data, default_context, base_offset)
             },
             TIFF_LE => {
                 self.little_endian = true;
-                self.parse_sub::<LittleEndian>(data, self.default_context)
+                self.parse_sub::<LittleEndian>(data, default_context, base_offset)
             },
             _ => Err(Error::InvalidFormat("Invalid TIFF byte order")),
         }
     }
 
-    fn parse_sub<E>(&mut self, data: &[u8], ctx: Context)
+    fn parse_sub<E>(&mut self, data: &[u8], ctx: Context, base_offset: u32)
                     -> Result<(), Error> where E: Endian {
         // Parse the rest of the header (42 and the IFD offset).
         if E::loadu16(data, 2) != TIFF_FORTY_TWO {
@@ -213,7 +207,7 @@ impl Parser {
                 return Err(Error::InvalidFormat("Limit the IFD count to 8"));
             }
             ifd_offset = self.parse_ifd::<E>(
-                data, ifd_offset, ctx, ifd_num)?;
+                data, ifd_offset, ctx, ifd_num, base_offset)?;
             ifd_num_ck = ifd_num.checked_add(1);
         }
         Ok(())
@@ -221,7 +215,7 @@ impl Parser {
 
     // Parse IFD [EXIF23 4.6.2].
     fn parse_ifd<E>(&mut self, data: &[u8],
-                    offset: usize, ctx: Context, ifd_num: u16)
+                    offset: usize, ctx: Context, ifd_num: u16, base_offset: u32)
                     -> Result<usize, Error> where E: Endian {
         // Count (the number of the entries).
         if data.len() < offset || data.len() - offset < 2 {
@@ -238,7 +232,7 @@ impl Parser {
                 Self::parse_ifd_entry::<E>(data, offset + 2 + i * 12)?;
 
             let val = match raw_val {
-                Value::Unknown(t, l, o) => Value::Unknown(t, l, o + self.offset),
+                Value::Unknown(t, l, o) => Value::Unknown(t, l, o + base_offset),
                 _ => raw_val,
             };
             // No infinite recursion will occur because the context is not
@@ -246,11 +240,11 @@ impl Parser {
             let tag = Tag(ctx, tag);
             match tag {
                 Tag::ExifIFDPointer => self.parse_child_ifd::<E>(
-                    data, val, Context::Exif, ifd_num)?,
+                    data, val, Context::Exif, ifd_num, base_offset)?,
                 Tag::GPSInfoIFDPointer => self.parse_child_ifd::<E>(
-                    data, val, Context::Gps, ifd_num)?,
+                    data, val, Context::Gps, ifd_num, base_offset)?,
                 Tag::InteropIFDPointer => self.parse_child_ifd::<E>(
-                    data, val, Context::Interop, ifd_num)?,
+                    data, val, Context::Interop, ifd_num, base_offset)?,
                 _ => self.entries.push(IfdEntry { field: Field {
                     tag: tag, ifd_num: In(ifd_num), value: val }.into()}),
             }
@@ -287,7 +281,7 @@ impl Parser {
     }
 
     fn parse_child_ifd<E>(&mut self, data: &[u8],
-                          mut pointer: Value, ctx: Context, ifd_num: u16)
+                          mut pointer: Value, ctx: Context, ifd_num: u16, base_offset: u32)
                           -> Result<(), Error> where E: Endian {
         // The pointer is not yet parsed, so do it here.
         IfdEntry::parse_value::<E>(&mut pointer, data);
@@ -297,7 +291,7 @@ impl Parser {
         // element of the field.
         let ofs = pointer.get_uint(0).ok_or(
             Error::InvalidFormat("Invalid pointer"))? as usize;
-        match self.parse_ifd::<E>(data, ofs, ctx, ifd_num)? {
+        match self.parse_ifd::<E>(data, ofs, ctx, ifd_num, base_offset)? {
             0 => Ok(()),
             _ => Err(Error::InvalidFormat("Unexpected next IFD")),
         }

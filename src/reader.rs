@@ -36,7 +36,6 @@ use crate::tag::Tag;
 use crate::tiff;
 use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
 use crate::webp;
-use crate::crx;
 
 /// A struct to parse the Exif attributes and
 /// create an `Exif` instance that holds the results.
@@ -86,7 +85,7 @@ impl Reader {
 
     /// Parses the Exif attributes from raw Exif data.
     /// If an error occurred, `exif::Error` is returned.
-    pub fn read_raw_l(&self, buffers: Vec<Vec<u8>>) -> Result<Exif, Error> {
+    pub fn read_raw_vec(&self, buffers: Vec<Vec<u8>>) -> Result<Exif, Error> {
         let mut data = Vec::new();
         let mut parser = tiff::Parser::new();
         for buffer in &buffers {
@@ -94,12 +93,11 @@ impl Reader {
         }
         let mut offset = 0;
         for (idx, buffer) in buffers.iter().enumerate() {
-            parser.offset = offset as u32;
-            parser.default_context = match idx {
+            let default_context = match idx {
                 1 => crate::tag::Context::Exif,
                 _ => crate::tag::Context::Tiff,
             };
-            parser.parse(&data[offset..offset + buffer.len()])?;
+            parser.parse_with_context_offset(&data[offset..offset + buffer.len()], default_context, offset as u32)?;
             offset += buffer.len();
         }
         let entry_map = parser.entries.iter().enumerate()
@@ -139,9 +137,10 @@ impl Reader {
         } else if isobmff::is_heif(&buf) {
             reader.seek(io::SeekFrom::Start(0))?;
             buf = isobmff::get_exif_attr(reader)?;
-        } else if crx::is_crx(&buf) {
+        } else if isobmff::crx::is_crx(&buf) {
             reader.seek(io::SeekFrom::Start(0))?;
-            buf = crx::get_exif_attr(reader)?;
+            let buf_vec = isobmff::crx::get_exif_attr_vec(reader)?;
+            return self.read_raw_vec(buf_vec);
         } else if webp::is_webp(&buf) {
             buf = webp::get_exif_attr(&mut buf.chain(reader))?;
         } else {
