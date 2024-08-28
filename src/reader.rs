@@ -83,6 +83,34 @@ impl Reader {
         })
     }
 
+    /// Parses the Exif attributes from raw Exif data.
+    /// If an error occurred, `exif::Error` is returned.
+    pub fn read_raw_vec(&self, buffers: Vec<Vec<u8>>) -> Result<Exif, Error> {
+        let mut data = Vec::new();
+        let mut parser = tiff::Parser::new();
+        // Join all buffers together
+        for buffer in &buffers {
+            data.extend_from_slice(buffer);
+        }
+        let mut offset = 0;
+        for (idx, buffer) in buffers.iter().enumerate() {
+            let default_context = match idx {
+                0 => crate::tag::Context::Tiff,
+                _ => crate::tag::Context::Exif,
+            };
+            parser.parse_with_context_offset(&data[offset..offset + buffer.len()], default_context, offset as u32)?;
+            offset += buffer.len();
+        }
+        let entry_map = parser.entries.iter().enumerate()
+            .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
+        Ok(Exif {
+            buf: data,
+            entries: parser.entries,
+            entry_map: entry_map,
+            little_endian: parser.little_endian,
+        })
+    }
+
     /// Reads an image file and parses the Exif attributes in it.
     /// If an error occurred, `exif::Error` is returned.
     ///
@@ -96,7 +124,9 @@ impl Reader {
     /// This method is provided for the convenience even though
     /// parsing containers is basically out of the scope of this library.
     pub fn read_from_container<R>(&self, reader: &mut R) -> Result<Exif, Error>
-    where R: io::BufRead + io::Seek {
+    where
+        R: io::BufRead + io::Seek,
+    {
         let mut buf = Vec::new();
         reader.by_ref().take(4096).read_to_end(&mut buf)?;
         if tiff::is_tiff(&buf) {
@@ -108,6 +138,10 @@ impl Reader {
         } else if isobmff::is_heif(&buf) {
             reader.seek(io::SeekFrom::Start(0))?;
             buf = isobmff::get_exif_attr(reader)?;
+        } else if isobmff::crx::is_crx(&buf) {
+            reader.seek(io::SeekFrom::Start(0))?;
+            let buf_vec = isobmff::crx::get_exif_attr_vec(reader)?;
+            return self.read_raw_vec(buf_vec);
         } else if webp::is_webp(&buf) {
             buf = webp::get_exif_attr(&mut buf.chain(reader))?;
         } else {
