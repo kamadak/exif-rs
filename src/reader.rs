@@ -28,7 +28,7 @@ use std::collections::HashMap;
 use std::io;
 use std::io::Read;
 
-use crate::error::Error;
+use crate::error::{Error, PartialResult};
 use crate::isobmff;
 use crate::jpeg;
 use crate::png;
@@ -60,27 +60,69 @@ use crate::webp;
 /// # Ok(()) }
 /// ```
 pub struct Reader {
+    continue_on_error: bool,
 }
 
 impl Reader {
     /// Constructs a new `Reader`.
     pub fn new() -> Self {
-        Self {}
+        Self {
+            continue_on_error: false,
+        }
+    }
+
+    /// Sets the option to continue parsing on non-fatal errors.
+    ///
+    /// When this option is enabled, the parser will not stop on non-fatal
+    /// errors and returns the results as far as they can be parsed.
+    /// In such a case, `read_raw` and `read_from_container`
+    /// return `Error::PartialResult`.
+    ///
+    /// Note that a hard error (other than `Error::PartialResult`) may be
+    /// returned even if this option is enabled.
+    ///
+    /// # Examples
+    /// ```
+    /// # use std::fmt::{Display, Formatter, Result};
+    /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    /// use exif::{Error, In, Reader, Tag};
+    /// let file = std::fs::File::open("tests/exif.jpg")?;
+    /// let result = Reader::new()
+    ///     .continue_on_error(true)
+    ///     .read_from_container(&mut std::io::BufReader::new(&file));
+    /// let exif = if let Err(Error::PartialResult(partial)) = result {
+    ///     let (exif, errors) = partial.into_inner();
+    ///     errors.iter().for_each(|e| eprintln!("Warning: {}", e));
+    ///     exif
+    /// } else {
+    ///     result?
+    /// };
+    /// # Ok(()) }
+    /// ```
+    pub fn continue_on_error(&mut self, continue_on_error: bool) -> &mut Self {
+        self.continue_on_error = continue_on_error;
+        self
     }
 
     /// Parses the Exif attributes from raw Exif data.
     /// If an error occurred, `exif::Error` is returned.
     pub fn read_raw(&self, data: Vec<u8>) -> Result<Exif, Error> {
         let mut parser = tiff::Parser::new();
+        parser.continue_on_error = self.continue_on_error.then(|| Vec::new());
         parser.parse(&data)?;
         let entry_map = parser.entries.iter().enumerate()
             .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
-        Ok(Exif {
+        let exif = Exif {
             buf: data,
             entries: parser.entries,
             entry_map: entry_map,
             little_endian: parser.little_endian,
-        })
+        };
+        match parser.continue_on_error {
+            Some(v) if !v.is_empty() =>
+                Err(Error::PartialResult(PartialResult::new(exif, v))),
+            _ => Ok(exif),
+        }
     }
 
     /// Reads an image file and parses the Exif attributes in it.
@@ -299,5 +341,24 @@ mod tests {
         assert_eq!(exifver.display_value().to_string(), "2.32");
         let desc = exif.get_field(Tag::ImageDescription, In::PRIMARY).unwrap();
         assert_eq!(desc.display_value().to_string(), "\"WebP test\"");
+    }
+
+    #[test]
+    fn continue_on_error() {
+        let data = b"MM\0\x2a\0\0\0\x08\
+                     \0\x02\x01\x00\0\x03\0\0\0\x01\0\x14\0\0\
+                           \x01\x01\0\x03\0\0\0\x01\0\x15\0";
+        let result = Reader::new()
+            .continue_on_error(true)
+            .read_raw(data.to_vec());
+        if let Err(Error::PartialResult(partial)) = result {
+            let (exif, errors) = partial.into_inner();
+            assert_pat!(exif.fields().collect::<Vec<_>>().as_slice(),
+                        [Field { tag: Tag::ImageWidth, ifd_num: In(0),
+                                 value: Value::Short(_) }]);
+            assert_pat!(&errors[..], [Error::InvalidFormat("Truncated IFD")]);
+        } else {
+            panic!("partial result expected");
+        }
     }
 }

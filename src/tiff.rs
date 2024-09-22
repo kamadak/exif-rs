@@ -161,11 +161,17 @@ pub fn parse_exif(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
 pub struct Parser {
     pub entries: Vec<IfdEntry>,
     pub little_endian: bool,
+    // `Some<Vec>` to enable the option and `None` to disable it.
+    pub continue_on_error: Option<Vec<Error>>,
 }
 
 impl Parser {
     pub fn new() -> Self {
-        Self { entries: Vec::new(), little_endian: false }
+        Self {
+            entries: Vec::new(),
+            little_endian: false,
+            continue_on_error: None,
+        }
     }
 
     pub fn parse(&mut self, data: &[u8]) -> Result<(), Error> {
@@ -176,23 +182,29 @@ impl Parser {
         match BigEndian::loadu16(data, 0) {
             TIFF_BE => {
                 self.little_endian = false;
-                self.parse_sub::<BigEndian>(data)
+                self.parse_header::<BigEndian>(data)
             },
             TIFF_LE => {
                 self.little_endian = true;
-                self.parse_sub::<LittleEndian>(data)
+                self.parse_header::<LittleEndian>(data)
             },
             _ => Err(Error::InvalidFormat("Invalid TIFF byte order")),
         }
     }
 
-    fn parse_sub<E>(&mut self, data: &[u8])
-                    -> Result<(), Error> where E: Endian {
+    fn parse_header<E>(&mut self, data: &[u8])
+                       -> Result<(), Error> where E: Endian {
         // Parse the rest of the header (42 and the IFD offset).
         if E::loadu16(data, 2) != TIFF_FORTY_TWO {
             return Err(Error::InvalidFormat("Invalid forty two"));
         }
-        let mut ifd_offset = E::loadu32(data, 4) as usize;
+        let ifd_offset = E::loadu32(data, 4) as usize;
+        self.parse_body::<E>(data, ifd_offset)
+            .or_else(|e| self.check_error(e))
+    }
+
+    fn parse_body<E>(&mut self, data: &[u8], mut ifd_offset: usize)
+                     -> Result<(), Error> where E: Endian {
         let mut ifd_num_ck = Some(0);
         while ifd_offset != 0 {
             let ifd_num = ifd_num_ck
@@ -211,42 +223,52 @@ impl Parser {
 
     // Parse IFD [EXIF23 4.6.2].
     fn parse_ifd<E>(&mut self, data: &[u8],
-                    offset: usize, ctx: Context, ifd_num: u16)
+                    mut offset: usize, ctx: Context, ifd_num: u16)
                     -> Result<usize, Error> where E: Endian {
         // Count (the number of the entries).
         if data.len() < offset || data.len() - offset < 2 {
             return Err(Error::InvalidFormat("Truncated IFD count"));
         }
         let count = E::loadu16(data, offset) as usize;
+        offset += 2;
 
-        // Array of entries.  (count * 12) never overflows.
-        if data.len() - offset - 2 < count * 12 {
-            return Err(Error::InvalidFormat("Truncated IFD"));
-        }
-        for i in 0..count as usize {
-            let (tag, val) =
-                Self::parse_ifd_entry::<E>(data, offset + 2 + i * 12)?;
+        // Array of entries.
+        for _ in 0..count {
+            if data.len() - offset < 12 {
+                return Err(Error::InvalidFormat("Truncated IFD"));
+            }
+            let entry = Self::parse_ifd_entry::<E>(data, offset);
+            offset += 12;
+            let (tag, val) = match entry {
+                Ok(x) => x,
+                Err(e) => {
+                    self.check_error(e)?;
+                    continue;
+                },
+            };
 
             // No infinite recursion will occur because the context is not
             // recursively defined.
             let tag = Tag(ctx, tag);
-            match tag {
-                Tag::ExifIFDPointer => self.parse_child_ifd::<E>(
-                    data, val, Context::Exif, ifd_num)?,
-                Tag::GPSInfoIFDPointer => self.parse_child_ifd::<E>(
-                    data, val, Context::Gps, ifd_num)?,
-                Tag::InteropIFDPointer => self.parse_child_ifd::<E>(
-                    data, val, Context::Interop, ifd_num)?,
-                _ => self.entries.push(IfdEntry { field: Field {
-                    tag: tag, ifd_num: In(ifd_num), value: val }.into()}),
-            }
+            let child_ctx = match tag {
+                Tag::ExifIFDPointer => Context::Exif,
+                Tag::GPSInfoIFDPointer => Context::Gps,
+                Tag::InteropIFDPointer => Context::Interop,
+                _ => {
+                    self.entries.push(IfdEntry { field: Field {
+                        tag: tag, ifd_num: In(ifd_num), value: val }.into()});
+                    continue;
+                },
+            };
+            self.parse_child_ifd::<E>(data, val, child_ctx, ifd_num)
+                .or_else(|e| self.check_error(e))?;
         }
 
         // Offset to the next IFD.
-        if data.len() - offset - 2 - count * 12 < 4 {
+        if data.len() - offset < 4 {
             return Err(Error::InvalidFormat("Truncated next IFD offset"));
         }
-        let next_ifd_offset = E::loadu32(data, offset + 2 + count * 12);
+        let next_ifd_offset = E::loadu32(data, offset);
         Ok(next_ifd_offset as usize)
     }
 
@@ -286,6 +308,13 @@ impl Parser {
         match self.parse_ifd::<E>(data, ofs, ctx, ifd_num)? {
             0 => Ok(()),
             _ => Err(Error::InvalidFormat("Unexpected next IFD")),
+        }
+    }
+
+    fn check_error(&mut self, err: Error) -> Result<(), Error> {
+        match self.continue_on_error {
+            Some(ref mut v) => Ok(v.push(err)),
+            None => Err(err),
         }
     }
 }
@@ -746,5 +775,103 @@ mod tests {
         let d2 = d1.with_unit(());
         assert_eq!(d1.to_string(), "cm");
         assert_eq!(d2.to_string(), "cm");
+    }
+
+    #[test]
+    fn continue_on_error() {
+        macro_rules! define_test {
+            {
+                data: $data:expr,
+                fields: [$($fields:pat),*],
+                errors: [$first_error:pat $(, $rest_errors:pat)*]
+            } => {
+                let data = $data;
+                let mut parser = Parser::new();
+                assert_err_pat!(parser.parse(data), $first_error);
+                let mut parser = Parser::new();
+                parser.continue_on_error = Some(Vec::new());
+                parser.parse(data).unwrap();
+                assert_eq!(parser.little_endian, false);
+                let mut entries = parser.entries.iter();
+                $(
+                    assert_pat!(entries.next().unwrap()
+                                       .ref_field(data, parser.little_endian),
+                                $fields);
+                )*
+                assert_pat!(entries.next(), None);
+                let mut errors =
+                    parser.continue_on_error.as_ref().unwrap().iter();
+                assert_pat!(errors.next().unwrap(), $first_error);
+                $(
+                    assert_pat!(errors.next().unwrap(), $rest_errors);
+                )*
+                assert_pat!(errors.next(), None);
+            }
+        }
+        // 0th IFD is missing.
+        define_test! {
+            data: b"MM\0\x2a\0\0\0\x08",
+            fields: [],
+            errors: [Error::InvalidFormat("Truncated IFD count")]
+        }
+        // 2nd entry is truncated.
+        define_test! {
+            data: b"MM\0\x2a\0\0\0\x08\
+                    \0\x02\x01\x00\0\x03\0\0\0\x01\0\x14\0\0\
+                          \x01\x01\0\x03\0\0\0\x01\0\x15\0",
+            fields: [Field { tag: Tag::ImageWidth, ifd_num: In(0),
+                             value: Value::Short(_) }],
+            errors: [Error::InvalidFormat("Truncated IFD")]
+        }
+        // 1st entry broken.
+        define_test! {
+            data: b"MM\0\x2a\0\0\0\x08\
+                    \0\x02\x01\x00\0\x03\0\0\0\x03\0\0\0\x21\
+                          \x01\x01\0\x03\0\0\0\x01\0\x15\0\0\
+                          \0\0\0\0",
+            fields: [Field { tag: Tag::ImageLength, ifd_num: In(0),
+                             value: Value::Short(_) }],
+            errors: [Error::InvalidFormat("Truncated field value")]
+        }
+        // Exif IFD has non-zero next IFD offset.
+        // Top-level next IFD is also broken.
+        define_test! {
+            data: b"MM\0\x2a\0\0\0\x08\
+                    \0\x02\x87\x69\0\x04\0\0\0\x01\0\0\0\x26\
+                          \xfd\xe8\0\x09\0\0\0\x01\xfe\xdc\xba\x98\
+                          \xff\xff\xff\xff\
+                    \0\x01\x90\x00\0\x07\0\0\0\x04\x00\x02\x03\x02\
+                          \0\0\0\x01",
+            fields: [Field { tag: Tag::ExifVersion, ifd_num: In(0),
+                             value: Value::Undefined(_, _) },
+                     Field { tag: Tag(Context::Tiff, 65000), ifd_num: In(0),
+                             value: Value::SLong(_) }],
+            errors: [Error::InvalidFormat("Unexpected next IFD"),
+                     Error::InvalidFormat("Truncated IFD count")]
+        }
+        // Exif IFD pointer has a bad type.
+        define_test! {
+            data: b"MM\0\x2a\0\0\0\x08\
+                    \0\x02\x87\x69\0\x09\0\0\0\x01\0\0\0\x26\
+                          \xfd\xe8\0\x06\0\0\0\x03\xfe\xdc\xba\x98\
+                          \0\0\0\0\
+                    \0\x01\x90\x00\0\x07\0\0\0\x04\x00\x02\x03\x02\
+                          \0\0\0\x01",
+            fields: [Field { tag: Tag(Context::Tiff, 65000), ifd_num: In(0),
+                             value: Value::SByte(_) }],
+            errors: [Error::InvalidFormat("Invalid pointer")]
+        }
+        // Exif IFD pointer is empty.
+        define_test! {
+            data: b"MM\0\x2a\0\0\0\x08\
+                    \0\x02\x87\x69\0\x04\0\0\0\x00\0\0\0\x26\
+                          \xfd\xe8\0\x08\0\0\0\x02\xfe\xdc\xba\x98\
+                          \0\0\0\0\
+                    \0\x01\x90\x00\0\x07\0\0\0\x04\x00\x02\x03\x02\
+                          \0\0\0\x01",
+            fields: [Field { tag: Tag(Context::Tiff, 65000), ifd_num: In(0),
+                             value: Value::SShort(_) }],
+            errors: [Error::InvalidFormat("Invalid pointer")]
+        }
     }
 }

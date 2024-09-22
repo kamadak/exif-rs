@@ -89,7 +89,7 @@
 //!
 //! See the [upgrade guide](doc::upgrade) for API incompatibilities.
 
-pub use error::Error;
+pub use error::{Error, PartialResult};
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::{Exif, Reader};
 pub use tag::{Context, Tag};

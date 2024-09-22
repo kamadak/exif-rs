@@ -3,6 +3,9 @@
    -  Rust 1.60 or later is now required to build this package.
    -  From<Rational> and From<SRational> implementations for f32 and f64
       have been removed.  Use Rational::to_f64 and so on.
+   -  `Reader::continue_on_error` has been added to enable continue-on-error
+      mode for parsing slightly broken Exif data.  In this mode, parser
+      may return `Error::PartialResult`.
 
 0.5.5 (2022-10-22)
 

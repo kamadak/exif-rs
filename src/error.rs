@@ -50,6 +50,9 @@ pub enum Error {
     NotSupported(&'static str),
     /// The field has an unexpected value.
     UnexpectedValue(&'static str),
+    /// Partially-parsed result and errors.  This can be returned only when
+    /// `Reader::continue_on_error` is enabled.
+    PartialResult(PartialResult),
 }
 
 impl From<io::Error> for Error {
@@ -68,6 +71,9 @@ impl fmt::Display for Error {
             Error::TooBig(msg) => f.write_str(msg),
             Error::NotSupported(msg) => f.write_str(msg),
             Error::UnexpectedValue(msg) => f.write_str(msg),
+            Error::PartialResult(ref pr) =>
+                write!(f, "Partial result with {} fields and {} errors",
+                       pr.0.0.fields().len(), pr.0.1.len()),
         }
     }
 }
@@ -82,6 +88,28 @@ impl error::Error for Error {
             Error::TooBig(_) => None,
             Error::NotSupported(_) => None,
             Error::UnexpectedValue(_) => None,
+            Error::PartialResult(_) => None,
         }
+    }
+}
+
+/// Partially-parsed result and errors.
+pub struct PartialResult(Box<(crate::Exif, Vec<Error>)>);
+
+impl PartialResult {
+    pub(crate) fn new(exif: crate::Exif, errors: Vec<Error>) -> Self {
+        Self(Box::new((exif, errors)))
+    }
+
+    /// Returns partially-parsed `Exif` and ignored `Error`s.
+    pub fn into_inner(self) -> (crate::Exif, Vec<Error>) {
+        *self.0
+    }
+}
+
+impl fmt::Debug for PartialResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PartialResult(Exif({} fields), {:?})",
+               self.0.0.fields().len(), self.0.1)
     }
 }
