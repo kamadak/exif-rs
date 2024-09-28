@@ -47,17 +47,13 @@ fn dump_file(path: &Path) -> Result<(), exif::Error> {
     //     .read_from_container(&mut BufReader::new(&file))?;
 
     // To parse with continue-on-error mode:
-    let result = exif::Reader::new()
+    let exif = exif::Reader::new()
         .continue_on_error(true)
-        .read_from_container(&mut BufReader::new(&file));
-    let exif = if let Err(exif::Error::PartialResult(partial)) = result {
-        let (exif, errors) = partial.into_inner();
-        eprintln!("{}: {} warning(s)", path.display(), errors.len());
-        errors.iter().for_each(|e| eprintln!("  {}", e));
-        exif
-    } else {
-        result?
-    };
+        .read_from_container(&mut BufReader::new(&file))
+        .or_else(|e| e.distill_partial_result(|errors| {
+            eprintln!("{}: {} warning(s)", path.display(), errors.len());
+            errors.iter().for_each(|e| eprintln!("  {}", e));
+        }))?;
 
     println!("{}", path.display());
     for f in exif.fields() {

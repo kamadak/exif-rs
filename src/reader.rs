@@ -77,6 +77,8 @@ impl Reader {
     /// errors and returns the results as far as they can be parsed.
     /// In such a case, `read_raw` and `read_from_container`
     /// return `Error::PartialResult`.
+    /// The partial result and ignored errors can be obtained by
+    /// [`Error::distill_partial_result`] or [`PartialResult::into_inner`].
     ///
     /// Note that a hard error (other than `Error::PartialResult`) may be
     /// returned even if this option is enabled.
@@ -85,18 +87,14 @@ impl Reader {
     /// ```
     /// # use std::fmt::{Display, Formatter, Result};
     /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    /// use exif::{Error, In, Reader, Tag};
+    /// use exif::Reader;
     /// let file = std::fs::File::open("tests/exif.jpg")?;
-    /// let result = Reader::new()
+    /// let exif = Reader::new()
     ///     .continue_on_error(true)
-    ///     .read_from_container(&mut std::io::BufReader::new(&file));
-    /// let exif = if let Err(Error::PartialResult(partial)) = result {
-    ///     let (exif, errors) = partial.into_inner();
-    ///     errors.iter().for_each(|e| eprintln!("Warning: {}", e));
-    ///     exif
-    /// } else {
-    ///     result?
-    /// };
+    ///     .read_from_container(&mut std::io::BufReader::new(&file))
+    ///     .or_else(|e| e.distill_partial_result(|errors| {
+    ///         errors.iter().for_each(|e| eprintln!("Warning: {}", e));
+    ///     }))?;
     /// # Ok(()) }
     /// ```
     pub fn continue_on_error(&mut self, continue_on_error: bool) -> &mut Self {

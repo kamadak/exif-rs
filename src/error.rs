@@ -55,6 +55,25 @@ pub enum Error {
     PartialResult(PartialResult),
 }
 
+impl Error {
+    /// Extracts `Exif` and `Vec<Error>` from `Error::PartialResult`.
+    ///
+    /// If `self` is `Error::PartialResult`,
+    /// ignored errors are passed to `f` as `Vec<Error>` and
+    /// partially-parsed result is retuend in `Ok`.
+    /// Otherwise, `Err(self)` is returned.
+    pub fn distill_partial_result<F>(self, f: F) -> Result<crate::Exif, Self>
+    where F: FnOnce(Vec<Error>) {
+        if let Error::PartialResult(partial) = self {
+            let (exif, errors) = *partial.0;
+            f(errors);
+            Ok(exif)
+        } else {
+            Err(self)
+        }
+    }
+}
+
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
         Error::Io(err)
