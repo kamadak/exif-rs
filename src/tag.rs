@@ -26,6 +26,9 @@
 
 use std::fmt;
 
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::error::Error;
 use crate::value;
 use crate::value::Value;
@@ -55,7 +58,7 @@ use crate::util::atou16;
 // PartialEq and Eq need to be _automatically derived_ for Tag to
 // emulate structural equivalency.
 // <https://github.com/rust-lang/rfcs/pull/1445>
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct Tag(pub Context, pub u16);
 
 impl Tag {
@@ -113,7 +116,7 @@ impl fmt::Display for Tag {
 }
 
 /// An enum that indicates how a tag number is interpreted.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, Deserialize,  PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[non_exhaustive]
 pub enum Context {
     /// TIFF attributes defined in the TIFF Rev. 6.0 specification.
