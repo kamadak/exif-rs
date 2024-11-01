@@ -40,6 +40,10 @@ pub mod news {}
 ///   and `f64` have been removed.
 ///   Use `Rational::to_f64` and so on.
 ///
+/// ### Compiler
+///
+/// * Rust 1.60 or later is required.
+///
 /// ## Upgrade from 0.4.x to 0.5.x
 ///
 /// ### API compatibilities
