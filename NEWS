@@ -1,3 +1,8 @@
+0.6.1
+
+   -  `exif::Error` has been changed to be `Sync` again.  It was
+      unintentionally not so in 0.6.
+
 0.6 (2024-11-01)
 
    -  Rust 1.60 or later is now required to build this package.

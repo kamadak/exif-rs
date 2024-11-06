@@ -27,6 +27,7 @@
 use std::error;
 use std::fmt;
 use std::io;
+use std::sync::Mutex;
 
 /// An error returned when parsing of Exif data fails.
 #[derive(Debug)]
@@ -65,7 +66,7 @@ impl Error {
     pub fn distill_partial_result<F>(self, f: F) -> Result<crate::Exif, Self>
     where F: FnOnce(Vec<Error>) {
         if let Error::PartialResult(partial) = self {
-            let (exif, errors) = *partial.0;
+            let (exif, errors) = partial.into_inner();
             f(errors);
             Ok(exif)
         } else {
@@ -92,7 +93,8 @@ impl fmt::Display for Error {
             Error::UnexpectedValue(msg) => f.write_str(msg),
             Error::PartialResult(ref pr) =>
                 write!(f, "Partial result with {} fields and {} errors",
-                       pr.0.0.fields().len(), pr.0.1.len()),
+                       pr.0.0.lock().expect("should not panic").fields().len(),
+                       pr.0.1.len()),
         }
     }
 }
@@ -113,22 +115,37 @@ impl error::Error for Error {
 }
 
 /// Partially-parsed result and errors.
-pub struct PartialResult(Box<(crate::Exif, Vec<Error>)>);
+pub struct PartialResult(Box<(Mutex<crate::Exif>, Vec<Error>)>);
 
 impl PartialResult {
     pub(crate) fn new(exif: crate::Exif, errors: Vec<Error>) -> Self {
-        Self(Box::new((exif, errors)))
+        Self(Box::new((Mutex::new(exif), errors)))
     }
 
     /// Returns partially-parsed `Exif` and ignored `Error`s.
     pub fn into_inner(self) -> (crate::Exif, Vec<Error>) {
-        *self.0
+        let (exif, errors) = *self.0;
+        (exif.into_inner().expect("should not panic"), errors)
     }
 }
 
 impl fmt::Debug for PartialResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PartialResult(Exif({} fields), {:?})",
-               self.0.0.fields().len(), self.0.1)
+               self.0.0.lock().expect("should not panic").fields().len(),
+               self.0.1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Check compatibility with anyhow::Error, which requires Send, Sync,
+    // and 'static on error types.
+    #[test]
+    fn is_send_sync_static() {
+        let _: Box<dyn Send + Sync + 'static> =
+            Box::new(Error::InvalidFormat("test"));
     }
 }
