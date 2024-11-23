@@ -36,6 +36,8 @@ pub mod news {}
 ///
 /// ### API compatibilities
 ///
+/// * `exif::Error` was not `std::marker::Sync` in 0.6.0.
+///   This was an unintended breaking change and has been fixed in 0.6.1.
 /// * `From<Rational>` and `From<SRational>` implementations for `f32`
 ///   and `f64` have been removed.
 ///   Use `Rational::to_f64` and so on.
@@ -43,6 +45,10 @@ pub mod news {}
 /// ### Compiler
 ///
 /// * Rust 1.60 or later is required.
+///
+/// ### Other new features
+///
+/// * `Reader::continue_on_error` was added to accept broken Exif data.
 ///
 /// ## Upgrade from 0.4.x to 0.5.x
 ///
