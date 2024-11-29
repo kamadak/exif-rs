@@ -74,7 +74,7 @@ struct Ifd<'a> {
     jpeg: Option<&'a [u8]>,
 }
 
-impl<'a> Ifd<'a> {
+impl Ifd<'_> {
     fn is_empty(&self) -> bool {
         self.tiff_fields.is_empty() &&
             self.exif_fields.is_empty() &&
@@ -191,7 +191,7 @@ impl<'a> Writer<'a> {
                 ifd_num_ck.ok_or(Error::InvalidFormat("Too many IFDs"))?;
             if ifd_num > 0 {
                 let next_ifd_offset = pad_and_get_offset(w)?;
-                let origpos = w.seek(SeekFrom::Current(0))?;
+                let origpos = w.stream_position()?;
                 w.seek(SeekFrom::Start(next_ifd_offset_offset as u64))?;
                 match little_endian {
                     false => BigEndian::writeu32(w, next_ifd_offset)?,
@@ -342,15 +342,15 @@ fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
          strip_offsets_offset, tile_offsets_offset, jpeg_offset) =
         write_ifd_and_fields::<_, E>(
             w, &ws.tiff_fields, ws.tiff_ifd_offset)?;
-    if ws.exif_fields.len() > 0 {
+    if !ws.exif_fields.is_empty() {
         write_ifd_and_fields::<_, E>(
             w, &ws.exif_fields, ws.exif_ifd_offset)?;
     }
-    if ws.gps_fields.len() > 0 {
+    if !ws.gps_fields.is_empty() {
         write_ifd_and_fields::<_, E>(
             w, &ws.gps_fields, ws.gps_ifd_offset)?;
     }
-    if ws.interop_fields.len() > 0 {
+    if !ws.interop_fields.is_empty() {
         write_ifd_and_fields::<_, E>(
             w, &ws.interop_fields, ws.interop_ifd_offset)?;
     }
@@ -361,7 +361,7 @@ fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
             strip_offsets.push(get_offset(w)?);
             w.write_all(strip)?;
         }
-        let origpos = w.seek(SeekFrom::Current(0))?;
+        let origpos = w.stream_position()?;
         w.seek(SeekFrom::Start(strip_offsets_offset as u64))?;
         for ofs in strip_offsets {
             E::writeu32(w, ofs)?;
@@ -374,7 +374,7 @@ fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
             tile_offsets.push(get_offset(w)?);
             w.write_all(tile)?;
         }
-        let origpos = w.seek(SeekFrom::Current(0))?;
+        let origpos = w.stream_position()?;
         w.seek(SeekFrom::Start(tile_offsets_offset as u64))?;
         for ofs in tile_offsets {
             E::writeu32(w, ofs)?;
@@ -384,7 +384,7 @@ fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
     if let Some(jpeg) = ifd.jpeg {
         let offset = get_offset(w)?;
         w.write_all(jpeg)?;
-        let origpos = w.seek(SeekFrom::Current(0))?;
+        let origpos = w.stream_position()?;
         w.seek(SeekFrom::Start(jpeg_offset as u64))?;
         E::writeu32(w, offset)?;
         w.seek(SeekFrom::Start(origpos))?;
@@ -552,7 +552,7 @@ fn compose_value<E>(value: &Value)
 
 fn write_at<W>(w: &mut W, buf: &[u8], offset: u32)
                -> io::Result<()> where W: Write + Seek {
-    let orig = w.seek(SeekFrom::Current(0))?;
+    let orig = w.stream_position()?;
     w.seek(SeekFrom::Start(offset as u64))?;
     w.write_all(buf)?;
     w.seek(SeekFrom::Start(orig))?;
@@ -562,7 +562,7 @@ fn write_at<W>(w: &mut W, buf: &[u8], offset: u32)
 // Aligns `w` to the two-byte (word) boundary and returns the new offset.
 fn pad_and_get_offset<W>(w: &mut W)
                          -> Result<u32, Error> where W: Write + Seek {
-    let mut pos = w.seek(SeekFrom::Current(0))?;
+    let mut pos = w.stream_position()?;
     if pos >= (1 << 32) - 1 {
         return Err(Error::TooBig("Offset too large"));
     }
@@ -575,7 +575,7 @@ fn pad_and_get_offset<W>(w: &mut W)
 
 fn get_offset<W>(w: &mut W)
                  -> Result<u32, Error> where W: Write + Seek {
-    let pos = w.seek(SeekFrom::Current(0))?;
+    let pos = w.stream_position()?;
     if pos as u32 as u64 != pos {
         return Err(Error::TooBig("Offset too large"));
     }

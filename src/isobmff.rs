@@ -127,7 +127,7 @@ impl<R> Parser<R> where R: BufRead + Seek {
         let mut buf = [0; 8];
         self.reader.read_exact(&mut buf)?;
         let size = match BigEndian::loadu32(&buf, 0) {
-            0 => Some(std::u64::MAX),
+            0 => Some(u64::MAX),
             1 => read64(&mut self.reader)?.checked_sub(16),
             x => u64::from(x).checked_sub(8),
         }.ok_or("Invalid box size")?;
@@ -138,7 +138,7 @@ impl<R> Parser<R> where R: BufRead + Seek {
     fn read_file_level_box(&mut self, size: u64) -> Result<Vec<u8>, Error> {
         let mut buf;
         match size {
-            std::u64::MAX => {
+            u64::MAX => {
                 buf = Vec::new();
                 self.reader.read_to_end(&mut buf)?;
             },
@@ -154,7 +154,7 @@ impl<R> Parser<R> where R: BufRead + Seek {
 
     fn skip_file_level_box(&mut self, size: u64) -> Result<(), Error> {
         match size {
-            std::u64::MAX => self.reader.seek(SeekFrom::End(0))?,
+            u64::MAX => self.reader.seek(SeekFrom::End(0))?,
             _ => self.reader.seek(SeekFrom::Current(
                 size.try_into().or(Err("Large seek not supported"))?))?,
         };
@@ -164,7 +164,7 @@ impl<R> Parser<R> where R: BufRead + Seek {
     fn parse_ftyp(&mut self, mut boxp: BoxSplitter) -> Result<(), Error> {
         let head = boxp.slice(8)?;
         let _major_brand = &head[0..4];
-        let _minor_version = BigEndian::loadu32(&head, 4);
+        let _minor_version = BigEndian::loadu32(head, 4);
         while let Ok(compat_brand) = boxp.array4() {
             if HEIF_BRANDS.contains(&compat_brand) {
                 return Ok(());
@@ -301,9 +301,8 @@ impl<R> Parser<R> where R: BufRead + Seek {
         };
         for _ in 0..entry_count {
             let (boxtype, body) = boxp.child_box()?;
-            match boxtype {
-                b"infe" => self.parse_infe(body)?,
-                _ => {},
+            if boxtype == b"infe" {
+                self.parse_infe(body)?;
             }
         }
         Ok(())
@@ -483,7 +482,7 @@ mod tests {
         // to the end of the file
         let mut p = Parser::new(Cursor::new(b"\0\0\0\0abcd"));
         assert_eq!(p.read_box_header().unwrap(),
-                   Some((std::u64::MAX, *b"abcd")));
+                   Some((u64::MAX, *b"abcd")));
         // largesize
         let mut p = Parser::new(Cursor::new(
             b"\0\0\0\x01abcd\0\0\0\0\0\0\0\x10"));
@@ -498,7 +497,7 @@ mod tests {
         let mut p = Parser::new(Cursor::new(
             b"\0\0\0\x01abcd\xff\xff\xff\xff\xff\xff\xff\xff"));
         assert_eq!(p.read_box_header().unwrap(),
-                   Some((std::u64::MAX.wrapping_sub(16), *b"abcd")));
+                   Some((u64::MAX.wrapping_sub(16), *b"abcd")));
     }
 
     #[test]

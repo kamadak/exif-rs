@@ -507,7 +507,7 @@ impl<'a> DisplayValue<'a> {
     }
 }
 
-impl<'a> fmt::Display for DisplayValue<'a> {
+impl fmt::Display for DisplayValue<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.value_display.fmt(f)

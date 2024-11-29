@@ -58,7 +58,7 @@ impl<T> BufReadExt for T where T: io::BufRead {
     fn discard_exact(&mut self, mut len: usize) -> io::Result<()> {
         while len > 0 {
             let consume_len = match self.fill_buf() {
-                Ok(buf) if buf.is_empty() =>
+                Ok([]) =>
                     return Err(io::Error::new(
                         io::ErrorKind::UnexpectedEof, "unexpected EOF")),
                 Ok(buf) => buf.len().min(len),

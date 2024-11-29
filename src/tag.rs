@@ -749,7 +749,7 @@ generate_well_known_tag_constants!(
 );
 
 // For Value::display_as().
-pub fn display_value_as<'a>(value: &'a Value, tag: Tag) -> value::Display<'a> {
+pub fn display_value_as(value: &Value, tag: Tag) -> value::Display<'_> {
     match get_tag_info(tag) {
         Some(ti) => value::Display { fmt: ti.dispval, value: value },
         None => value::Display { fmt: d_default, value: value },
@@ -1463,7 +1463,7 @@ where I: IntoIterator<Item = T>, T: fmt::Display {
 
 struct AsciiDisplay<'a>(&'a [u8]);
 
-impl<'a> fmt::Display for AsciiDisplay<'a> {
+impl fmt::Display for AsciiDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         d_sub_ascii(f, self.0)
     }

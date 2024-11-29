@@ -106,7 +106,7 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
     if let Some(ref tiles) = tiles {
         writer.set_tiles(tiles, In::PRIMARY);
     }
-    if let Some(ref tn_jpeg) = tn_jpeg {
+    if let Some(tn_jpeg) = tn_jpeg {
         writer.set_jpeg(tn_jpeg, In::THUMBNAIL);
     }
     let mut out = Cursor::new(Vec::new());
