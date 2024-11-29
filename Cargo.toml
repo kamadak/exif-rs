@@ -16,3 +16,8 @@ license = "BSD-2-Clause"
 
 [dependencies]
 mutate_once = "0.1.1"
+
+[lints.clippy]
+manual_range_contains = "allow"
+unnecessary_cast = "allow"
+useless_conversion = "allow"
