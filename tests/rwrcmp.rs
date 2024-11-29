@@ -106,7 +106,7 @@ fn rwr_compare<P>(path: P) where P: AsRef<Path> {
     if let Some(ref tiles) = tiles {
         writer.set_tiles(tiles, In::PRIMARY);
     }
-    if let Some(ref tn_jpeg) = tn_jpeg {
+    if let Some(tn_jpeg) = tn_jpeg {
         writer.set_jpeg(tn_jpeg, In::THUMBNAIL);
     }
     let mut out = Cursor::new(Vec::new());
@@ -160,33 +160,33 @@ fn compare_field_value(value1: &Value, value2: &Value) {
     }
     // Compare other fields strictly.
     match (value1, value2) {
-        (&Value::Ascii(ref v1), &Value::Ascii(ref v2)) =>
+        (Value::Ascii(v1), Value::Ascii(v2)) =>
             assert_eq!(v1, v2),
-        (&Value::Rational(ref v1), &Value::Rational(ref v2)) => {
+        (Value::Rational(v1), Value::Rational(v2)) => {
             assert_eq!(v1.len(), v2.len());
             for (r1, r2) in v1.iter().zip(v2.iter()) {
                 assert_eq!(r1.num, r2.num);
                 assert_eq!(r1.denom, r2.denom);
             }
         },
-        (&Value::SByte(ref v1), &Value::SByte(ref v2)) =>
+        (Value::SByte(v1), Value::SByte(v2)) =>
             assert_eq!(v1, v2),
-        (&Value::Undefined(ref v1, _), &Value::Undefined(ref v2, _)) =>
+        (Value::Undefined(v1, _), Value::Undefined(v2, _)) =>
             assert_eq!(v1, v2),
-        (&Value::SShort(ref v1), &Value::SShort(ref v2)) =>
+        (Value::SShort(v1), Value::SShort(v2)) =>
             assert_eq!(v1, v2),
-        (&Value::SLong(ref v1), &Value::SLong(ref v2)) =>
+        (Value::SLong(v1), Value::SLong(v2)) =>
             assert_eq!(v1, v2),
-        (&Value::SRational(ref v1), &Value::SRational(ref v2)) => {
+        (Value::SRational(v1), Value::SRational(v2)) => {
             assert_eq!(v1.len(), v2.len());
             for (r1, r2) in v1.iter().zip(v2.iter()) {
                 assert_eq!(r1.num, r2.num);
                 assert_eq!(r1.denom, r2.denom);
             }
         },
-        (&Value::Float(ref v1), &Value::Float(ref v2)) =>
+        (Value::Float(v1), Value::Float(v2)) =>
             assert_eq!(v1, v2),
-        (&Value::Double(ref v1), &Value::Double(ref v2)) =>
+        (Value::Double(v1), Value::Double(v2)) =>
             assert_eq!(v1, v2),
         _ => panic!("{:?} != {:?}", value1, value2),
     }

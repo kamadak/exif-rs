@@ -63,6 +63,12 @@ pub struct Reader {
     continue_on_error: bool,
 }
 
+impl Default for Reader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Reader {
     /// Constructs a new `Reader`.
     pub fn new() -> Self {
@@ -106,14 +112,14 @@ impl Reader {
     /// If an error occurred, `exif::Error` is returned.
     pub fn read_raw(&self, data: Vec<u8>) -> Result<Exif, Error> {
         let mut parser = tiff::Parser::new();
-        parser.continue_on_error = self.continue_on_error.then(|| Vec::new());
+        parser.continue_on_error = self.continue_on_error.then(Vec::new);
         parser.parse(&data)?;
         let entry_map = parser.entries.iter().enumerate()
             .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
         let exif = Exif {
             buf: data,
             entries: parser.entries,
-            entry_map: entry_map,
+            entry_map,
             little_endian: parser.little_endian,
         };
         match parser.continue_on_error {

@@ -180,7 +180,7 @@ impl Value {
             Value::Short(ref v) =>
                 Some(UIntIter { iter: Box::new(v.iter().map(|&x| x as u32)) }),
             Value::Long(ref v) =>
-                Some(UIntIter { iter: Box::new(v.iter().map(|&x| x)) }),
+                Some(UIntIter { iter: Box::new(v.iter().copied()) }),
             _ => None,
         }
     }
@@ -213,7 +213,7 @@ impl UIntValue {
         match self.0 {
             Value::Byte(ref v) => v.get(index).map(|&x| x.into()),
             Value::Short(ref v) => v.get(index).map(|&x| x.into()),
-            Value::Long(ref v) => v.get(index).map(|&x| x),
+            Value::Long(ref v) => v.get(index).copied(),
             _ => panic!(),
         }
     }
@@ -224,7 +224,7 @@ pub struct UIntIter<'a> {
     iter: Box<dyn ExactSizeIterator<Item=u32> + 'a>
 }
 
-impl<'a> Iterator for UIntIter<'a> {
+impl Iterator for UIntIter<'_> {
     type Item = u32;
 
     #[inline]
@@ -238,7 +238,7 @@ impl<'a> Iterator for UIntIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for UIntIter<'a> {}
+impl ExactSizeIterator for UIntIter<'_> {}
 
 /// Helper struct for printing a value in a tag-specific format.
 #[derive(Copy, Clone)]
@@ -247,7 +247,7 @@ pub struct Display<'a> {
     pub value: &'a Value,
 }
 
-impl<'a> fmt::Display for Display<'a> {
+impl fmt::Display for Display<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         (self.fmt)(f, self.value)
@@ -292,7 +292,7 @@ where F: Fn() -> T, T: Iterator<Item = I>, I: fmt::Debug {
 
 struct AsciiDebugAdapter<'a>(&'a [u8]);
 
-impl<'a> fmt::Debug for AsciiDebugAdapter<'a> {
+impl fmt::Debug for AsciiDebugAdapter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_char('"')?;
         self.0.iter().try_for_each(|&c| match c {
@@ -306,7 +306,7 @@ impl<'a> fmt::Debug for AsciiDebugAdapter<'a> {
 
 struct HexDebugAdapter<'a>(&'a [u8]);
 
-impl<'a> fmt::Debug for HexDebugAdapter<'a> {
+impl fmt::Debug for HexDebugAdapter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str("0x")?;
         self.0.iter().try_for_each(|x| write!(f, "{:02x}", x))
@@ -471,9 +471,9 @@ fn parse_byte(data: &[u8], offset: usize, count: usize) -> Value {
 fn parse_ascii(data: &[u8], offset: usize, count: usize) -> Value {
     // Any ASCII field can contain multiple strings [TIFF6 Image File
     // Directory].
-    let iter = (&data[offset .. offset + count]).split(|&b| b == b'\0');
+    let iter = (data[offset .. offset + count]).split(|&b| b == b'\0');
     let mut v: Vec<Vec<u8>> = iter.map(|x| x.to_vec()).collect();
-    if v.last().map_or(false, |x| x.len() == 0) {
+    if v.last().map_or(false, |x| x.is_empty()) {
         v.pop();
     }
     Value::Ascii(v)
