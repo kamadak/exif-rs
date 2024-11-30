@@ -551,7 +551,21 @@ fn compose_value<E>(value: &Value)
             }
             Ok((12, vec.len(), buf))
         },
-        Value::Unknown(_, _, _) =>
+        Value::Long8(ref vec) => {
+            let mut buf = Vec::new();
+            for &v in vec {
+                E::writeu64(&mut buf, v)?;
+            }
+            Ok((12, vec.len(), buf))
+        },
+        Value::SLong8(ref vec) => {
+            let mut buf = Vec::new();
+            for &v in vec {
+                E::writeu64(&mut buf, v as u64)?;
+            }
+            Ok((12, vec.len(), buf))
+        },
+        Value::Unknown(_, _, _) | Value::UnknownBigTiff(_, _, _) =>
             Err(Error::NotSupported("Cannot write unknown field types")),
     }
 }

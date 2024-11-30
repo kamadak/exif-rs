@@ -121,6 +121,7 @@ impl Reader {
             entries: parser.entries,
             entry_map,
             little_endian: parser.little_endian,
+            bigtiff: parser.bigtiff,
         };
         match parser.continue_on_error {
             Some(v) if !v.is_empty() =>
@@ -194,6 +195,8 @@ pub struct Exif {
     entry_map: HashMap<(In, Tag), usize>,
     // True if the TIFF data is little endian.
     little_endian: bool,
+    /// True if the TIFF data is in the BigTIFF format.
+    bigtiff: bool,
 }
 
 impl Exif {
@@ -207,7 +210,9 @@ impl Exif {
     #[inline]
     pub fn fields(&self) -> impl ExactSizeIterator<Item = &Field> {
         self.entries.iter()
-            .map(move |e| e.ref_field(&self.buf, self.little_endian))
+            .map(move |e| {
+                e.ref_field(&self.buf, self.little_endian)
+        })
     }
 
     /// Returns true if the Exif data (TIFF structure) is in the
@@ -215,6 +220,12 @@ impl Exif {
     #[inline]
     pub fn little_endian(&self) -> bool {
         self.little_endian
+    }
+
+    /// Returns true if the Exif data (TIFF structure) is in BigTIFF format.
+    #[inline]
+    pub fn bigtiff(&self) -> bool {
+        self.bigtiff
     }
 
     /// Returns a reference to the Exif field specified by the tag

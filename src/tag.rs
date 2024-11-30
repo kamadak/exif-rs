@@ -1442,7 +1442,12 @@ fn d_default(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Value::SRational(ref v) => d_sub_comma(w, v),
         Value::Float(ref v) => d_sub_comma(w, v),
         Value::Double(ref v) => d_sub_comma(w, v),
+        Value::Long8(ref v) => d_sub_comma(w, v),
+        Value::SLong8(ref v) => d_sub_comma(w, v),
         Value::Unknown(t, c, o) =>
+            write!(w, "unknown value (type={}, count={}, offset={:#x})",
+                   t, c, o),
+        Value::UnknownBigTiff(t, c, o) =>
             write!(w, "unknown value (type={}, count={}, offset={:#x})",
                    t, c, o),
     }
