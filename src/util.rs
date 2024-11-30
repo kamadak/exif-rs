@@ -58,7 +58,7 @@ impl<T> BufReadExt for T where T: io::BufRead {
     fn discard_exact(&mut self, mut len: usize) -> io::Result<()> {
         while len > 0 {
             let consume_len = match self.fill_buf() {
-                Ok(buf) if buf.is_empty() =>
+                Ok([]) =>
                     return Err(io::Error::new(
                         io::ErrorKind::UnexpectedEof, "unexpected EOF")),
                 Ok(buf) => buf.len().min(len),
@@ -106,7 +106,7 @@ impl<T> ReadExt for T where T: io::Read {
 // This function must not be called with more than 4 bytes.
 pub fn atou16(bytes: &[u8]) -> Result<u16, Error> {
     debug_assert!(bytes.len() <= 4);
-    if bytes.len() == 0 {
+    if bytes.is_empty() {
         return Err(Error::InvalidFormat("Not a number"));
     }
     let mut n = 0;

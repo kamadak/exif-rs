@@ -74,7 +74,7 @@ struct Ifd<'a> {
     jpeg: Option<&'a [u8]>,
 }
 
-impl<'a> Ifd<'a> {
+impl Ifd<'_> {
     fn is_empty(&self) -> bool {
         self.tiff_fields.is_empty() &&
             self.exif_fields.is_empty() &&
@@ -95,6 +95,12 @@ struct WriterState<'a> {
     exif_ifd_offset: u32,
     gps_ifd_offset: u32,
     interop_ifd_offset: u32,
+}
+
+impl<'a> Default for Writer<'a> {
+    fn default() -> Writer<'a> {
+        Writer::new()
+    }
 }
 
 impl<'a> Writer<'a> {
@@ -191,7 +197,7 @@ impl<'a> Writer<'a> {
                 ifd_num_ck.ok_or(Error::InvalidFormat("Too many IFDs"))?;
             if ifd_num > 0 {
                 let next_ifd_offset = pad_and_get_offset(w)?;
-                let origpos = w.seek(SeekFrom::Current(0))?;
+                let origpos = w.stream_position()?;
                 w.seek(SeekFrom::Start(next_ifd_offset_offset as u64))?;
                 match little_endian {
                     false => BigEndian::writeu32(w, next_ifd_offset)?,
@@ -244,13 +250,13 @@ fn synthesize_fields<W>(w: &mut W, ifd: &Ifd, ifd_num: In,
     if let Some(strips) = ifd.strips {
         strip_offsets = Field {
             tag: Tag::StripOffsets,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(vec![0; strips.len()]),
         };
         ws.tiff_fields.push(&strip_offsets);
         strip_byte_counts = Field {
             tag: Tag::StripByteCounts,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(
                 strips.iter().map(|s| s.len() as u32).collect()),
         };
@@ -259,13 +265,13 @@ fn synthesize_fields<W>(w: &mut W, ifd: &Ifd, ifd_num: In,
     if let Some(tiles) = ifd.tiles {
         tile_offsets = Field {
             tag: Tag::TileOffsets,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(vec![0; tiles.len()]),
         };
         ws.tiff_fields.push(&tile_offsets);
         tile_byte_counts = Field {
             tag: Tag::TileByteCounts,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(
                 tiles.iter().map(|s| s.len() as u32).collect()),
         };
@@ -274,13 +280,13 @@ fn synthesize_fields<W>(w: &mut W, ifd: &Ifd, ifd_num: In,
     if let Some(jpeg) = ifd.jpeg {
         jpeg_offset = Field {
             tag: Tag::JPEGInterchangeFormat,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(vec![0]),
         };
         ws.tiff_fields.push(&jpeg_offset);
         jpeg_length = Field {
             tag: Tag::JPEGInterchangeFormatLength,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(vec![jpeg.len() as u32]),
         };
         ws.tiff_fields.push(&jpeg_length);
@@ -300,7 +306,7 @@ fn synthesize_fields<W>(w: &mut W, ifd: &Ifd, ifd_num: In,
         ws.exif_ifd_offset = reserve_ifd(w, exif_fields_len)?;
         exif_in_tiff = Field {
             tag: Tag::ExifIFDPointer,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(vec![ws.exif_ifd_offset]),
         };
         ws.tiff_fields.push(&exif_in_tiff);
@@ -309,7 +315,7 @@ fn synthesize_fields<W>(w: &mut W, ifd: &Ifd, ifd_num: In,
         ws.gps_ifd_offset = reserve_ifd(w, gps_fields_len)?;
         gps_in_tiff = Field {
             tag: Tag::GPSInfoIFDPointer,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(vec![ws.gps_ifd_offset]),
         };
         ws.tiff_fields.push(&gps_in_tiff);
@@ -318,7 +324,7 @@ fn synthesize_fields<W>(w: &mut W, ifd: &Ifd, ifd_num: In,
         ws.interop_ifd_offset = reserve_ifd(w, interop_fields_len)?;
         interop_in_exif = Field {
             tag: Tag::InteropIFDPointer,
-            ifd_num: ifd_num,
+            ifd_num,
             value: Value::Long(vec![ws.interop_ifd_offset]),
         };
         ws.exif_fields.push(&interop_in_exif);
@@ -342,15 +348,15 @@ fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
          strip_offsets_offset, tile_offsets_offset, jpeg_offset) =
         write_ifd_and_fields::<_, E>(
             w, &ws.tiff_fields, ws.tiff_ifd_offset)?;
-    if ws.exif_fields.len() > 0 {
+    if !ws.exif_fields.is_empty() {
         write_ifd_and_fields::<_, E>(
             w, &ws.exif_fields, ws.exif_ifd_offset)?;
     }
-    if ws.gps_fields.len() > 0 {
+    if !ws.gps_fields.is_empty() {
         write_ifd_and_fields::<_, E>(
             w, &ws.gps_fields, ws.gps_ifd_offset)?;
     }
-    if ws.interop_fields.len() > 0 {
+    if !ws.interop_fields.is_empty() {
         write_ifd_and_fields::<_, E>(
             w, &ws.interop_fields, ws.interop_ifd_offset)?;
     }
@@ -361,7 +367,7 @@ fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
             strip_offsets.push(get_offset(w)?);
             w.write_all(strip)?;
         }
-        let origpos = w.seek(SeekFrom::Current(0))?;
+        let origpos = w.stream_position()?;
         w.seek(SeekFrom::Start(strip_offsets_offset as u64))?;
         for ofs in strip_offsets {
             E::writeu32(w, ofs)?;
@@ -374,7 +380,7 @@ fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
             tile_offsets.push(get_offset(w)?);
             w.write_all(tile)?;
         }
-        let origpos = w.seek(SeekFrom::Current(0))?;
+        let origpos = w.stream_position()?;
         w.seek(SeekFrom::Start(tile_offsets_offset as u64))?;
         for ofs in tile_offsets {
             E::writeu32(w, ofs)?;
@@ -384,7 +390,7 @@ fn write_image<W, E>(w: &mut W, ws: &WriterState, ifd: &Ifd)
     if let Some(jpeg) = ifd.jpeg {
         let offset = get_offset(w)?;
         w.write_all(jpeg)?;
-        let origpos = w.seek(SeekFrom::Current(0))?;
+        let origpos = w.stream_position()?;
         w.seek(SeekFrom::Start(jpeg_offset as u64))?;
         E::writeu32(w, offset)?;
         w.seek(SeekFrom::Start(origpos))?;
@@ -545,14 +551,28 @@ fn compose_value<E>(value: &Value)
             }
             Ok((12, vec.len(), buf))
         },
-        Value::Unknown(_, _, _) =>
+        Value::Long8(ref vec) => {
+            let mut buf = Vec::new();
+            for &v in vec {
+                E::writeu64(&mut buf, v)?;
+            }
+            Ok((12, vec.len(), buf))
+        },
+        Value::SLong8(ref vec) => {
+            let mut buf = Vec::new();
+            for &v in vec {
+                E::writeu64(&mut buf, v as u64)?;
+            }
+            Ok((12, vec.len(), buf))
+        },
+        Value::Unknown(_, _, _) | Value::UnknownBigTiff(_, _, _) =>
             Err(Error::NotSupported("Cannot write unknown field types")),
     }
 }
 
 fn write_at<W>(w: &mut W, buf: &[u8], offset: u32)
                -> io::Result<()> where W: Write + Seek {
-    let orig = w.seek(SeekFrom::Current(0))?;
+    let orig = w.stream_position()?;
     w.seek(SeekFrom::Start(offset as u64))?;
     w.write_all(buf)?;
     w.seek(SeekFrom::Start(orig))?;
@@ -562,7 +582,7 @@ fn write_at<W>(w: &mut W, buf: &[u8], offset: u32)
 // Aligns `w` to the two-byte (word) boundary and returns the new offset.
 fn pad_and_get_offset<W>(w: &mut W)
                          -> Result<u32, Error> where W: Write + Seek {
-    let mut pos = w.seek(SeekFrom::Current(0))?;
+    let mut pos = w.stream_position()?;
     if pos >= (1 << 32) - 1 {
         return Err(Error::TooBig("Offset too large"));
     }
@@ -575,7 +595,7 @@ fn pad_and_get_offset<W>(w: &mut W)
 
 fn get_offset<W>(w: &mut W)
                  -> Result<u32, Error> where W: Write + Seek {
-    let pos = w.seek(SeekFrom::Current(0))?;
+    let pos = w.stream_position()?;
     if pos as u32 as u64 != pos {
         return Err(Error::TooBig("Offset too large"));
     }

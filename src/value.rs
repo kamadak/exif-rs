@@ -68,10 +68,19 @@ pub enum Value {
     /// Vector of 64-bit (double precision) floating-point numbers.
     /// Unused in the Exif specification.
     Double(Vec<f64>),
+    /// Vector of unsigned rationals.
+    /// An unsigned rational number is a pair of 64-bit unsigned integers.
+    Long8(Vec<u64>),
+    /// Vector of 64-bit signed integers.
+    SLong8(Vec<i64>),
     /// The type is unknown to this implementation.
     /// The associated values are the type, the count, and the
     /// offset of the "Value Offset" element.
     Unknown(u16, u32, u32),
+    /// The type is unknown to this implementation.
+    /// The associated values are the type, the count, and the
+    /// offset of the "Value Offset" element.
+    UnknownBigTiff(u16, u64, u64),
 }
 
 impl Value {
@@ -180,7 +189,7 @@ impl Value {
             Value::Short(ref v) =>
                 Some(UIntIter { iter: Box::new(v.iter().map(|&x| x as u32)) }),
             Value::Long(ref v) =>
-                Some(UIntIter { iter: Box::new(v.iter().map(|&x| x)) }),
+                Some(UIntIter { iter: Box::new(v.iter().copied()) }),
             _ => None,
         }
     }
@@ -213,7 +222,7 @@ impl UIntValue {
         match self.0 {
             Value::Byte(ref v) => v.get(index).map(|&x| x.into()),
             Value::Short(ref v) => v.get(index).map(|&x| x.into()),
-            Value::Long(ref v) => v.get(index).map(|&x| x),
+            Value::Long(ref v) => v.get(index).copied(),
             _ => panic!(),
         }
     }
@@ -224,7 +233,7 @@ pub struct UIntIter<'a> {
     iter: Box<dyn ExactSizeIterator<Item=u32> + 'a>
 }
 
-impl<'a> Iterator for UIntIter<'a> {
+impl Iterator for UIntIter<'_> {
     type Item = u32;
 
     #[inline]
@@ -238,7 +247,7 @@ impl<'a> Iterator for UIntIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for UIntIter<'a> {}
+impl ExactSizeIterator for UIntIter<'_> {}
 
 /// Helper struct for printing a value in a tag-specific format.
 #[derive(Copy, Clone)]
@@ -247,7 +256,7 @@ pub struct Display<'a> {
     pub value: &'a Value,
 }
 
-impl<'a> fmt::Display for Display<'a> {
+impl fmt::Display for Display<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         (self.fmt)(f, self.value)
@@ -273,7 +282,13 @@ impl fmt::Debug for Value {
             Self::SRational(v) => f.debug_tuple("SRational").field(v).finish(),
             Self::Float(v) => f.debug_tuple("Float").field(v).finish(),
             Self::Double(v) => f.debug_tuple("Double").field(v).finish(),
+            Self::Long8(v) => f.debug_tuple("Long8").field(v).finish(),
+            Self::SLong8(v) => f.debug_tuple("SLong8").field(v).finish(),
             Self::Unknown(t, c, oo) => f.debug_tuple("Unknown")
+                .field(&format_args!("typ={}", t))
+                .field(&format_args!("cnt={}", c))
+                .field(&format_args!("ofs={:#x}", oo)).finish(),
+            Self::UnknownBigTiff(t, c, oo) => f.debug_tuple("UnknownBigTiff")
                 .field(&format_args!("typ={}", t))
                 .field(&format_args!("cnt={}", c))
                 .field(&format_args!("ofs={:#x}", oo)).finish(),
@@ -292,7 +307,7 @@ where F: Fn() -> T, T: Iterator<Item = I>, I: fmt::Debug {
 
 struct AsciiDebugAdapter<'a>(&'a [u8]);
 
-impl<'a> fmt::Debug for AsciiDebugAdapter<'a> {
+impl fmt::Debug for AsciiDebugAdapter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_char('"')?;
         self.0.iter().try_for_each(|&c| match c {
@@ -306,7 +321,7 @@ impl<'a> fmt::Debug for AsciiDebugAdapter<'a> {
 
 struct HexDebugAdapter<'a>(&'a [u8]);
 
-impl<'a> fmt::Debug for HexDebugAdapter<'a> {
+impl fmt::Debug for HexDebugAdapter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str("0x")?;
         self.0.iter().try_for_each(|x| write!(f, "{:02x}", x))
@@ -443,7 +458,7 @@ fn fmt_rational_sub<T>(f: &mut fmt::Formatter, num: u32, denom: T)
     }
 }
 
-type Parser = fn(&[u8], usize, usize) -> Value;
+type Parser = fn(&[u8], usize, usize, bool) -> Value;
 
 // Return the length of a single value and the parser of the type.
 pub fn get_type_info<E>(typecode: u16) -> (usize, Parser) where E: Endian {
@@ -460,35 +475,39 @@ pub fn get_type_info<E>(typecode: u16) -> (usize, Parser) where E: Endian {
         10 => (8, parse_srational::<E>),
         11 => (4, parse_float::<E>),
         12 => (8, parse_double::<E>),
+        16 => (8, parse_long8::<E>),
+        17 => (8, parse_slong8::<E>),
+        // TODO 18 => (8, parse_ifd8::<E>),
         _ => (0, parse_unknown),
     }
 }
 
-fn parse_byte(data: &[u8], offset: usize, count: usize) -> Value {
+fn parse_byte(data: &[u8], offset: usize, count: usize, bigtiff: bool) -> Value {
     Value::Byte(data[offset .. offset + count].to_vec())
 }
 
-fn parse_ascii(data: &[u8], offset: usize, count: usize) -> Value {
+fn parse_ascii(data: &[u8], offset: usize, count: usize, bigtiff: bool) -> Value {
     // Any ASCII field can contain multiple strings [TIFF6 Image File
     // Directory].
-    let iter = (&data[offset .. offset + count]).split(|&b| b == b'\0');
+    let iter = (data[offset .. offset + count]).split(|&b| b == b'\0');
     let mut v: Vec<Vec<u8>> = iter.map(|x| x.to_vec()).collect();
-    if v.last().map_or(false, |x| x.len() == 0) {
+    if v.last().map_or(false, |x| x.is_empty()) {
         v.pop();
     }
     Value::Ascii(v)
 }
 
-fn parse_short<E>(data: &[u8], offset: usize, count: usize)
+fn parse_short<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
                   -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
+    let size_increment = if bigtiff { 4 } else { 2 };
     for i in 0..count {
-        val.push(E::loadu16(data, offset + i * 2));
+        val.push(E::loadu16(data, offset + i * size_increment));
     }
     Value::Short(val)
 }
 
-fn parse_long<E>(data: &[u8], offset: usize, count: usize)
+fn parse_long<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
                  -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
@@ -497,7 +516,7 @@ fn parse_long<E>(data: &[u8], offset: usize, count: usize)
     Value::Long(val)
 }
 
-fn parse_rational<E>(data: &[u8], offset: usize, count: usize)
+fn parse_rational<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
                      -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
@@ -509,17 +528,17 @@ fn parse_rational<E>(data: &[u8], offset: usize, count: usize)
     Value::Rational(val)
 }
 
-fn parse_sbyte(data: &[u8], offset: usize, count: usize) -> Value {
+fn parse_sbyte(data: &[u8], offset: usize, count: usize, bigtiff: bool) -> Value {
     let bytes = data[offset .. offset + count].iter()
         .map(|x| *x as i8).collect();
     Value::SByte(bytes)
 }
 
-fn parse_undefined(data: &[u8], offset: usize, count: usize) -> Value {
+fn parse_undefined(data: &[u8], offset: usize, count: usize, bigtiff: bool) -> Value {
     Value::Undefined(data[offset .. offset + count].to_vec(), offset as u32)
 }
 
-fn parse_sshort<E>(data: &[u8], offset: usize, count: usize)
+fn parse_sshort<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
                    -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
@@ -528,7 +547,7 @@ fn parse_sshort<E>(data: &[u8], offset: usize, count: usize)
     Value::SShort(val)
 }
 
-fn parse_slong<E>(data: &[u8], offset: usize, count: usize)
+fn parse_slong<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
                   -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
@@ -537,7 +556,7 @@ fn parse_slong<E>(data: &[u8], offset: usize, count: usize)
     Value::SLong(val)
 }
 
-fn parse_srational<E>(data: &[u8], offset: usize, count: usize)
+fn parse_srational<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
                       -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
@@ -550,7 +569,7 @@ fn parse_srational<E>(data: &[u8], offset: usize, count: usize)
 }
 
 // TIFF and Rust use IEEE 754 format, so no conversion is required.
-fn parse_float<E>(data: &[u8], offset: usize, count: usize)
+fn parse_float<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
                   -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
@@ -560,7 +579,7 @@ fn parse_float<E>(data: &[u8], offset: usize, count: usize)
 }
 
 // TIFF and Rust use IEEE 754 format, so no conversion is required.
-fn parse_double<E>(data: &[u8], offset: usize, count: usize)
+fn parse_double<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
                    -> Value where E: Endian {
     let mut val = Vec::with_capacity(count);
     for i in 0..count {
@@ -569,9 +588,27 @@ fn parse_double<E>(data: &[u8], offset: usize, count: usize)
     Value::Double(val)
 }
 
+fn parse_long8<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
+                 -> Value where E: Endian {
+    let mut val = Vec::with_capacity(count);
+    for i in 0..count {
+        val.push(E::loadu64(data, offset + i * 8));
+    }
+    Value::Long8(val)
+}
+
+fn parse_slong8<E>(data: &[u8], offset: usize, count: usize, bigtiff: bool)
+                 -> Value where E: Endian {
+    let mut val = Vec::with_capacity(count);
+    for i in 0..count {
+        val.push(E::loadu64(data, offset + i * 8) as i64);
+    }
+    Value::SLong8(val)
+}
+
 // This is a dummy function and will never be called.
 #[allow(unused_variables)]
-fn parse_unknown(data: &[u8], offset: usize, count: usize) -> Value {
+fn parse_unknown(data: &[u8], offset: usize, count: usize, bigtiff: bool) -> Value {
     unreachable!()
 }
 
@@ -589,7 +626,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(1);
         for &(data, ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::Byte(v) => assert_eq!(v, ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -610,7 +647,7 @@ mod tests {
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(2);
         for &(data, ref ans) in sets {
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::Ascii(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -626,7 +663,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(3);
         for &(data, ref ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::Short(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -643,7 +680,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(4);
         for &(data, ref ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::Long(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -662,7 +699,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(5);
         for &(data, ref ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::Rational(v) => {
                     assert_eq!(v.len(), ans.len());
                     for (x, y) in v.iter().zip(ans.iter()) {
@@ -683,7 +720,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(6);
         for &(data, ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::SByte(v) => assert_eq!(v, ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -699,7 +736,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(7);
         for &(data, ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::Undefined(v, o) => {
                     assert_eq!(v, ans);
                     assert_eq!(o, 1);
@@ -718,7 +755,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(8);
         for &(data, ref ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::SShort(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -735,7 +772,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(9);
         for &(data, ref ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::SLong(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -754,7 +791,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(10);
         for &(data, ref ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::SRational(v) => {
                     assert_eq!(v.len(), ans.len());
                     for (x, y) in v.iter().zip(ans.iter()) {
@@ -776,7 +813,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(11);
         for &(data, ref ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::Float(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -795,7 +832,7 @@ mod tests {
         let (unitlen, parser) = get_type_info::<BigEndian>(12);
         for &(data, ref ans) in sets {
             assert!((data.len() - 1) % unitlen == 0);
-            match parser(data, 1, (data.len() - 1) / unitlen) {
+            match parser(data, 1, (data.len() - 1) / unitlen, false) {
                 Value::Double(v) => assert_eq!(v, *ans),
                 v => panic!("wrong variant {:?}", v),
             }
@@ -807,7 +844,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "index 5 out of range for slice of length 4")]
     fn short_oor() {
-        parse_short::<BigEndian>(b"\x01\x02\x03\x04", 1, 2);
+        parse_short::<BigEndian>(b"\x01\x02\x03\x04", 1, 2, false);
     }
 
     #[test]

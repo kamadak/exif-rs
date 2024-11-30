@@ -39,8 +39,11 @@ use crate::value::get_type_info;
 const TIFF_BE: u16 = 0x4d4d;
 const TIFF_LE: u16 = 0x4949;
 const TIFF_FORTY_TWO: u16 = 0x002a;
+const TIFF_FORTY_THREE: u16 = 0x002b;
 pub const TIFF_BE_SIG: [u8; 4] = [0x4d, 0x4d, 0x00, 0x2a];
 pub const TIFF_LE_SIG: [u8; 4] = [0x49, 0x49, 0x2a, 0x00];
+pub const BIGTIFF_BE_SIG: [u8; 4] = [0x4d, 0x4d, 0x00, 0x2b];
+pub const BIGTIFF_LE_SIG: [u8; 4] = [0x49, 0x49, 0x2b, 0x00];
 
 // Partially parsed TIFF field (IFD entry).
 // Value::Unknown is abused to represent a partially parsed value.
@@ -63,34 +66,48 @@ impl IfdEntry {
         }
     }
 
+    /// Obtain a reference to the field.
+    /// Only supports regular TIFF.
     pub fn ref_field<'a>(&'a self, data: &[u8], le: bool) -> &'a Field {
-        self.parse(data, le);
+        self.ref_field_any(data, le, false)
+    }
+
+    /// Obtain a reference to the field.
+    /// Supports regular TIFF and BigTiff.
+    pub fn ref_field_any<'a>(&'a self, data: &[u8], le: bool, bigtiff: bool) -> &'a Field {
+        self.parse(data, le, bigtiff);
         self.field.get_ref()
     }
 
-    fn into_field(self, data: &[u8], le: bool) -> Field {
-        self.parse(data, le);
+    fn into_field(self, data: &[u8], le: bool, bigtiff: bool) -> Field {
+        self.parse(data, le, bigtiff);
         self.field.into_inner()
     }
 
-    fn parse(&self, data: &[u8], le: bool) {
+    fn parse(&self, data: &[u8], le: bool, bigtiff: bool) {
         if !self.field.is_fixed() {
             let mut field = self.field.get_mut();
             if le {
-                Self::parse_value::<LittleEndian>(&mut field.value, data);
+                Self::parse_value::<LittleEndian>(&mut field.value, data, bigtiff);
             } else {
-                Self::parse_value::<BigEndian>(&mut field.value, data);
+                Self::parse_value::<BigEndian>(&mut field.value, data, bigtiff);
             }
         }
     }
 
     // Converts a partially parsed value into a real one.
-    fn parse_value<E>(value: &mut Value, data: &[u8]) where E: Endian {
+    fn parse_value<E>(value: &mut Value, data: &[u8], bigtiff: bool) where E: Endian {
         match *value {
             Value::Unknown(typ, cnt, ofs) => {
                 let (unitlen, parser) = get_type_info::<E>(typ);
                 if unitlen != 0 {
-                    *value = parser(data, ofs as usize, cnt as usize);
+                    *value = parser(data, ofs as usize, cnt as usize, bigtiff);
+                }
+            },
+            Value::UnknownBigTiff(typ, cnt, ofs) => {
+                let (unitlen, parser) = get_type_info::<E>(typ);
+                if unitlen != 0 {
+                    *value = parser(data, ofs as usize, cnt as usize, bigtiff);
                 }
             },
             _ => panic!("value is already parsed"),
@@ -153,14 +170,15 @@ impl fmt::Display for In {
 pub fn parse_exif(data: &[u8]) -> Result<(Vec<Field>, bool), Error> {
     let mut parser = Parser::new();
     parser.parse(data)?;
-    let (entries, le) = (parser.entries, parser.little_endian);
-    Ok((entries.into_iter().map(|e| e.into_field(data, le)).collect(), le))
+    let (entries, le, bigtiff) = (parser.entries, parser.little_endian, parser.bigtiff);
+    Ok((entries.into_iter().map(|e| e.into_field(data, le, bigtiff)).collect(), le))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Parser {
     pub entries: Vec<IfdEntry>,
     pub little_endian: bool,
+    pub bigtiff: bool,
     // `Some<Vec>` to enable the option and `None` to disable it.
     pub continue_on_error: Option<Vec<Error>>,
 }
@@ -170,6 +188,7 @@ impl Parser {
         Self {
             entries: Vec::new(),
             little_endian: false,
+            bigtiff: false,
             continue_on_error: None,
         }
     }
@@ -194,11 +213,31 @@ impl Parser {
 
     fn parse_header<E>(&mut self, data: &[u8])
                        -> Result<(), Error> where E: Endian {
-        // Parse the rest of the header (42 and the IFD offset).
-        if E::loadu16(data, 2) != TIFF_FORTY_TWO {
-            return Err(Error::InvalidFormat("Invalid forty two"));
-        }
-        let ifd_offset = E::loadu32(data, 4) as usize;
+        // Parse the rest of the header:
+        // - 42 and the IFD offset for regular TIFF.
+        // - 43, a constant, and the u64 IFD offset for BigTIFF.
+        let tiff_type = E::loadu16(data, 2);
+        self.bigtiff = if tiff_type == TIFF_FORTY_TWO {
+            false
+        } else if tiff_type == TIFF_FORTY_THREE {
+            // http://bigtiff.org/ describes the BigTIFF header additions as constants 8 and 0.
+            let offset_bytesize = E::loadu16(data, 4);
+            if offset_bytesize != 8 {
+                return Err(Error::InvalidFormat("Invalid BigTIFF offset byte size"));
+            }
+            let extra_field = E::loadu16(data, 6);
+            if extra_field != 0 {
+                return Err(Error::InvalidFormat("Invalid BigTIFF header"));
+            }
+            true
+        } else {
+            return Err(Error::InvalidFormat("Invalid TIFF magic number 42 or 43"));
+        };
+        let ifd_offset = if self.bigtiff {
+            E::loadu64(data, 8) as usize
+        } else {
+            E::loadu32(data, 4) as usize
+        };
         self.parse_body::<E>(data, ifd_offset)
             .or_else(|e| self.check_error(e))
     }
@@ -226,20 +265,32 @@ impl Parser {
                     mut offset: usize, ctx: Context, ifd_num: u16)
                     -> Result<usize, Error> where E: Endian {
         // Count (the number of the entries).
-        if data.len() < offset || data.len() - offset < 2 {
+        if !self.bigtiff && (data.len() < offset || data.len() - offset < 2) {
             return Err(Error::InvalidFormat("Truncated IFD count"));
         }
-        let count = E::loadu16(data, offset) as usize;
-        offset += 2;
+        let count = if self.bigtiff {
+            E::loadu64(data, offset) as usize
+        } else {
+            E::loadu16(data, offset) as usize
+        };
+        if self.bigtiff {
+            offset += 8;
+        } else {
+            offset += 2;
+        }
 
         // Array of entries.
         for _ in 0..count {
-            if data.len() - offset < 12 {
+            if !self.bigtiff && data.len() - offset < 12 { // fixme
                 return Err(Error::InvalidFormat("Truncated IFD"));
             }
-            let entry = Self::parse_ifd_entry::<E>(data, offset);
-            offset += 12;
-            let (tag, val) = match entry {
+            let entry = self.parse_ifd_entry::<E>(data, offset);
+            if self.bigtiff {
+                offset += 20;
+            } else {
+                offset += 12;
+            }
+            let (tag, value) = match entry {
                 Ok(x) => x,
                 Err(e) => {
                     self.check_error(e)?;
@@ -256,40 +307,62 @@ impl Parser {
                 Tag::InteropIFDPointer => Context::Interop,
                 _ => {
                     self.entries.push(IfdEntry { field: Field {
-                        tag: tag, ifd_num: In(ifd_num), value: val }.into()});
+                        tag, ifd_num: In(ifd_num), value }.into()});
                     continue;
                 },
             };
-            self.parse_child_ifd::<E>(data, val, child_ctx, ifd_num)
+            self.parse_child_ifd::<E>(data, value, child_ctx, ifd_num)
                 .or_else(|e| self.check_error(e))?;
         }
 
         // Offset to the next IFD.
-        if data.len() - offset < 4 {
+        if !self.bigtiff && data.len() - offset < 4 { // fixme
             return Err(Error::InvalidFormat("Truncated next IFD offset"));
         }
-        let next_ifd_offset = E::loadu32(data, offset);
-        Ok(next_ifd_offset as usize)
+        let next_ifd_offset = if self.bigtiff {
+            E::loadu64(data, offset) as usize
+        } else {
+            E::loadu32(data, offset) as usize
+        };
+        Ok(next_ifd_offset)
     }
 
-    fn parse_ifd_entry<E>(data: &[u8], offset: usize)
+    fn parse_ifd_entry<E>(&self, data: &[u8], offset: usize)
                           -> Result<(u16, Value), Error> where E: Endian {
         // The size of entry has been checked in parse_ifd().
         let tag = E::loadu16(data, offset);
         let typ = E::loadu16(data, offset + 2);
-        let cnt = E::loadu32(data, offset + 4);
-        let valofs_at = offset + 8;
-        let (unitlen, _parser) = get_type_info::<E>(typ);
-        let vallen = unitlen.checked_mul(cnt as usize).ok_or(
-            Error::InvalidFormat("Invalid entry count"))?;
-        let val = if vallen <= 4 {
-            Value::Unknown(typ, cnt, valofs_at as u32)
+
+        let (cnt, valofs_at) = if self.bigtiff {
+            (E::loadu64(data, offset + 4) as usize, offset + 12)
         } else {
-            let ofs = E::loadu32(data, valofs_at) as usize;
-            if data.len() < ofs || data.len() - ofs < vallen {
+            (E::loadu32(data, offset + 4) as usize, offset + 8)
+        };
+
+        let (unitlen, _parser) = get_type_info::<E>(typ);
+        let vallen = unitlen.checked_mul(cnt).ok_or(
+            Error::InvalidFormat("Invalid entry count"))?;
+        let max_inline_len = if self.bigtiff { 8 } else { 4 };
+        let val = if vallen <= max_inline_len {
+            if self.bigtiff {
+                Value::UnknownBigTiff(typ, cnt as u64, valofs_at as u64)
+            } else {
+                Value::Unknown(typ, cnt as u32, valofs_at as u32)
+            }
+        } else {
+            let ofs = if self.bigtiff {
+                E::loadu64(data, valofs_at) as usize
+            } else {
+                E::loadu32(data, valofs_at) as usize
+            };
+            if !self.bigtiff && (data.len() < ofs || data.len() - ofs < vallen) { // fixme
                 return Err(Error::InvalidFormat("Truncated field value"));
             }
-            Value::Unknown(typ, cnt, ofs as u32)
+            if self.bigtiff {
+                Value::UnknownBigTiff(typ, cnt as u64, ofs as u64)
+            } else {
+                Value::Unknown(typ, cnt as u32, ofs as u32)
+            }
         };
         Ok((tag, val))
     }
@@ -298,7 +371,7 @@ impl Parser {
                           mut pointer: Value, ctx: Context, ifd_num: u16)
                           -> Result<(), Error> where E: Endian {
         // The pointer is not yet parsed, so do it here.
-        IfdEntry::parse_value::<E>(&mut pointer, data);
+        IfdEntry::parse_value::<E>(&mut pointer, data, self.bigtiff);
 
         // A pointer field has type == LONG and count == 1, so the
         // value (IFD offset) must be embedded in the "value offset"
@@ -313,14 +386,19 @@ impl Parser {
 
     fn check_error(&mut self, err: Error) -> Result<(), Error> {
         match self.continue_on_error {
-            Some(ref mut v) => Ok(v.push(err)),
+            Some(ref mut v) => {
+                v.push(err);
+                Ok(())
+            },
             None => Err(err),
         }
     }
 }
 
 pub fn is_tiff(buf: &[u8]) -> bool {
-    buf.starts_with(&TIFF_BE_SIG) || buf.starts_with(&TIFF_LE_SIG)
+    buf.starts_with(&TIFF_BE_SIG) || buf.starts_with(&TIFF_LE_SIG) ||
+    buf.starts_with(&BIGTIFF_BE_SIG) || buf.starts_with(&BIGTIFF_LE_SIG)
+
 }
 
 /// A struct used to parse a DateTime field.
@@ -502,12 +580,12 @@ impl<'a> DisplayValue<'a> {
             ifd_num: self.ifd_num,
             value_display: self.value_display,
             unit: self.tag.unit(),
-            unit_provider: unit_provider,
+            unit_provider,
         }
     }
 }
 
-impl<'a> fmt::Display for DisplayValue<'a> {
+impl fmt::Display for DisplayValue<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.value_display.fmt(f)
@@ -630,29 +708,30 @@ mod tests {
     fn parse_ifd_entry() {
         // BYTE (type == 1)
         let data = b"\x02\x03\x00\x01\0\0\0\x04ABCD";
-        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 0).unwrap(),
+        let parser = Parser::default();
+        assert_pat!(parser.parse_ifd_entry::<BigEndian>(data, 0).unwrap(),
                     (0x0203, Value::Unknown(1, 4, 8)));
         let data = b"\x02\x03\x00\x01\0\0\0\x05\0\0\0\x0cABCDE";
-        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 0).unwrap(),
+        assert_pat!(Parser::default().parse_ifd_entry::<BigEndian>(data, 0).unwrap(),
                     (0x0203, Value::Unknown(1, 5, 12)));
         let data = b"\x02\x03\x00\x01\0\0\0\x05\0\0\0\x0cABCD";
-        assert_err_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 0),
+        assert_err_pat!(Parser::default().parse_ifd_entry::<BigEndian>(data, 0),
                         Error::InvalidFormat("Truncated field value"));
 
         // SHORT (type == 3)
         let data = b"X\x04\x05\x00\x03\0\0\0\x02ABCD";
-        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
+        assert_pat!(Parser::default().parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
                     (0x0405, Value::Unknown(3, 2, 9)));
         let data = b"X\x04\x05\x00\x03\0\0\0\x03\0\0\0\x0eXABCDEF";
-        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
+        assert_pat!(Parser::default().parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
                     (0x0405, Value::Unknown(3, 3, 14)));
         let data = b"X\x04\x05\x00\x03\0\0\0\x03\0\0\0\x0eXABCDE";
-        assert_err_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 1),
+        assert_err_pat!(Parser::default().parse_ifd_entry::<BigEndian>(data, 1),
                         Error::InvalidFormat("Truncated field value"));
 
         // Really unknown
         let data = b"X\x01\x02\x03\x04\x05\x06\x07\x08ABCD";
-        assert_pat!(Parser::parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
+        assert_pat!(Parser::default().parse_ifd_entry::<BigEndian>(data, 1).unwrap(),
                     (0x0102, Value::Unknown(0x0304, 0x05060708, 9)));
     }
 

@@ -749,10 +749,10 @@ generate_well_known_tag_constants!(
 );
 
 // For Value::display_as().
-pub fn display_value_as<'a>(value: &'a Value, tag: Tag) -> value::Display<'a> {
+pub fn display_value_as(value: &Value, tag: Tag) -> value::Display<'_> {
     match get_tag_info(tag) {
-        Some(ti) => value::Display { fmt: ti.dispval, value: value },
-        None => value::Display { fmt: d_default, value: value },
+        Some(ti) => value::Display { fmt: ti.dispval, value },
+        None => value::Display { fmt: d_default, value },
     }
 }
 
@@ -1048,13 +1048,13 @@ fn d_subjarea(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
 // Acceleration (Exif 0x9404), CameraElevationAngle (Exif 0x9405)
 fn d_optdecimal(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
     match *value {
-        Value::Rational(ref v) if v.len() > 0 =>
+        Value::Rational(ref v) if !v.is_empty() =>
             if v[0].denom != 0xffffffff {
                 write!(w, "{}", v[0].to_f64())
             } else {
                 w.write_str("unknown")
             },
-        Value::SRational(ref v) if v.len() > 0 =>
+        Value::SRational(ref v) if !v.is_empty() =>
             if v[0].denom != -1 {
                 write!(w, "{}", v[0].to_f64())
             } else {
@@ -1442,7 +1442,12 @@ fn d_default(w: &mut dyn fmt::Write, value: &Value) -> fmt::Result {
         Value::SRational(ref v) => d_sub_comma(w, v),
         Value::Float(ref v) => d_sub_comma(w, v),
         Value::Double(ref v) => d_sub_comma(w, v),
+        Value::Long8(ref v) => d_sub_comma(w, v),
+        Value::SLong8(ref v) => d_sub_comma(w, v),
         Value::Unknown(t, c, o) =>
+            write!(w, "unknown value (type={}, count={}, offset={:#x})",
+                   t, c, o),
+        Value::UnknownBigTiff(t, c, o) =>
             write!(w, "unknown value (type={}, count={}, offset={:#x})",
                    t, c, o),
     }
@@ -1463,7 +1468,7 @@ where I: IntoIterator<Item = T>, T: fmt::Display {
 
 struct AsciiDisplay<'a>(&'a [u8]);
 
-impl<'a> fmt::Display for AsciiDisplay<'a> {
+impl fmt::Display for AsciiDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         d_sub_ascii(f, self.0)
     }

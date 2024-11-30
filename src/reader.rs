@@ -63,6 +63,12 @@ pub struct Reader {
     continue_on_error: bool,
 }
 
+impl Default for Reader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Reader {
     /// Constructs a new `Reader`.
     pub fn new() -> Self {
@@ -106,15 +112,16 @@ impl Reader {
     /// If an error occurred, `exif::Error` is returned.
     pub fn read_raw(&self, data: Vec<u8>) -> Result<Exif, Error> {
         let mut parser = tiff::Parser::new();
-        parser.continue_on_error = self.continue_on_error.then(|| Vec::new());
+        parser.continue_on_error = self.continue_on_error.then(Vec::new);
         parser.parse(&data)?;
         let entry_map = parser.entries.iter().enumerate()
             .map(|(i, e)| (e.ifd_num_tag(), i)).collect();
         let exif = Exif {
             buf: data,
             entries: parser.entries,
-            entry_map: entry_map,
+            entry_map,
             little_endian: parser.little_endian,
+            bigtiff: parser.bigtiff,
         };
         match parser.continue_on_error {
             Some(v) if !v.is_empty() =>
@@ -188,6 +195,8 @@ pub struct Exif {
     entry_map: HashMap<(In, Tag), usize>,
     // True if the TIFF data is little endian.
     little_endian: bool,
+    /// True if the TIFF data is in the BigTIFF format.
+    bigtiff: bool,
 }
 
 impl Exif {
@@ -201,7 +210,9 @@ impl Exif {
     #[inline]
     pub fn fields(&self) -> impl ExactSizeIterator<Item = &Field> {
         self.entries.iter()
-            .map(move |e| e.ref_field(&self.buf, self.little_endian))
+            .map(move |e| {
+                e.ref_field(&self.buf, self.little_endian)
+        })
     }
 
     /// Returns true if the Exif data (TIFF structure) is in the
@@ -209,6 +220,12 @@ impl Exif {
     #[inline]
     pub fn little_endian(&self) -> bool {
         self.little_endian
+    }
+
+    /// Returns true if the Exif data (TIFF structure) is in BigTIFF format.
+    #[inline]
+    pub fn bigtiff(&self) -> bool {
+        self.bigtiff
     }
 
     /// Returns a reference to the Exif field specified by the tag
