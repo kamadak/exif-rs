@@ -239,7 +239,7 @@ impl Parser {
             }
             let entry = Self::parse_ifd_entry::<E>(data, offset);
             offset += 12;
-            let (tag, val) = match entry {
+            let (tag, value) = match entry {
                 Ok(x) => x,
                 Err(e) => {
                     self.check_error(e)?;
@@ -256,11 +256,11 @@ impl Parser {
                 Tag::InteropIFDPointer => Context::Interop,
                 _ => {
                     self.entries.push(IfdEntry { field: Field {
-                        tag: tag, ifd_num: In(ifd_num), value: val }.into()});
+                        tag, ifd_num: In(ifd_num), value }.into()});
                     continue;
                 },
             };
-            self.parse_child_ifd::<E>(data, val, child_ctx, ifd_num)
+            self.parse_child_ifd::<E>(data, value, child_ctx, ifd_num)
                 .or_else(|e| self.check_error(e))?;
         }
 
@@ -313,7 +313,10 @@ impl Parser {
 
     fn check_error(&mut self, err: Error) -> Result<(), Error> {
         match self.continue_on_error {
-            Some(ref mut v) => Ok(v.push(err)),
+            Some(ref mut v) => {
+                v.push(err);
+                Ok(())
+            },
             None => Err(err),
         }
     }
@@ -502,12 +505,12 @@ impl<'a> DisplayValue<'a> {
             ifd_num: self.ifd_num,
             value_display: self.value_display,
             unit: self.tag.unit(),
-            unit_provider: unit_provider,
+            unit_provider,
         }
     }
 }
 
-impl<'a> fmt::Display for DisplayValue<'a> {
+impl fmt::Display for DisplayValue<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.value_display.fmt(f)
