@@ -16,3 +16,4 @@ license = "BSD-2-Clause"
 
 [dependencies]
 mutate_once = "0.1.1"
+serde = { version = "~1", features = ["derive"] }
