@@ -91,7 +91,7 @@ impl Value {
     /// assert_eq!(val.display_as(Tag::ResolutionUnit).to_string(), "inch");
     /// ```
     #[inline]
-    pub fn display_as(&self, tag: crate::tag::Tag) -> Display {
+    pub fn display_as(&self, tag: crate::tag::Tag) -> Display<'_> {
         crate::tag::display_value_as(self, tag)
     }
 
@@ -106,7 +106,7 @@ impl Value {
 
     /// Returns the value as `AsciiValues` if the type is ASCII.
     #[inline]
-    pub(crate) fn ascii(&self) -> Option<AsciiValues> {
+    pub(crate) fn ascii(&self) -> Option<AsciiValues<'_>> {
         match *self {
             Value::Ascii(ref v) => Some(AsciiValues(v)),
             _ => None,
@@ -173,7 +173,7 @@ impl Value {
     /// traits.
     /// `None` is returned if the value is not an unsigned integer type.
     #[inline]
-    pub fn iter_uint(&self) -> Option<UIntIter> {
+    pub fn iter_uint(&self) -> Option<UIntIter<'_>> {
         match *self {
             Value::Byte(ref v) =>
                 Some(UIntIter { iter: Box::new(v.iter().map(|&x| x as u32)) }),

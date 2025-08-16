@@ -478,7 +478,7 @@ impl Field {
     ///            "24 mm");
     /// ```
     #[inline]
-    pub fn display_value(&self) -> DisplayValue {
+    pub fn display_value(&self) -> DisplayValue<'_> {
         DisplayValue {
             tag: self.tag,
             ifd_num: self.ifd_num,
