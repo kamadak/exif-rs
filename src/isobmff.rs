@@ -36,7 +36,7 @@ use crate::util::{read64, BufReadExt as _, ReadExt as _};
 // Same for "msf1" [ISO23008-12 B.4.2] [ISO23008-12 B.4.4].
 static HEIF_BRANDS: &[[u8; 4]] = &[*b"mif1", *b"msf1"];
 
-const MAX_EXIF_SIZE: usize = 65535;
+const MAX_EXIF_SIZE: usize = 131070;
 
 // Most errors in this file are Error::InvalidFormat.
 impl From<&'static str> for Error {
