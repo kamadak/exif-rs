@@ -27,11 +27,14 @@
 use std::fmt;
 use std::fmt::Write as _;
 
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::endian::Endian;
 use crate::error::Error;
 
 /// A type and values of a TIFF/Exif field.
-#[derive(Clone)]
+#[derive(Clone, Deserialize, PartialEq, Serialize)]
 pub enum Value {
     /// Vector of 8-bit unsigned integers.
     Byte(Vec<u8>),
@@ -346,7 +349,7 @@ impl From<&DefaultValue> for Option<Value> {
 }
 
 /// An unsigned rational number, which is a pair of 32-bit unsigned integers.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, PartialEq, Serialize)]
 pub struct Rational { pub num: u32, pub denom: u32 }
 
 impl Rational {
@@ -384,7 +387,7 @@ impl fmt::Display for Rational {
 }
 
 /// A signed rational number, which is a pair of 32-bit signed integers.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, PartialEq, Serialize)]
 pub struct SRational { pub num: i32, pub denom: i32 }
 
 impl SRational {
