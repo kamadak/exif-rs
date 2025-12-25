@@ -29,7 +29,7 @@ use std::io::{BufRead, ErrorKind};
 use crate::error::Error;
 use crate::util::{read8, read16};
 
-mod marker {
+pub(crate) mod marker {
     // The first byte of a marker.
     pub const P:    u8 = 0xff;
     // Marker codes.
@@ -41,6 +41,8 @@ mod marker {
     pub const EOI:  u8 = 0xd9;
     pub const SOS:  u8 = 0xda;
     pub const APP1: u8 = 0xe1;
+    #[cfg(feature = "mpf")]
+    pub const APP2: u8 = 0xe2;
 }
 
 // SOI marker as the JPEG header.
@@ -49,7 +51,12 @@ const JPEG_SIG: [u8; 2] = [marker::P, marker::SOI];
 // Exif identifier code "Exif\0\0". [EXIF23 4.7.2]
 const EXIF_ID: [u8; 6] = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00];
 
+#[cfg(feature = "mpf")]
+use crate::mpf::MPF_ID;
+
 /// Get the Exif attribute information segment from a JPEG file.
+///
+/// Note: When `mpf` feature is enabled, APP2 (MPF) segment is optional and may not exist.
 pub fn get_exif_attr<R>(reader: &mut R)
                         -> Result<Vec<u8>, Error> where R: BufRead {
     match get_exif_attr_sub(reader) {
@@ -66,35 +73,195 @@ fn get_exif_attr_sub<R>(reader: &mut R)
     if soi != [marker::P, marker::SOI] {
         return Err(Error::InvalidFormat("Not a JPEG file"));
     }
+
+    #[cfg(feature = "mpf")]
+    let mut exif_data: Option<Vec<u8>> = None;
+
     loop {
         // Find a marker prefix.  Discard non-ff bytes, which appear if
         // we are in the scan data after SOS or we are out of sync.
-        reader.read_until(marker::P, &mut Vec::new())?;
+        #[cfg(feature = "mpf")]
+        let read_result = reader.read_until(marker::P, &mut Vec::new());
+        #[cfg(not(feature = "mpf"))]
+        let read_result = reader.read_until(marker::P, &mut Vec::new());
+
+        match read_result {
+            Ok(_) => {},
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                #[cfg(feature = "mpf")]
+                {
+                    // APP2 (MPF) is optional, so if we found APP1, return it
+                    if let Some(exif) = exif_data {
+                        return Ok(exif);
+                    }
+                }
+                return Err(Error::Io(e));
+            },
+            Err(e) => return Err(Error::Io(e)),
+        }
+
         // Get a marker code.
         let mut code;
         loop {
-            code = read8(reader)?;
-            if code != marker::P { break; }
+            match read8(reader) {
+                Ok(c) => {
+                    code = c;
+                    if code != marker::P { break; }
+                },
+                Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                    #[cfg(feature = "mpf")]
+                    {
+                        // APP2 (MPF) is optional, so if we found APP1, return it
+                        if let Some(exif) = exif_data {
+                            return Ok(exif);
+                        }
+                    }
+                    return Err(Error::Io(e));
+                },
+                Err(e) => return Err(Error::Io(e)),
+            }
         }
         // Continue or return early on stand-alone markers.
         match code {
             marker::Z | marker::TEM | marker::RST0..=marker::RST7 => continue,
             marker::SOI => return Err(Error::InvalidFormat("Unexpected SOI")),
+            #[cfg(not(feature = "mpf"))]
             marker::EOI => return Err(Error::NotFound("JPEG")),
+            #[cfg(feature = "mpf")]
+            marker::EOI => {
+                if let Some(exif) = exif_data {
+                    return Ok(exif);
+                }
+                return Err(Error::NotFound("JPEG"));
+            },
             _ => {},
         }
         // Read marker segments.
         let len = read16(reader)?.checked_sub(2)
             .ok_or(Error::InvalidFormat("Invalid segment length"))?;
         let mut seg = vec![0; len.into()];
-        reader.read_exact(&mut seg)?;
+        match reader.read_exact(&mut seg) {
+            Ok(_) => {},
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                #[cfg(feature = "mpf")]
+                {
+                    // APP2 (MPF) is optional, so if we found APP1, return it
+                    if let Some(exif) = exif_data {
+                        return Ok(exif);
+                    }
+                }
+                return Err(Error::Io(e));
+            },
+            Err(e) => return Err(Error::Io(e)),
+        }
+
         if code == marker::APP1 && seg.starts_with(&EXIF_ID) {
             seg.drain(..EXIF_ID.len());
+            #[cfg(not(feature = "mpf"))]
             return Ok(seg);
+            #[cfg(feature = "mpf")]
+            {
+                exif_data = Some(seg);
+                // Continue to potentially find APP2 MPF (which is optional)
+                continue;
+            }
+        }
+        #[cfg(feature = "mpf")]
+        if code == marker::APP2 && exif_data.is_some() && seg.starts_with(&MPF_ID) {
+            // Found APP2 MPF right after APP1, return Exif data only
+            // (MPF will be handled by get_exif_and_mpf_sub)
+            return Ok(exif_data.unwrap());
         }
         if code == marker::SOS {
             // Skipping the scan data is handled in the main loop,
             // so there is nothing to do here.
+            #[cfg(feature = "mpf")]
+            if let Some(exif) = exif_data {
+                return Ok(exif);
+            }
+        }
+    }
+}
+
+#[cfg(feature = "mpf")]
+/// Container for JPEG APP segments data
+pub struct JpegSegments {
+    /// Exif data from APP1 segment
+    pub exif_data: Vec<u8>,
+    /// MPF data from APP2 segment (if present)
+    pub mpf_data: Option<Vec<u8>>,
+    /// Absolute offset of APP2 segment start in the file (needed for MPF image offset calculation)
+    pub mpf_app2_offset: u64,
+}
+
+#[cfg(feature = "mpf")]
+pub(crate) fn get_exif_and_mpf_sub<R>(reader: &mut R)
+                        -> Result<JpegSegments, Error> where R: BufRead {
+    let mut soi = [0u8; 2];
+    reader.read_exact(&mut soi)?;
+    if soi != [marker::P, marker::SOI] {
+        return Err(Error::InvalidFormat("Not a JPEG file"));
+    }
+
+    let mut exif_data: Option<Vec<u8>> = None;
+    let mut mpf_data: Option<Vec<u8>> = None;
+    let mut mpf_app2_offset: u64 = 0;
+    let mut current_offset: u64 = 2; // After SOI
+
+    loop {
+        // Find a marker prefix.  Discard non-ff bytes, which appear if
+        // we are in the scan data after SOS or we are out of sync.
+        let mut discarded = Vec::new();
+        reader.read_until(marker::P, &mut discarded)?;
+        current_offset += discarded.len() as u64;
+
+        // Get a marker code.
+        let mut code;
+        loop {
+            code = read8(reader)?;
+            current_offset += 1;
+            if code != marker::P { break; }
+        }
+        // Continue or return early on stand-alone markers.
+        match code {
+            marker::Z | marker::TEM | marker::RST0..=marker::RST7 => continue,
+            marker::SOI => return Err(Error::InvalidFormat("Unexpected SOI")),
+            marker::EOI => {
+                if let Some(exif) = exif_data {
+                    return Ok(JpegSegments { exif_data: exif, mpf_data, mpf_app2_offset });
+                }
+                return Err(Error::NotFound("JPEG"));
+            },
+            _ => {},
+        }
+        // Read marker segments.
+        let len = read16(reader)?.checked_sub(2)
+            .ok_or(Error::InvalidFormat("Invalid segment length"))?;
+        current_offset += 2; // length field
+
+        let segment_start = current_offset; // Start of segment data
+
+        let mut seg = vec![0; len.into()];
+        reader.read_exact(&mut seg)?;
+        current_offset += len as u64;
+
+        if code == marker::APP1 && seg.starts_with(&EXIF_ID) {
+            seg.drain(..EXIF_ID.len());
+            exif_data = Some(seg);
+            // Continue to look for APP2 MPF segment right after APP1
+        } else if code == marker::APP2 && exif_data.is_some() && seg.starts_with(&MPF_ID) {
+            // APP2 segment start (after marker and length, at MPF ID)
+            mpf_app2_offset = segment_start + MPF_ID.len() as u64;
+            seg.drain(..MPF_ID.len());
+            mpf_data = Some(seg);
+            // Found both APP1 and APP2, return immediately
+            return Ok(JpegSegments { exif_data: exif_data.unwrap(), mpf_data, mpf_app2_offset });
+        } else if code == marker::SOS {
+            // Reached scan data, stop searching
+            if let Some(exif) = exif_data {
+                return Ok(JpegSegments { exif_data: exif, mpf_data, mpf_app2_offset });
+            }
+            return Err(Error::NotFound("JPEG"));
         }
     }
 }

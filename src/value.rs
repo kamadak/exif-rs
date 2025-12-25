@@ -443,7 +443,7 @@ fn fmt_rational_sub<T>(f: &mut fmt::Formatter, num: u32, denom: T)
     }
 }
 
-type Parser = fn(&[u8], usize, usize) -> Value;
+pub(crate) type Parser = fn(&[u8], usize, usize) -> Value;
 
 // Return the length of a single value and the parser of the type.
 pub fn get_type_info<E>(typecode: u16) -> (usize, Parser) where E: Endian {

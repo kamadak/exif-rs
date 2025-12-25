@@ -54,6 +54,8 @@ pub enum Error {
     /// Partially-parsed result and errors.  This can be returned only when
     /// `Reader::continue_on_error` is enabled.
     PartialResult(PartialResult),
+    /// MakerNote field was not found in the Exif data.
+    MakerNoteNotFound,
 }
 
 impl Error {
@@ -95,6 +97,8 @@ impl fmt::Display for Error {
                 write!(f, "Partial result with {} fields and {} errors",
                        pr.0.0.lock().expect("should not panic").fields().len(),
                        pr.0.1.len()),
+            Error::MakerNoteNotFound =>
+                f.write_str("MakerNote field not found in Exif data"),
         }
     }
 }
@@ -110,6 +114,7 @@ impl error::Error for Error {
             Error::NotSupported(_) => None,
             Error::UnexpectedValue(_) => None,
             Error::PartialResult(_) => None,
+            Error::MakerNoteNotFound => None,
         }
     }
 }

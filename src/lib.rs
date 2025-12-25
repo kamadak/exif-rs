@@ -98,6 +98,16 @@ pub use tiff::{DateTime, Field, In};
 pub use tiff::parse_exif;
 pub use value::Value;
 pub use value::{Rational, SRational};
+pub use subimg::{EmbeddedSubImage, EmbeddedSubImageSource};
+
+#[cfg(feature = "make_note")]
+pub use make_note::maker_tag::{MakerNoteVendor, StructuredMakerNoteData};
+#[cfg(feature = "make_note")]
+pub use make_note::{apple, canon, fujifilm, nikon, olympus, panasonic};
+#[cfg(feature = "make_note")]
+pub use make_note::{samsung, sigma, sony};
+#[cfg(feature = "mpf")]
+pub use mpf::mpf_tag::{MpfTag, MpfField, MpImageType, MpImageAttr};
 
 /// The interfaces in this module are experimental and unstable.
 pub mod experimental {
@@ -112,8 +122,13 @@ pub mod doc;
 mod endian;
 mod error;
 mod exifimpl;
+mod subimg;
 mod isobmff;
 mod jpeg;
+#[cfg(feature = "make_note")]
+pub mod make_note;
+#[cfg(feature = "mpf")]
+mod mpf;
 mod png;
 mod reader;
 mod tag;

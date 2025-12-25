@@ -114,6 +114,31 @@ impl Reader {
         }
     }
 
+    /// Parses the Exif attributes from raw Exif data with optional MPF data.
+    /// If an error occurred, `exif::Error` is returned.
+    #[cfg(feature = "mpf")]
+    fn read_raw_with_mpf(&self, exif_data: Vec<u8>, mpf_data: Option<Vec<u8>>, mpf_app2_offset: u64) -> Result<Exif, Error> {
+        let mut parser = tiff::Parser::new();
+        parser.continue_on_error = self.continue_on_error.then(|| Vec::new());
+        parser.parse(&exif_data)?;
+
+        let exif = if let Some(mut mpf_buf) = mpf_data {
+            // Parse MPF data and convert offsets using MPF module
+            crate::mpf::parse_mpf(&mut mpf_buf, mpf_app2_offset)?;
+
+            // Create Exif with MPF data
+            Exif::new_with_mpf(exif_data, parser.entries, parser.little_endian, mpf_buf, mpf_app2_offset)
+        } else {
+            Exif::new(exif_data, parser.entries, parser.little_endian)
+        };
+
+        match parser.continue_on_error {
+            Some(v) if !v.is_empty() =>
+                Err(Error::PartialResult(PartialResult::new(exif, v))),
+            _ => Ok(exif),
+        }
+    }
+
     /// Reads an image file and parses the Exif attributes in it.
     /// If an error occurred, `exif::Error` is returned.
     ///
@@ -130,22 +155,46 @@ impl Reader {
     where R: io::BufRead + io::Seek {
         let mut buf = Vec::new();
         reader.by_ref().take(4096).read_to_end(&mut buf)?;
+
+        #[cfg(feature = "mpf")]
+        let mut mpf_data: Option<Vec<u8>> = None;
+        #[cfg(feature = "mpf")]
+        let mut mpf_app2_offset: u64 = 0;
+
         if tiff::is_tiff(&buf) {
             reader.read_to_end(&mut buf)?;
         } else if jpeg::is_jpeg(&buf) {
-            buf = jpeg::get_exif_attr(&mut buf.chain(reader))?;
+            #[cfg(feature = "mpf")]
+            {
+                let segments = jpeg::get_exif_and_mpf_sub(&mut buf.chain(reader))?;
+                buf = segments.exif_data;
+                mpf_data = segments.mpf_data;
+                mpf_app2_offset = segments.mpf_app2_offset;
+            }
+            #[cfg(not(feature = "mpf"))]
+            {
+                buf = jpeg::get_exif_attr(&mut buf.chain(reader))?;
+            }
         } else if png::is_png(&buf) {
             buf = png::get_exif_attr(&mut buf.chain(reader))?;
         } else if isobmff::is_heif(&buf) {
             reader.seek(io::SeekFrom::Start(0))?;
             buf = isobmff::get_exif_attr(reader)?;
+            // todo - support HEIF/ISO BMFF
         } else if webp::is_webp(&buf) {
             buf = webp::get_exif_attr(&mut buf.chain(reader))?;
         } else {
             return Err(Error::InvalidFormat("Unknown image format"));
         }
 
-        self.read_raw(buf)
+        #[cfg(feature = "mpf")]
+        {
+            self.read_raw_with_mpf(buf, mpf_data, mpf_app2_offset)
+        }
+        #[cfg(not(feature = "mpf"))]
+        {
+            self.read_raw(buf)
+        }
     }
 }
 

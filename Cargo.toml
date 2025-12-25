@@ -14,5 +14,11 @@ keywords = ["Exif", "JPEG", "parser", "reader", "TIFF"]
 categories = ["multimedia::encoding", "multimedia::images", "parser-implementations"]
 license = "BSD-2-Clause"
 
+[features]
+default = []
+make_note = ["dep:strum"]
+mpf = []
+
 [dependencies]
 mutate_once = "0.1.1"
+strum = { version = "0.27", features = ["derive"], optional = true }
