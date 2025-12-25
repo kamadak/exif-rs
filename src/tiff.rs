@@ -36,9 +36,9 @@ use crate::value::Value;
 use crate::value::get_type_info;
 
 // TIFF header magic numbers [EXIF23 4.5.2].
-const TIFF_BE: u16 = 0x4d4d;
-const TIFF_LE: u16 = 0x4949;
-const TIFF_FORTY_TWO: u16 = 0x002a;
+pub(crate) const TIFF_BE: u16 = 0x4d4d;
+pub(crate) const TIFF_LE: u16 = 0x4949;
+pub(crate) const TIFF_FORTY_TWO: u16 = 0x002a;
 pub const TIFF_BE_SIG: [u8; 4] = [0x4d, 0x4d, 0x00, 0x2a];
 pub const TIFF_LE_SIG: [u8; 4] = [0x49, 0x49, 0x2a, 0x00];
 
@@ -53,6 +53,15 @@ pub struct IfdEntry {
 }
 
 impl IfdEntry {
+    /// Creates a new IfdEntry from a Field.
+    /// This is mainly used internally for MakerNote parsing.
+    #[cfg(feature = "make_note")]
+    pub(crate) fn from_field(field: Field) -> Self {
+        IfdEntry {
+            field: MutOnce::from(field),
+        }
+    }
+
     pub fn ifd_num_tag(&self) -> (In, Tag) {
         if self.field.is_fixed() {
             let field = self.field.get_ref();
@@ -68,8 +77,15 @@ impl IfdEntry {
         self.field.get_ref()
     }
 
-    fn into_field(self, data: &[u8], le: bool) -> Field {
+    pub(crate) fn into_field(self, data: &[u8], le: bool) -> Field {
         self.parse(data, le);
+        self.field.into_inner()
+    }
+
+    // Generic parsing for MakerNote entries without tag-specific handling
+    #[cfg(feature = "make_note")]
+    pub(crate) fn into_field_generic(self, data: &[u8], le: bool) -> Field {
+        self.parse_generic(data, le);
         self.field.into_inner()
     }
 
@@ -84,8 +100,21 @@ impl IfdEntry {
         }
     }
 
+    // Generic parsing without tag-specific handling (for MakerNote)
+    #[cfg(feature = "make_note")]
+    fn parse_generic(&self, data: &[u8], le: bool) {
+        if !self.field.is_fixed() {
+            let mut field = self.field.get_mut();
+            if le {
+                Self::parse_value::<LittleEndian>(&mut field.value, data);
+            } else {
+                Self::parse_value::<BigEndian>(&mut field.value, data);
+            }
+        }
+    }
+
     // Converts a partially parsed value into a real one.
-    fn parse_value<E>(value: &mut Value, data: &[u8]) where E: Endian {
+    pub(crate) fn parse_value<E>(value: &mut Value, data: &[u8]) where E: Endian {
         match *value {
             Value::Unknown(typ, cnt, ofs) => {
                 let (unitlen, parser) = get_type_info::<E>(typ);
@@ -489,9 +518,9 @@ impl Field {
 
 /// Helper struct for printing a value in a tag-specific format.
 pub struct DisplayValue<'a> {
-    tag: Tag,
-    ifd_num: In,
-    value_display: value::Display<'a>,
+    pub(crate) tag: Tag,
+    pub(crate) ifd_num: In,
+    pub(crate) value_display: value::Display<'a>,
 }
 
 impl<'a> DisplayValue<'a> {

@@ -98,6 +98,12 @@ pub use tiff::{DateTime, Field, In};
 pub use tiff::parse_exif;
 pub use value::Value;
 pub use value::{Rational, SRational};
+#[cfg(feature = "make_note")]
+pub use make_note::maker_tag::{MakerNoteVendor, StructuredMakerNoteData};
+#[cfg(feature = "make_note")]
+pub use make_note::{apple, canon, fujifilm, nikon, olympus, panasonic};
+#[cfg(feature = "make_note")]
+pub use make_note::{samsung, sigma, sony};
 
 /// The interfaces in this module are experimental and unstable.
 pub mod experimental {
@@ -122,3 +128,5 @@ mod util;
 mod value;
 mod webp;
 mod writer;
+#[cfg(feature = "make_note")]
+pub mod make_note;

@@ -129,7 +129,7 @@ impl Reader {
     pub fn read_from_container<R>(&self, reader: &mut R) -> Result<Exif, Error>
     where R: io::BufRead + io::Seek {
         let mut buf = Vec::new();
-        reader.by_ref().take(4096).read_to_end(&mut buf)?;
+        reader.by_ref().take(1024*1024).read_to_end(&mut buf)?;
         if tiff::is_tiff(&buf) {
             reader.read_to_end(&mut buf)?;
         } else if jpeg::is_jpeg(&buf) {

@@ -31,6 +31,21 @@ Usage
 
    See examples directory for sample codes.
 
+Features
+--------
+
+   This crate supports the following optional features:
+
+   -  make_note (disabled by default): Enables vendor-specific MakerNote
+      parsing for Canon, Nikon, Sony, Panasonic, Fujifilm, Olympus, Sigma,
+      Samsung, and Apple. When disabled, MakerNote data will not be parsed
+      and the crate will have no dependency on the strum library.
+
+      To enable MakerNote parsing:
+
+         [dependencies]
+         kamadak-exif = { version = "x.y.z", features = ["make_note"] }
+
 Dependencies
 ------------
 
