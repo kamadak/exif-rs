@@ -81,6 +81,12 @@ impl Exif {
         &self.buf[..]
     }
 
+    /// Returns ownership of the TIFF data.
+    #[inline]
+    pub fn take(self) -> Vec<u8> {
+        self.buf
+    }
+
     /// Returns an iterator of Exif fields.
     #[inline]
     pub fn fields(&self) -> impl ExactSizeIterator<Item = &Field> {
