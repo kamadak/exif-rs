@@ -91,11 +91,14 @@
 
 pub use error::{Error, PartialResult};
 pub use exifimpl::Exif;
+#[cfg(feature = "geojson")]
+pub use geojson::geojson::*;
+
 pub use jpeg::get_exif_attr as get_exif_attr_from_jpeg;
 pub use reader::Reader;
 pub use tag::{Context, Tag};
-pub use tiff::{DateTime, Field, In};
 pub use tiff::parse_exif;
+pub use tiff::{DateTime, Field, In};
 pub use value::Value;
 pub use value::{Rational, SRational};
 
@@ -112,6 +115,7 @@ pub mod doc;
 mod endian;
 mod error;
 mod exifimpl;
+mod geojson;
 mod isobmff;
 mod jpeg;
 mod png;

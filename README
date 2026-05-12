@@ -12,6 +12,8 @@ Exif parsing library written in pure Rust
    -  PNG
    -  WebP
 
+   It can also convert Exif data to GeoJSON specification.
+
 Usage
 -----
 
@@ -20,7 +22,9 @@ Usage
    but it is renamed on crates.io to avoid a naming conflict.
 
       [dependencies]
-      kamadak-exif = "x.y.z"
+      kamadak-exif = { version="x.y.z",  features= ["geojson"] }
+   
+   If you want geojson features, 
 
    Add the following to your crate root (before Rust 2018).
 
