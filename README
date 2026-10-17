@@ -31,6 +31,17 @@ Usage
 
    See examples directory for sample codes.
 
+TIFF SubIFDs
+------------
+
+   The experimental Exif::sub_ifds(parent) accessor reads the direct
+   SubIFDs referenced by a top-level IFD as separate field collections.
+   Existing fields() and get_field() results remain unchanged: an IFD0
+   preview is not replaced by a RAW image stored in a SubIFD.
+   Callers must distinguish the images using their TIFF metadata; neither
+   the first image nor the largest dimensions universally identify a
+   primary image.
+
 Dependencies
 ------------
 

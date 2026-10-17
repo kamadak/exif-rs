@@ -319,6 +319,24 @@ impl Parser {
     }
 }
 
+// Decode only the directly referenced image directories. Their fields are
+// separate from the parent, and their TIFF offsets still refer to the same buffer.
+pub(crate) fn parse_sub_ifds(data: &[u8], little_endian: bool,
+                             offsets: &[u32]) -> Result<Vec<Vec<Field>>, Error> {
+    let mut children = Vec::new();
+    for &offset in offsets {
+        let mut parser = Parser::new();
+        if little_endian {
+            parser.parse_ifd::<LittleEndian>(data, offset as usize, Context::Tiff, 0)?;
+        } else {
+            parser.parse_ifd::<BigEndian>(data, offset as usize, Context::Tiff, 0)?;
+        }
+        children.push(parser.entries.into_iter()
+            .map(|entry| entry.into_field(data, little_endian)).collect());
+    }
+    Ok(children)
+}
+
 pub fn is_tiff(buf: &[u8]) -> bool {
     buf.starts_with(&TIFF_BE_SIG) || buf.starts_with(&TIFF_LE_SIG)
 }
