@@ -451,7 +451,7 @@ pub fn get_type_info<E>(typecode: u16) -> (usize, Parser) where E: Endian {
         1 => (1, parse_byte),
         2 => (1, parse_ascii),
         3 => (2, parse_short::<E>),
-        4 => (4, parse_long::<E>),
+        4 | 13 => (4, parse_long::<E>),
         5 => (8, parse_rational::<E>),
         6 => (1, parse_sbyte),
         7 => (1, parse_undefined),
