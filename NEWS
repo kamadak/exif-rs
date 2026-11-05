@@ -1,4 +1,4 @@
-0.6.2
+0.6.2 (2026-11-05)
 
    -  This version includes a security fix for GHSA-53gf-vqf6-qvp8.
    -  An already parsed IFD will not be visited again to prevent O(n^3)
