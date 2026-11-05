@@ -328,7 +328,7 @@ pub fn is_heif(buf: &[u8]) -> bool {
     let mut boxp = BoxSplitter::new(buf);
     while let Ok((boxtype, mut body)) = boxp.child_box() {
         if boxtype == b"ftyp" {
-            let Ok(_major_brand_minor_version) = body.slice(8) else {
+            let _major_brand_minor_version = if body.slice(8).is_err() {
                 return false;
             };
             while let Ok(compat_brand) = body.array4() {
