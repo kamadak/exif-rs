@@ -1,3 +1,9 @@
+0.6.2
+
+   -  This version includes a security fix for GHSA-53gf-vqf6-qvp8.
+   -  An already parsed IFD will not be visited again to prevent O(n^3)
+      memory allocation.
+
 0.6.1 (2024-11-07)
 
    -  `exif::Error` has been changed to be `Sync` again.  It was

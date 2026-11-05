@@ -24,6 +24,7 @@
 // SUCH DAMAGE.
 //
 
+use std::collections::HashSet;
 use std::fmt;
 use mutate_once::MutOnce;
 
@@ -163,6 +164,7 @@ pub struct Parser {
     pub little_endian: bool,
     // `Some<Vec>` to enable the option and `None` to disable it.
     pub continue_on_error: Option<Vec<Error>>,
+    seen_ifd: HashSet<u32>,
 }
 
 impl Parser {
@@ -171,6 +173,7 @@ impl Parser {
             entries: Vec::new(),
             little_endian: false,
             continue_on_error: None,
+            seen_ifd: HashSet::new(),
         }
     }
 
@@ -230,6 +233,12 @@ impl Parser {
             return Err(Error::InvalidFormat("Truncated IFD count"));
         }
         let count = E::loadu16(data, offset) as usize;
+        // Do not parse an already visited IFD again to prevent O(n^3)
+        // memory allocation attack, which can be caused by 3-level nested
+        // IFDs (e.g., IFD -- Exif IFD -- Interop IFD).
+        if !self.seen_ifd.insert(offset as u32) {
+            return Err(Error::InvalidFormat("Already visited IFD detected"));
+        }
         offset += 2;
 
         // Array of entries.
@@ -598,12 +607,14 @@ mod tests {
 
     // Before the error is returned, the IFD is parsed multiple times
     // as the 0th, 1st, ..., and n-th IFDs.
+    // In version 0.6.2 and later, this is detected as an already visited IFD.
     #[test]
     fn inf_loop_by_next() {
         let data = b"MM\0\x2a\0\0\0\x08\
                      \0\x01\x01\0\0\x03\0\0\0\x01\0\x14\0\0\0\0\0\x08";
         assert_err_pat!(parse_exif(data),
-                        Error::InvalidFormat("Limit the IFD count to 8"));
+                        Error::InvalidFormat("Limit the IFD count to 8") |
+                        Error::InvalidFormat("Already visited IFD detected"));
     }
 
     #[test]
@@ -615,6 +626,18 @@ mod tests {
                      \x00\x00\x00\x08";
         assert_err_pat!(parse_exif(data),
                         Error::InvalidFormat("Unexpected next IFD"));
+    }
+
+    #[test]
+    fn already_visited_ifd() {
+        let data = b"MM\x00\x2a\x00\x00\x00\x08\
+                     \x00\x02\x87\x69\x00\x04\x00\x00\x00\x01\x00\x00\x00\x26\
+                             \x87\x69\x00\x04\x00\x00\x00\x01\x00\x00\x00\x26\
+                     \x00\x00\x00\x00\
+                     \x00\x01\x90\x00\x00\x07\x00\x00\x00\x040231\
+                     \x00\x00\x00\x00";
+        assert_err_pat!(parse_exif(data),
+                        Error::InvalidFormat("Already visited IFD detected"));
     }
 
     #[test]
