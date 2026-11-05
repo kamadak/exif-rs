@@ -534,7 +534,7 @@ mod tests {
         let mut boxp = BoxSplitter::new(buf);
         assert_err_pat!(boxp.slice(17), Error::InvalidFormat(_));
         assert_eq!(boxp.slice(16).unwrap(), buf);
-        assert_err_pat!(boxp.slice(std::usize::MAX), Error::InvalidFormat(_));
+        assert_err_pat!(boxp.slice(usize::MAX), Error::InvalidFormat(_));
 
         let mut boxp = BoxSplitter::new(buf);
         assert_eq!(boxp.slice(1).unwrap(), b"0");

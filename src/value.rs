@@ -771,7 +771,7 @@ mod tests {
         let sets: &[(&[u8], Vec<f32>)] = &[
             (b"x", vec![]),
             (b"x\x7f\x7f\xff\xff\x80\x80\x00\x00\x40\x00\x00\x00",
-             vec![std::f32::MAX, -std::f32::MIN_POSITIVE, 2.0]),
+             vec![f32::MAX, -f32::MIN_POSITIVE, 2.0]),
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(11);
         for &(data, ref ans) in sets {
@@ -790,7 +790,7 @@ mod tests {
             (b"x\x7f\xef\xff\xff\xff\xff\xff\xff\
                \x80\x10\x00\x00\x00\x00\x00\x00\
                \x40\x00\x00\x00\x00\x00\x00\x00",
-             vec![std::f64::MAX, -std::f64::MIN_POSITIVE, 2.0]),
+             vec![f64::MAX, -f64::MIN_POSITIVE, 2.0]),
         ];
         let (unitlen, parser) = get_type_info::<BigEndian>(12);
         for &(data, ref ans) in sets {
@@ -915,7 +915,7 @@ mod tests {
 
     #[test]
     fn rational_fmt_display() {
-        let r = Rational::from((u32::max_value(), u32::max_value()));
+        let r = Rational::from((u32::MAX, u32::MAX));
         assert_eq!(format!("{}", r), "4294967295/4294967295");
 
         let r = Rational::from((10, 20));
@@ -926,9 +926,9 @@ mod tests {
 
     #[test]
     fn srational_fmt_display() {
-        let r = SRational::from((i32::min_value(), i32::min_value()));
+        let r = SRational::from((i32::MIN, i32::MIN));
         assert_eq!(format!("{}", r), "-2147483648/-2147483648");
-        let r = SRational::from((i32::max_value(), i32::max_value()));
+        let r = SRational::from((i32::MAX, i32::MAX));
         assert_eq!(format!("{}", r), "2147483647/2147483647");
 
         let r = SRational::from((-10, 20));
@@ -949,7 +949,6 @@ mod tests {
 
     #[test]
     fn ratioanl_f64() {
-        use std::{f64, u32};
         assert_eq!(Rational::from((1, 2)).to_f64(), 0.5);
         assert_eq!(Rational::from((1, u32::MAX)).to_f64(),
                    2.3283064370807974e-10);
