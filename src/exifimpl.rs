@@ -49,6 +49,7 @@ use crate::tiff::{Field, IfdEntry, In, ProvideUnit};
 /// }
 /// # Some(()) }
 /// ```
+#[derive(Debug)]
 pub struct Exif {
     // TIFF data.
     buf: Vec<u8>,
